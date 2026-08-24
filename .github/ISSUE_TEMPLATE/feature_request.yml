@@ -1,0 +1,24 @@
+name: 功能建议 / 改进想法
+description: 希望求解器支持什么新能力，或哪里用着不顺手
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你遇到的问题或场景
+      description: 在什么情况下觉得现在不够用？
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你的建议
+      description: 希望怎么改，或希望新增什么
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: 举例（可选）
+      description: 如果方便，给个具体方程或用法例子

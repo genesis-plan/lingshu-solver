@@ -1,0 +1,20 @@
+name: Regression Test
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run regression suite
+        run: node test/regression.js
+      - name: Run MCP smoke test
+        run: node mcp_smoke.js

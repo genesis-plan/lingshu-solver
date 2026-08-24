@@ -1,0 +1,40 @@
+name: 求解异常 / Bug 反馈
+description: 发现某个方程解错了、崩溃了、或结果不符合预期
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: equations
+    attributes:
+      label: 你输入的方程
+      description: 把你在网页版或 MCP 里输入的方程原样贴出来
+      placeholder: |
+        例如：
+        x^2 + y^2 = 25
+        x + y = 7
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 你期望的结果
+      description: 你认为正确答案应该是什么（或大概是多少）
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际得到的结果
+      description: 求解器实际返回了什么（截图或文字）
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: 使用方式
+      options:
+        - 网页版 (github.io)
+        - MCP 工具 (Claude/Cursor/Cline 等)
+        - 本地 node mcp-server.js
+    validations:
+      required: true

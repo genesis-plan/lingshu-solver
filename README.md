@@ -1,15 +1,54 @@
 # 灵数求解器 · Lingshu Solver
 
-> ≤6 维确定性实数方程组求解引擎 · 面向 AI 智能体的 MCP 工具
+> ≤6 维确定性实数方程组求解引擎 · 面向 AI 智能体与普通用户的 MCP 工具
 
 灵数求解器（代号 Epsilon，V4.1）是一个**离线、确定性、零数据**的实数方程组求解器，
 覆盖 ≤6 个变量、实数解、轻量数值定位。它不要求用户提供初值，采用区间算术做保守收缩 +
 Krawczyk 算子做解认证，并尽力穷尽多解。
 
+---
+
+## 🚀 快速上手（30 秒）
+
+### 如果你完全不懂技术 —— 直接用网页版
+**打开这个链接就能用，不用安装任何东西：**
+👉 **https://genesis-plan.github.io/lingshu-solver/**
+
+在输入框写方程（例如 `x^2 + y^2 = 25` 和 `x + y = 7`），点求解即可。
+页面里有 6 个示例按钮，点一下就知道它能解什么。
+
+### 如果你是 AI 用户（Claude / Cursor / Cline 等）
+把下面这段配置复制进你的 MCP 客户端配置文件，重启客户端即可：
+
+```json
+{
+  "mcpServers": {
+    "lingshu-solver": {
+      "command": "npx",
+      "args": ["-y", "lingshu-solver"]
+    }
+  }
+}
+```
+
+> 不需要下载代码、不需要填路径。`npx` 会自动拉取并运行。
+> 如果你的电脑没装 Node.js，先到 https://nodejs.org 下载安装 LTS 版（一路下一步即可）。
+
+### 如果你是开发者
+```bash
+git clone https://github.com/genesis-plan/lingshu-solver.git
+cd lingshu-solver
+node mcp-server.js        # 启动 MCP 服务端
+node test/regression.js   # 跑回归测试（28 用例）
+```
+
+---
+
 本仓库包含：
 - `index.html` —— 单文件产品（浏览器内 UI + 已验证核心脚本 `<script id="solver-core">`）
 - `solver-core.js` —— Node 引擎加载器（读取 index.html 核心脚本，零依赖，供 MCP/测试复用）
 - `mcp-server.js` —— 零依赖 MCP stdio 服务端（手工 JSON-RPC 2.0 + Content-Length 分帧）
+- `package.json` —— 标准元数据，`npx lingshu-solver` 一行接入
 - `test/` —— 回归套件 + 冒烟测试 + 三套常驻考卷
 
 ---
@@ -38,8 +77,21 @@ Krawczyk 算子做解认证，并尽力穷尽多解。
 node mcp-server.js
 ```
 
-### 2. 在 MCP 客户端（Claude Desktop / Cursor / Cline）配置
+### 2. 在 MCP 客户端（Claude Desktop / Cursor / Cline / VS Code 等）配置
 
+**推荐 · 一行命令（无需下载、无需填路径）：**
+```json
+{
+  "mcpServers": {
+    "lingshu-solver": {
+      "command": "npx",
+      "args": ["-y", "lingshu-solver"]
+    }
+  }
+}
+```
+
+**备选 · 手动指定本地路径（已 clone 仓库时）：**
 ```json
 {
   "mcpServers": {
@@ -51,7 +103,7 @@ node mcp-server.js
 }
 ```
 
-> 将 `args` 中的路径替换为你克隆/下载后本机的 `mcp-server.js` 绝对路径（例如 `C:/Users/你的用户名/Desktop/灵数求解器/mcp-server.js`）。也可先 `git clone https://github.com/genesis-plan/lingshu-solver.git` 再指向克隆目录内的该文件。
+> 手动版需将 `args` 中的路径替换为你本机的 `mcp-server.js` 绝对路径（例如 `C:/Users/你的用户名/Desktop/灵数求解器/mcp-server.js`）。npx 版无需此步。
 
 ### 工具一：`solve`
 
