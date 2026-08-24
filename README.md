@@ -79,7 +79,7 @@ node mcp-server.js
 
 ### 2. 在 MCP 客户端（Claude Desktop / Cursor / Cline / VS Code 等）配置
 
-**推荐 · 一行命令（无需下载、无需填路径）：**
+**推荐 · 一行命令（需先发 npm，暂未发布；当前请用下面的 clone 版）：**
 ```json
 {
   "mcpServers": {
@@ -90,6 +90,7 @@ node mcp-server.js
   }
 }
 ```
+> 注：`npx lingshu-solver` 需本包发布到 npm 后才可用，我们正在处理。在此之前请用下方「手动指定本地路径」版（先 clone 仓库）。
 
 **备选 · 手动指定本地路径（已 clone 仓库时）：**
 ```json
