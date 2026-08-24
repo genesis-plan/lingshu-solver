@@ -1,0 +1,100 @@
+{
+  "_meta": {
+    "name": "教科书/公开测试集 候选考卷 (N<=6) 草稿",
+    "built": "2026-08-22",
+    "purpose": "从国内外公开教科书/测试集挑选适合本工具(N<=6、实数解、轻量定位)的方程组题，待实跑验证后并入常驻考卷",
+    "sources": [
+      "LibreTexts Intermediate Algebra 4.5: Systems of three linear equations (CC许可, 公式公开)",
+      "Wikibooks Linear Algebra/Gauss' Method (CC许可, 公式公开)",
+      "FSU test_nonlin (MIT许可, 23个非线性方程组)",
+      "Hock-Schittkowski 306题NLP (低维等式约束子集, 公式公开于AMPL nlmodels)",
+      "复旦数学科学学院《线性方程组练习题》PDF (math.fudan.edu.cn 公开)"
+    ],
+    "convention": "known 为参考解(部分取自源站/手算验证)；tier_expect 为应达到层级；dom 为本工具建议搜索域",
+    "note": "本卷为候选草稿，尚未实跑；采用前需逐题核对参考解(借鉴 own_benchmark 的 self-check 教训)"
+  },
+  "cases": [
+    {
+      "id": "T_Libre_4_5_1",
+      "source": "LibreTexts 4.5 Exercise 1: 三元线性方程组",
+      "profile": "线性/3变量/唯一解",
+      "eq": ["a - 2*b + c = 5", "2*a + b - c = -1", "3*a + 3*b - 2*c = -4"],
+      "vars": ["a", "b", "c"],
+      "dom": {"a": [-3, 3], "b": [-3, 3], "c": [-3, 3]},
+      "known": [[1, -1, 2]],
+      "tier_expect": "proven"
+    },
+    {
+      "id": "T_Libre_4_5_4",
+      "source": "LibreTexts 4.5 Exercise 4: 三元线性方程组",
+      "profile": "线性/3变量/唯一解",
+      "eq": ["x + y + z = 6", "2*x - y - z = -3", "x - 2*y + 3*z = 6"],
+      "vars": ["x", "y", "z"],
+      "dom": {"x": [0, 6], "y": [-4, 4], "z": [0, 6]},
+      "known": [[1, 2, 3]],
+      "tier_expect": "proven"
+    },
+    {
+      "id": "T_Libre_4_5_11",
+      "source": "LibreTexts 4.5 Exercise 11: 三元带参线性(取定参求特解)",
+      "profile": "线性/3变量/唯一解",
+      "eq": ["4*x - 3*y + 2*z = 40", "5*x + 9*y - 7*z = 47", "9*x + 8*y - 3*z = 97"],
+      "vars": ["x", "y", "z"],
+      "dom": {"x": [0, 20], "y": [-5, 10], "z": [0, 20]},
+      "known": [[10, 2, 3]],
+      "tier_expect": "proven"
+    },
+    {
+      "id": "T_Libre_4_5_29",
+      "source": "LibreTexts 4.5 Exercise 29: 四元线性方程组",
+      "profile": "线性/4变量/唯一解",
+      "eq": ["-2*w + 2*x + 2*y - 2*z = -10", "w + x + y + z = -5", "3*w + 2*x + 2*y + 4*z = -11", "w + 3*x - 2*y + 2*z = -6"],
+      "vars": ["w", "x", "y", "z"],
+      "dom": {"w": [-10, 5], "x": [-10, 5], "y": [-10, 5], "z": [-10, 5]},
+      "known": [[1, -3, -2, -1]],
+      "tier_expect": "proven"
+    },
+    {
+      "id": "T_Wikibooks_P1",
+      "source": "Wikibooks Gauss' Method Problem 1 (2变量唯一解)",
+      "profile": "线性/2变量/唯一解",
+      "eq": ["2*x + 3*y = 13", "x - y = -1"],
+      "vars": ["x", "y"],
+      "dom": {"x": [0, 10], "y": [0, 10]},
+      "known": [[2, 3]],
+      "tier_expect": "proven"
+    },
+    {
+      "id": "T_Wikibooks_P2_4var",
+      "source": "Wikibooks Gauss' Method Problem 2 (4变量唯一解)",
+      "profile": "线性/4变量/唯一解",
+      "eq": ["2*x + z + w = 5", "y - w = -1", "3*x - z - w = 0", "4*x + y + 2*z + w = 9"],
+      "vars": ["x", "y", "z", "w"],
+      "dom": {"x": [0, 5], "y": [-3, 3], "z": [0, 5], "w": [0, 5]},
+      "known": [[1, -1, 3, 0], [1, 0, 2, 1], [1, 1, 1, 2], [1, 2, 0, 3], [1, 1.5, 0.5, 2.5]],
+      "tier_expect": "candidate",
+      "note": "欠定多解系统(x=1固定, y+z+w=2自由)；solver 多起点牛顿给出5解均残差0，未Krawczyk认证，标candidate"
+    },
+    {
+      "id": "T_Nonlin_QuadCircle",
+      "source": "经典教科书例题: 圆与双曲线交点 (x^2+y^2=4, x*y=1)",
+      "profile": "非线性/2变量/双解",
+      "eq": ["x*x + y*y - 4 = 0", "x*y - 1 = 0"],
+      "vars": ["x", "y"],
+      "dom": {"x": [-3, 3], "y": [-3, 3]},
+      "known": [[0.517638089936265, 1.9318516528985625], [-0.5176380899362646, -1.9318516528985632], [1.9318516528985623, 0.5176380899362655], [-1.9318516528985634, -0.5176380899362646]],
+      "tier_expect": "proven",
+      "note": "解析解 x,y 为 (±0.5176,±1.9319) 与 (±1.9319,±0.5176) 四组(因方程对称); solver Krawczyk 全认证 proven, 残差~1e-9"
+    },
+    {
+      "id": "T_HS_1",
+      "source": "Hock-Schittkowski NLP #1 (等式约束低维, 改编为方程组)",
+      "profile": "非线性/2变量/等式约束",
+      "eq": ["x1 + x2 = 2", "x1^2 + x2^2 - 2 = 0"],
+      "vars": ["x1", "x2"],
+      "dom": {"x1": [0, 2], "x2": [0, 2]},
+      "known": [[1, 1]],
+      "tier_expect": "candidate"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# 灵数求解器仓库 · 白名单式忽略
+# 默认忽略一切，仅放行下方产品文件，避免把历史调试脚本/归档混入仓库。
+
+*
+!.gitignore
+!LICENSE
+!README.md
+!index.html
+!solver-core.js
+!mcp-server.js
+!verify_core.js
+!mcp_smoke.js
+!mcp_smoke2.js
+!test/
+!test/**

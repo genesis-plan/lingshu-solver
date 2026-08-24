@@ -1,0 +1,127 @@
+# 灵数求解器 · Lingshu Solver
+
+> ≤6 维确定性实数方程组求解引擎 · 面向 AI 智能体的 MCP 工具
+
+灵数求解器（代号 Epsilon，V4.1）是一个**离线、确定性、零数据**的实数方程组求解器，
+覆盖 ≤6 个变量、实数解、轻量数值定位。它不要求用户提供初值，采用区间算术做保守收缩 +
+Krawczyk 算子做解认证，并尽力穷尽多解。
+
+本仓库包含：
+- `index.html` —— 单文件产品（浏览器内 UI + 已验证核心脚本 `<script id="solver-core">`）
+- `solver-core.js` —— Node 引擎加载器（读取 index.html 核心脚本，零依赖，供 MCP/测试复用）
+- `mcp-server.js` —— 零依赖 MCP stdio 服务端（手工 JSON-RPC 2.0 + Content-Length 分帧）
+- `test/` —— 回归套件 + 冒烟测试 + 三套常驻考卷
+
+---
+
+## 能力边界（诚实声明）
+
+| 维度 | 说明 |
+|---|---|
+| 已验证解 | 每个找到的解都经 Krawczyk 认证（`tier=proven`），误差 ≤ 认证半径，数学保真 |
+| 穷尽性 | **尽力穷尽多解**；极端病态（雅可比高度奇异、解簇极近）在预算内可能遗漏个别解，此时显式标记 `truncated=true`，**绝不谎称已穷尽** |
+| `truncated` 语义 | 仅表示「全局分支未在预算内完全判定所有盒子（无法证明已穷尽）」，**不等于一定遗漏**；绝大多数情况全部真解已找到 |
+| 变量数 | ≤6 |
+| 数值范围 | 默认搜索域 ±1e6；对快增长函数（exp/sinh）或大域，建议显式给定 `domain` 以避免剪枝失效 |
+| 确定性 | 无随机分支，同输入永远同输出 |
+| 部署 | 纯本地、离线、零数据（无网络、无存储、无第三方依赖） |
+
+**不保证**：对一切输入 100% 穷尽；对高度病态系统在预算内必收敛。这些是诚实边界，不是缺陷。
+
+---
+
+## 作为 MCP 工具使用
+
+### 1. 运行服务端
+
+```bash
+node mcp-server.js
+```
+
+### 2. 在 MCP 客户端（Claude Desktop / Cursor / Cline）配置
+
+```json
+{
+  "mcpServers": {
+    "lingshu-solver": {
+      "command": "node",
+      "args": ["/绝对路径/灵数求解器/mcp-server.js"]
+    }
+  }
+}
+```
+
+### 工具一：`solve`
+
+输入：
+```json
+{
+  "equations": ["x^2 + y^2 = 25", "x + y = 7"],
+  "variables": ["x", "y"],
+  "domain": { "x": [-30, 30], "y": [-30, 30] },
+  "decimals": 6
+}
+```
+- `equations`：方程字符串数组（必填），支持 `+ - * / ^ sqrt log sin cos tan exp abs`，以及 in-text 域约束 `"x ∈ [-30,30]"`。
+- `variables`：变量名数组（可选，不填则按出现顺序自动识别，最多 6 个）。
+- `domain`：显式搜索域（可选）。**对"有限解·部分"演示或快增长函数建议给定**，否则默认 ±1e6 可能剪枝失效并触发 `truncated`。
+- `decimals`：输出小数位（默认 6）。
+
+输出（节选）：
+```json
+{
+  "resultType": 2,
+  "resultTypeName": "finite",
+  "certified": true,
+  "truncated": false,
+  "solutionCount": 2,
+  "recommended": { "values": [3, 4], "tier": "proven", "residual": 0 },
+  "solutions": [ { "values": [3, 4], "tier": "proven", "residual": 0 }, ... ],
+  "warnings": []
+}
+```
+- `resultType`：`1=empty(无解)` / `2=finite(有限解)` / `3=infinite(无限解集，仅给距原点最近的推荐解)`。
+- `tier`：`proven`（Krawczyk 认证）/ `candidate`（未证但可能为解）/ `structural`（结构推导）。
+
+### 工具二：`give_feedback`
+
+AI 智能体遇到卡点/错误/疑似问题时主动回报，仅落本地 `feedback.log`，不外传：
+```json
+{ "name": "give_feedback", "arguments": { "message": "x^2=4 期望2解", "context": "批量求解场景" } }
+```
+
+---
+
+## 本地验证
+
+```bash
+node verify_core.js        # 引擎加载 + 6 个代表性用例
+node mcp_smoke.js          # MCP 字节级冒烟（initialize/tools/list/tools/call）
+node mcp_smoke2.js         # give_feedback + 错误结构化（不泄露堆栈）
+node test/regression.js    # 三套常驻考卷回归（28 用例，known 命中率统计）
+```
+
+---
+
+## 示例（6 类结果覆盖）
+
+| 标题 | 方程 | 预期 |
+|---|---|---|
+| 最少 1 变量 | `x^2 = 4` | 2 解 |
+| 最多 6 变量 | 6 元三对角线性 | 唯一解 |
+| 空集无解 | `x+y=3` 与 `x+y=5` | 空集（sound 证无解） |
+| 有限解·全部 | 圆 × 双曲线 `x²+y²=4, xy=1` | 4 解全认证 |
+| 有限解·部分 | `sin(20x)=0.5, sin(20y)=0.5`（域 [-30,30]） | 多解 + `truncated` 横幅 |
+| 无限解·推荐 | `x+y=3` | 无限集，推荐 (1.5,1.5) |
+
+---
+
+## 文档
+
+- 《灵数求解器_代码流程中文说明.md》—— 从解析到输出的完整内部流程（面向数学背景读者）
+- 《灵数求解器商业化战略白皮书.md》—— 定位、能力边界、风险
+- 发明专利申请书系列（已提交）
+
+## 许可
+
+Apache License 2.0 —— 见 [LICENSE](./LICENSE)。
