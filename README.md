@@ -45,11 +45,13 @@ node mcp-server.js
   "mcpServers": {
     "lingshu-solver": {
       "command": "node",
-      "args": ["/绝对路径/灵数求解器/mcp-server.js"]
+      "args": ["把这里替换成你本地的绝对路径/灵数求解器/mcp-server.js"]
     }
   }
 }
 ```
+
+> 将 `args` 中的路径替换为你克隆/下载后本机的 `mcp-server.js` 绝对路径（例如 `C:/Users/你的用户名/Desktop/灵数求解器/mcp-server.js`）。也可先 `git clone https://github.com/genesis-plan/lingshu-solver.git` 再指向克隆目录内的该文件。
 
 ### 工具一：`solve`
 
