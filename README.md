@@ -12,14 +12,17 @@ Krawczyk 算子做解认证，并尽力穷尽多解。
 
 ### 如果你完全不懂技术 —— 直接用网页版
 **打开这个链接就能用，不用安装任何东西：**
-👉 **https://genesis-plan.github.io/lingshu-solver/**
+👉 **https://genesis-plan.github.io/lingshu-solver/** （GitHub Pages，海外/通用）
+
+**国内用户（更快，腾讯云 COS 托管）：**
+👉 **https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/index.html**
 
 在输入框写方程（例如 `x^2 + y^2 = 25` 和 `x + y = 7`），点求解即可。
 页面里有 6 个示例按钮，点一下就知道它能解什么。
 
 ### 如果你是 AI 用户（Claude / Cursor / Cline 等）
 
-**方式 A · 远程托管（推荐，零安装，免密即用）**
+**方式 A · 远程托管（零安装，免密即用）**
 我们已部署常驻公网服务，直接填 URL 即可，无需本机装 Node：
 ```json
 {
@@ -31,6 +34,7 @@ Krawczyk 算子做解认证，并尽力穷尽多解。
 }
 ```
 > 端点：`http://159.75.154.206:3000/mcp`（Streamable HTTP）。服务运行于腾讯云轻量服务器，开机自启、崩溃自动拉起。
+> ⚠️ 当前为**裸 IP + HTTP 临时端点**，`hongchenlingjing.com` 备案通过后我们将切换为 `https://hongchenlingjing.com/mcp` 固定 HTTPS 域名（届时更新此处）。此临时端点可用于对接测试，Smithery 等需 HTTPS 的平台待备案后正式接入。
 
 **方式 B · 本地 stdio（需本机 Node）**
 ```json
