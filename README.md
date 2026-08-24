@@ -58,14 +58,14 @@ node mcp-server.js
 {
   "equations": ["x^2 + y^2 = 25", "x + y = 7"],
   "variables": ["x", "y"],
-  "domain": { "x": [-30, 30], "y": [-30, 30] },
-  "decimals": 6
+  "domain": { "x": [-30, 30], "y": [-30, 30] }
 }
 ```
 - `equations`：方程字符串数组（必填），支持 `+ - * / ^ sqrt log sin cos tan exp abs`，以及 in-text 域约束 `"x ∈ [-30,30]"`。
 - `variables`：变量名数组（可选，不填则按出现顺序自动识别，最多 6 个）。
 - `domain`：显式搜索域（可选）。**对"有限解·部分"演示或快增长函数建议给定**，否则默认 ±1e6 可能剪枝失效并触发 `truncated`。
-- `decimals`：输出小数位（默认 6）。
+
+> 输出精度固定 6 位小数（产品规格「6位小数有限网格」），不提供位数切换；解点 `values` 经网格吸附，实际残差通常 ≤ 1e-9。
 
 输出（节选）：
 ```json
@@ -74,6 +74,7 @@ node mcp-server.js
   "resultTypeName": "finite",
   "certified": true,
   "truncated": false,
+  "precisionDecimals": 6,
   "solutionCount": 2,
   "recommended": { "values": [3, 4], "tier": "proven", "residual": 0 },
   "solutions": [ { "values": [3, 4], "tier": "proven", "residual": 0 }, ... ],
