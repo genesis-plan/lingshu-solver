@@ -1,0 +1,55 @@
+{
+  "name": "lingshu-solver",
+  "version": "1.0.0",
+  "description": "灵数求解器 · 确定性实数方程组求解 MCP 工具（≤6变量）：区间收缩 + Krawczyk 认证，离线零依赖零数据，诚实标记 truncated。",
+  "homepage": "https://genesis-plan.github.io/lingshu-solver/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/genesis-plan/lingshu-solver.git"
+  },
+  "bugs": {
+    "url": "https://github.com/genesis-plan/lingshu-solver/issues"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "mcp",
+    "math",
+    "solver",
+    "equation",
+    "equation-system",
+    "agent-tool",
+    "offline",
+    "deterministic",
+    "interval-arithmetic",
+    "krawczyk",
+    "typescript-free"
+  ],
+  "bin": {
+    "lingshu-solver": "mcp-server.js"
+  },
+  "main": "solver-core.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "index.html",
+    "mcp-server.js",
+    "solver-core.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "mcpServers": {
+    "lingshu-solver": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "lingshu-solver"
+      ]
+    }
+  },
+  "scripts": {
+    "start": "node mcp-server.js",
+    "test": "node test/regression.js",
+    "smoke": "node mcp_smoke.js"
+  }
+}

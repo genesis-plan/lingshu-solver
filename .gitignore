@@ -5,6 +5,7 @@
 !.gitignore
 !LICENSE
 !README.md
+!package.json
 !index.html
 !solver-core.js
 !mcp-server.js
