@@ -55,7 +55,10 @@ function shapeResult(r) {
     resultType: r.resultType,
     resultTypeName: typeName,
     certified: allProven,
-    truncated: !!meta.truncated,
+    truncated: !!(r.truncated || meta.truncated),
+    // 输出精度固定 6 位小数（产品规格「6位小数有限网格」），与界面一致，不提供位数切换。
+    // 解点 values 经 roundToGrid 吸附到 6 位网格，实际残差通常 ≤ 1e-9。
+    precisionDecimals: 6,
     solutionCount: sols.length,
     recommended: recommended,
     solutions: sols,
@@ -84,11 +87,11 @@ function doSolve(args) {
   if (vars.length > MAX_VAR_COUNT) {
     throw { type: 'invalid_input', message: `变量数量超过上限 ${MAX_VAR_COUNT}` };
   }
-  const decimals = (args && Number.isFinite(args.decimals)) ? args.decimals : 6;
   const domain = (args && args.domain) || undefined;
   const fastMode = !!(args && args.fastMode);
   const opts = (args && args.options) || {};
-  const r = solve(eqs, vars, decimals, domain, fastMode, opts);
+  // 输出精度固定为 6 位小数（产品规格「6位小数有限网格」），与界面一致，不提供位数切换
+  const r = solve(eqs, vars, 6, domain, fastMode, opts);
   return shapeResult(r);
 }
 
@@ -96,7 +99,7 @@ function doSolve(args) {
 const TOOLS = [
   {
     name: 'solve',
-    description: '求解实数方程组（≤6 变量）。已验证解数学保真（Krawczyk 认证，tier=proven）；' +
+    description: '求解实数方程组（≤6 变量）。输出固定 6 位小数精度（产品规格「6位小数有限网格」，与界面一致，不提供位数切换）。已验证解数学保真（Krawczyk 认证，tier=proven）；' +
       '尽力穷尽多解，但极端病态（雅可比高度奇异、解簇极近）在预算内可能遗漏个别解——此时显式标记 truncated=true，绝不谎称已穷尽。' +
       '注意：truncated=true 仅表示「全局分支未在预算内完全判定所有盒子（无法证明已穷尽）」，并不等于一定遗漏；绝大多数情况下全部真解已找到。' +
       '输出三态：empty(无解)/finite(有限解)/infinite(无限解集，仅给距原点最近的推荐解)。',
@@ -115,7 +118,6 @@ const TOOLS = [
           type: 'object',
           description: '显式搜索域（可选）。形如 {"x":[-30,30],"y":[-30,30]}。对"有限解·部分"演示或快增长函数（exp/sinh）建议显式给定，否则默认 ±1e6 可能剪枝失效并触发 truncated。'
         },
-        decimals: { type: 'number', description: '输出小数位（默认 6，范围 0-9）' },
         fastMode: { type: 'boolean', description: '快速模式（默认 false）' },
         options: { type: 'object', description: '高级选项（可选），如 {budget:500000, maxDepth:28}' }
       },

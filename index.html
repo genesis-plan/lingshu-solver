@@ -891,16 +891,8 @@
                 <input type="text" id="variables" placeholder="x, y, z" oninput="_varsTouched = true">
             </div>
             <div class="input-group">
-                <label class="label">小数位数</label>
-                <div class="mode-selector" id="modeSelector">
-                    <button class="mode-btn" data-decimals="0" onclick="selectDecimals(0)">0位</button>
-                    <button class="mode-btn" data-decimals="1" onclick="selectDecimals(1)">1位</button>
-                    <button class="mode-btn" data-decimals="2" onclick="selectDecimals(2)">2位</button>
-                    <button class="mode-btn" data-decimals="3" onclick="selectDecimals(3)">3位</button>
-                    <button class="mode-btn" data-decimals="4" onclick="selectDecimals(4)">4位</button>
-                    <button class="mode-btn" data-decimals="5" onclick="selectDecimals(5)">5位</button>
-                    <button class="mode-btn active" data-decimals="6" onclick="selectDecimals(6)">6位</button>
-                </div>
+                <label class="label">显示精度</label>
+                <div class="fixed-precision-note">固定 6 位小数（产品规格「6位小数有限网格」）；求解计算与输出精度恒定，不提供位数切换。</div>
             </div>
         </div>
 
@@ -3320,11 +3312,11 @@ function lineSearchNewton(equations, varNames, initialGuess, options) {
 
 
 
-var solverDecimals = 6; // 全局小数位数（0-6），由solve()中的state.solverDecimals维护
+var COMPUTE_DECIMALS = 6; // 求解与显示固定网格位数（产品规格：6位小数有限网格）。roundToGrid、内部残差容差、显示 toFixed 均据此，恒为 6，不提供位数切换
 
 function roundToGrid(x) {
     if (!isFinite(x)) return x;
-    var scale = Math.pow(10, solverDecimals);
+    var scale = Math.pow(10, COMPUTE_DECIMALS);
     var scaled = x * scale;
     var nearest = Math.round(scaled);
     // 如果已在网格点上（浮点误差范围内），直接返回该网格点
@@ -11202,7 +11194,7 @@ function _assignCompleteness(state) {
     state.result.bound = {
         varCount: vns.length,
         domain: state._initD0 || state.D0 || {},
-        decimals: state.decimals
+        decimals: state.displayDecimals
     };
 }
 
@@ -11304,14 +11296,15 @@ function _solveImpl(equationStrs, varNames, decimals, initialD0, fastMode, opts)
     state.persistentHomologyInfo = null;
     state.poincareInfo = null;
     state.singularRegionsInfo = null;
-    state.solverDecimals = typeof decimals === "number" ? decimals : 6;
-
-    // 初始化精度容差
-    var parsedD = parseInt(decimals);
-    var d = Math.max(0, Math.min(6, isNaN(parsedD) ? 6 : parsedD));
-    state.decimals = d;
-    state.tolerance = d === 0 ? 0.5 : Math.pow(10, -d);
-    state.maxIter = 8 + d * 2;
+    // 计算网格固定为 6 位小数（产品规格：6位小数有限网格）。
+    // 显示精度同样固定为 COMPUTE_DECIMALS（=6）：求解精度与显示精度同源恒定，
+    // 不做位数切换，既避免「选 0 位出现整数假解」的误导，也对齐行业范式
+    //（Mathematica 默认显示 6 位、Matlab format 仅改显示不改计算）。
+    state.displayDecimals = COMPUTE_DECIMALS;          // 仅供显示层 toFixed 使用（固定 6）
+    state.decimals = COMPUTE_DECIMALS;                // 计算用小数位（固定）
+    state.solverDecimals = COMPUTE_DECIMALS;          // 分支最小盒宽 10^-6（固定）
+    state.tolerance = Math.pow(10, -COMPUTE_DECIMALS); // 计算残差容差（固定，与显示精度无关）
+    state.maxIter = 20;                              // 计算迭代上限（固定）
     state.fastMode = !!fastMode;
 
     // 资源上限可注入（opts.maxBranch / opts.maxBoxes / opts.maxIter），默认沿用硬编码上限；
@@ -11550,16 +11543,6 @@ function loadExample(n) {
     }
 }
 
-function selectDecimals(n) {
-    solverDecimals = n;
-    var btns = document.querySelectorAll(".mode-btn");
-    for (var i = 0; i < btns.length; i++) {
-        btns[i].classList.remove("active");
-    }
-    var activeBtn = document.querySelector('.mode-btn[data-decimals="' + n + '"]');
-    if (activeBtn) activeBtn.classList.add("active");
-}
-
 function cleanInput(text) {
     // 1. LaTeX 格式处理
     if (/\\begin\{cases\}|\\\(|\\\\\\\\/.test(text)) {
@@ -11622,7 +11605,7 @@ function runSolver() {
             // 示例自动求解时携带其声明域；手动求解时为 null（使用默认搜索范围 ±100万）
             var _dom = pendingExampleDomain || undefined;
             pendingExampleDomain = null;
-            var result = solve(eqLines, varList, solverDecimals, _dom);
+            var result = solve(eqLines, varList, 6, _dom);
             // 变量名自动识别回显（用户未手动编辑过变量名框时）：
             // 把求解器实际识别到的变量名回填到框里，让用户一眼确认"识别对了没"。
             // e / pi / π 等保留常数符号不会被识别为变量，清单里缺了它们即知歧义。
@@ -11658,7 +11641,7 @@ function runSolver() {
 // 不展示内部高精度数值；未达标才显示实际量级供排查。
 function _fmtResidual(r) {
     if (r === undefined || r === null || r !== r) return "?";
-    var tol = solverDecimals === 0 ? 0.5 : Math.pow(10, -solverDecimals);
+    var tol = Math.pow(10, -COMPUTE_DECIMALS); // 残差达标判据固定为计算容差，与 UI 显示小数位无关
     var tolStr = tol < 1e-3 ? tol.toExponential(0) : String(tol);
     if (Math.abs(r) < tol) return "< " + tolStr;
     return r.toExponential(2);
@@ -11763,7 +11746,7 @@ function displayResult(result, eqLines) {
             html += '<b>' + recLabel + '</b>：';
             html += '<div style="margin-top:4px;font-size:13px;font-family:monospace">';
             for (var _mvi = 0; _mvi < outVars.length; _mvi++) {
-                var _v = Number(minSol.values[_mvi].toFixed(solverDecimals));
+                var _v = Number(minSol.values[_mvi].toFixed(6));
                 if (Math.abs(minSol.values[_mvi]) < 1e-9) {
                     html += '<span style="margin-right:10px;color:#dc3545;font-weight:bold">' + outVars[_mvi] + ' = ' + _v + '</span>';
                 } else {
@@ -11789,7 +11772,7 @@ function displayResult(result, eqLines) {
 
             for (var vi = 0; vi < outVars.length; vi++) {
                 var val = sol.values[vi];
-                if (typeof val === "number") val = Number(val.toFixed(solverDecimals));
+                if (typeof val === "number") val = Number(val.toFixed(6));
                 html += '    <div class="var-item">';
                 html += '      <span class="var-name">' + outVars[vi] + '</span>';
                 html += '      <span class="var-value">' + (val !== undefined ? val : "?") + '</span>';
