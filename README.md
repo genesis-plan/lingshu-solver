@@ -18,8 +18,21 @@ Krawczyk 算子做解认证，并尽力穷尽多解。
 页面里有 6 个示例按钮，点一下就知道它能解什么。
 
 ### 如果你是 AI 用户（Claude / Cursor / Cline 等）
-把下面这段配置复制进你的 MCP 客户端配置文件，重启客户端即可：
 
+**方式 A · 远程托管（推荐，零安装，免密即用）**
+我们已部署常驻公网服务，直接填 URL 即可，无需本机装 Node：
+```json
+{
+  "mcpServers": {
+    "lingshu-solver": {
+      "url": "http://159.75.154.206:3000/mcp"
+    }
+  }
+}
+```
+> 端点：`http://159.75.154.206:3000/mcp`（Streamable HTTP）。服务运行于腾讯云轻量服务器，开机自启、崩溃自动拉起。
+
+**方式 B · 本地 stdio（需本机 Node）**
 ```json
 {
   "mcpServers": {
@@ -30,9 +43,18 @@ Krawczyk 算子做解认证，并尽力穷尽多解。
   }
 }
 ```
+> `npx` 版需本包发布到 npm 后才可用（正在处理）；在此之前可先 `git clone` 后用方式 C。
 
-> 不需要下载代码、不需要填路径。`npx` 会自动拉取并运行。
-> 如果你的电脑没装 Node.js，先到 https://nodejs.org 下载安装 LTS 版（一路下一步即可）。
+**方式 C · 本地 clone + 指定路径**
+```bash
+git clone https://github.com/genesis-plan/lingshu-solver.git
+cd lingshu-solver
+node mcp-server.js
+```
+MCP 配置：
+```json
+{ "mcpServers": { "lingshu-solver": { "command": "node", "args": ["本地绝对路径/灵数求解器/mcp-server.js"] } } }
+```
 
 ### 如果你是开发者
 ```bash
@@ -71,15 +93,33 @@ node test/regression.js   # 跑回归测试（28 用例）
 
 ## 作为 MCP 工具使用
 
-### 1. 运行服务端
+### 1. 三种接入形态
 
+| 形态 | 端点 / 命令 | 适用 |
+|---|---|---|
+| **远程 HTTP（已上线）** | `http://159.75.154.206:3000/mcp` | 任何支持 Streamable HTTP 的 MCP 客户端，零安装 |
+| 本地 stdio（npx） | `npx -y lingshu-solver` | 本机已装 Node，待 npm 发布后可用 |
+| 本地 stdio（clone） | `node mcp-server.js` | 开发者 / 离线自托管 |
+
+**远程 HTTP 服务端代码**：`http-mcp-server.js`（零依赖，仅用 Node 内置模块；与 `mcp-server.js` 共享 `solver-core.js` 求解核心，结果同源一致）。如需自托管远程服务：
 ```bash
-node mcp-server.js
+PORT=3000 node http-mcp-server.js
 ```
 
 ### 2. 在 MCP 客户端（Claude Desktop / Cursor / Cline / VS Code 等）配置
 
-**推荐 · 一行命令（需先发 npm，暂未发布；当前请用下面的 clone 版）：**
+**推荐 · 远程托管（零安装，已上线）：**
+```json
+{
+  "mcpServers": {
+    "lingshu-solver": {
+      "url": "http://159.75.154.206:3000/mcp"
+    }
+  }
+}
+```
+
+**本地 stdio · 一行命令（需先发 npm，暂未发布；当前请用 clone 版）：**
 ```json
 {
   "mcpServers": {

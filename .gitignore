@@ -10,6 +10,7 @@
 !index.html
 !solver-core.js
 !mcp-server.js
+!http-mcp-server.js
 !verify_core.js
 !mcp_smoke.js
 !mcp_smoke2.js

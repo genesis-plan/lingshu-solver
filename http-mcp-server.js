@@ -1,0 +1,272 @@
+#!/usr/bin/env node
+/**
+ * 灵数求解器 · MCP 远程服务端（HTTP / Streamable HTTP，零依赖）
+ *
+ * 设计目标：让求解器以「常驻公网服务」形态运行，满足 Smithery / 远程 AI 智能体
+ * 对「运行中的服务器网址」的要求。与 mcp-server.js（stdio 版）共享同一套：
+ *   - solver-core.js 求解核心（同源，零分叉）
+ *   - TOOLS / shapeResult / doSolve 逻辑（复制保持一致，含中文「∈」UTF-8 处理）
+ *
+ * 协议：Streamable HTTP（MCP 2025-03-26 草案）
+ *   - POST /mcp   收发 JSON-RPC 2.0（initialize / tools/list / tools/call）
+ *   - GET  /      健康检查（返回服务元信息，便于浏览器/Smithery 探活）
+ *   - GET  /health 同上，纯文本 OK
+ *
+ * 零依赖：仅用 Node 内置 http / fs / path / crypto，无需 npm install。
+ *
+ * 运行：
+ *   PORT=3000 node http-mcp-server.js
+ *   （LINGSHU_HTML 环境变量可重定向 index.html 位置，默认同目录）
+ */
+'use strict';
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { solve } = require('./solver-core');
+
+const SERVER_NAME = 'lingshu-solver';
+const SERVER_VERSION = '4.1.0';
+const PORT = parseInt(process.env.PORT || '3000', 10);
+
+// ---- 护栏常量（防畸形/恶意输入耗尽资源，与 stdio 版一致）----
+const MAX_TOTAL_CHARS = 100 * 1024;
+const MAX_EQ_COUNT = 64;
+const MAX_VAR_COUNT = 6;
+
+// ---- 本地日志（仅元数据，零数据不外传）----
+const LOG_PATH = path.resolve(__dirname, 'calls.log');
+const FEEDBACK_PATH = path.resolve(__dirname, 'feedback.log');
+function appendLog(p) {
+  try { fs.appendFileSync(LOG_PATH, JSON.stringify(p) + '\n'); } catch (_e) {}
+}
+
+// ---- 求解结果整理（与 stdio 版逐字一致）----
+function shapeResult(r) {
+  const sols = Array.isArray(r.solutions) ? r.solutions : [];
+  const meta = r.meta || {};
+  let recommended = null, best = Infinity;
+  for (const s of sols) {
+    if (!s || !Array.isArray(s.values)) continue;
+    let d = 0;
+    for (const v of s.values) d += v * v;
+    if (d < best) { best = d; recommended = s; }
+  }
+  const tierSet = new Set(sols.map(s => (s && s.tier) || 'unknown'));
+  const allProven = sols.length > 0 && [...tierSet].every(t => t === 'proven');
+  const typeName = r.resultType === 1 ? 'empty' : r.resultType === 3 ? 'infinite' : 'finite';
+  return {
+    resultType: r.resultType,
+    resultTypeName: typeName,
+    certified: allProven,
+    truncated: !!(r.truncated || meta.truncated),
+    precisionDecimals: 6,
+    solutionCount: sols.length,
+    recommended: recommended,
+    solutions: sols,
+    warnings: r.warnings || [],
+    diagnostics: r.diagnostics || null
+  };
+}
+
+function doSolve(args) {
+  const eqs = args && args.equations;
+  if (!Array.isArray(eqs) || eqs.length === 0) {
+    throw { type: 'invalid_input', message: 'equations 必须是非空字符串数组' };
+  }
+  if (eqs.length > MAX_EQ_COUNT) {
+    throw { type: 'invalid_input', message: `方程数量超过上限 ${MAX_EQ_COUNT}` };
+  }
+  let total = 0;
+  for (const e of eqs) {
+    if (typeof e !== 'string') throw { type: 'invalid_input', message: '每条方程必须是字符串' };
+    total += e.length;
+  }
+  if (total > MAX_TOTAL_CHARS) {
+    throw { type: 'invalid_input', message: '方程文本总长超过 100KB 上限' };
+  }
+  const vars = (args && Array.isArray(args.variables)) ? args.variables : [];
+  if (vars.length > MAX_VAR_COUNT) {
+    throw { type: 'invalid_input', message: `变量数量超过上限 ${MAX_VAR_COUNT}` };
+  }
+  const domain = (args && args.domain) || undefined;
+  const fastMode = !!(args && args.fastMode);
+  const opts = (args && args.options) || {};
+  const r = solve(eqs, vars, 6, domain, fastMode, opts);
+  return shapeResult(r);
+}
+
+// ---- 工具定义（与 stdio 版一致）----
+const TOOLS = [
+  {
+    name: 'solve',
+    description: '求解实数方程组（≤6 变量）。输出固定 6 位小数精度（产品规格「6位小数有限网格」，与界面一致，不提供位数切换）。已验证解数学保真（Krawczyk 认证，tier=proven）；' +
+      '尽力穷尽多解，但极端病态（雅可比高度奇异、解簇极近）在预算内可能遗漏个别解——此时显式标记 truncated=true，绝不谎称已穷尽。' +
+      '注意：truncated=true 仅表示「全局分支未在预算内完全判定所有盒子（无法证明已穷尽）」，并不等于一定遗漏；绝大多数情况下全部真解已找到。' +
+      '输出三态：empty(无解)/finite(有限解)/infinite(无限解集，仅给距原点最近的推荐解)。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        equations: {
+          type: 'array', items: { type: 'string' },
+          description: '方程字符串数组，如 ["x^2 + y^2 = 25", "x + y = 7"]。支持 + - * / ^ sqrt log sin cos tan exp abs，以及 in-text 域约束 "x ∈ [-30,30]"。'
+        },
+        variables: {
+          type: 'array', items: { type: 'string' },
+          description: '变量名数组（可选）。不填则由方程文本自动识别，顺序按出现。最多 6 个。'
+        },
+        domain: {
+          type: 'object',
+          description: '显式搜索域（可选）。形如 {"x":[-30,30],"y":[-30,30]}。对"有限解·部分"演示或快增长函数（exp/sinh）建议显式给定，否则默认 ±1e6 可能剪枝失效并触发 truncated。'
+        },
+        fastMode: { type: 'boolean', description: '快速模式（默认 false）' },
+        options: { type: 'object', description: '高级选项（可选），如 {budget:500000, maxDepth:28}' }
+      },
+      required: ['equations']
+    }
+  },
+  {
+    name: 'give_feedback',
+    description: 'AI 智能体在调用 solve 遇到卡点、错误、或认为结果有问题时，主动回报。' +
+      '回报内容仅落本地 feedback.log，不会外传。帮助作者持续改进。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: '反馈内容：遇到了什么、期望什么、实际得到什么。' },
+        context: { type: 'string', description: '可选上下文：触发场景、输入特征等。' }
+      },
+      required: ['message']
+    }
+  }
+];
+
+// ---- JSON-RPC 处理（与 stdio 版 handle 同构，改为返回对象）----
+function handleRpc(msg) {
+  const id = msg.id;
+  const method = msg.method;
+  const params = msg.params || {};
+
+  if (method === 'initialize') {
+    return {
+      jsonrpc: '2.0', id,
+      protocolVersion: '2024-11-05',
+      capabilities: { tools: {} },
+      serverInfo: { name: SERVER_NAME, version: SERVER_VERSION }
+    };
+  }
+  if (method === 'tools/list') {
+    return { jsonrpc: '2.0', id, tools: TOOLS };
+  }
+  if (method === 'tools/call') {
+    const name = params.name;
+    const args = params.arguments || {};
+    const t0 = Date.now();
+    try {
+      let result;
+      if (name === 'solve') {
+        result = doSolve(args);
+      } else if (name === 'give_feedback') {
+        const msg_fb = (args.message || '').toString().slice(0, 2000);
+        fs.appendFileSync(FEEDBACK_PATH, JSON.stringify({
+          ts: new Date().toISOString(), message: msg_fb, context: args.context || null
+        }) + '\n');
+        result = { acknowledged: true, note: '反馈已记录（本地，不外传）' };
+      } else {
+        throw { type: 'unknown_tool', message: '未知工具: ' + name };
+      }
+      const dt = Date.now() - t0;
+      appendLog({
+        ts: new Date().toISOString(), tool: name, status: 'ok',
+        dtMs: dt, resultType: result.resultType, nSol: result.solutionCount,
+        truncated: result.truncated
+      });
+      return { jsonrpc: '2.0', id, content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      const dt = Date.now() - t0;
+      const errObj = (e && e.type) ? e : { type: 'internal_error', message: (e && e.message) || String(e) };
+      appendLog({
+        ts: new Date().toISOString(), tool: name, status: 'error',
+        dtMs: dt, errorType: errObj.type
+      });
+      return {
+        jsonrpc: '2.0', id, isError: true,
+        content: [{ type: 'text', text: JSON.stringify({ error: errObj }) }]
+      };
+    }
+  }
+  // 通知类（无 id）或其它方法：返回 null（HTTP 下以 202/空体处理）
+  return null;
+}
+
+// ---- HTTP 服务 ----
+const sessions = new Map(); // sessionId -> { createdAt }
+
+function sendJson(res, status, obj, extraHeaders) {
+  const body = Buffer.from(JSON.stringify(obj), 'utf8');
+  res.writeHead(status, Object.assign({
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': body.length
+  }, extraHeaders || {}));
+  res.end(body);
+}
+
+const server = http.createServer((req, res) => {
+  // 健康检查
+  if (req.method === 'GET' && (req.url === '/' || req.url === '/health')) {
+    return sendJson(res, 200, {
+      name: SERVER_NAME,
+      version: SERVER_VERSION,
+      status: 'ok',
+      transport: 'streamable-http',
+      endpoints: { mcp: 'POST /mcp', health: 'GET /health' },
+      tools: TOOLS.map(t => t.name)
+    });
+  }
+
+  // MCP 端点：Streamable HTTP
+  if (req.method === 'POST' && req.url === '/mcp') {
+    const sessionId = req.headers['mcp-session-id'] || crypto.randomUUID();
+    if (!sessions.has(sessionId)) sessions.set(sessionId, { createdAt: Date.now() });
+
+    let raw = '';
+    req.setEncoding('utf8');
+    req.on('data', (chunk) => { raw += chunk; });
+    req.on('end', () => {
+      let msg;
+      try {
+        msg = JSON.parse(raw);
+      } catch (_e) {
+        return sendJson(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
+      }
+      // 批量请求支持
+      const batch = Array.isArray(msg) ? msg : [msg];
+      const responses = [];
+      for (const m of batch) {
+        if (m && m.jsonrpc === '2.0') {
+          const r = handleRpc(m);
+          if (r !== null) responses.push(r);
+        }
+      }
+      const headers = { 'mcp-session-id': sessionId };
+      if (Array.isArray(msg)) {
+        if (responses.length === 0) { res.writeHead(202, headers); return res.end(); }
+        return sendJson(res, 200, responses, headers);
+      } else {
+        if (responses.length === 0) { res.writeHead(202, headers); return res.end(); }
+        return sendJson(res, 200, responses[0], headers);
+      }
+    });
+    return;
+  }
+
+  // 其它：404
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end('Not Found. MCP endpoint: POST /mcp');
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+  appendLog({ ts: new Date().toISOString(), event: 'server_start', name: SERVER_NAME, version: SERVER_VERSION, port: PORT });
+  console.log(`[${SERVER_NAME}] HTTP MCP server listening on 0.0.0.0:${PORT}`);
+  console.log(`  health : GET  http://localhost:${PORT}/health`);
+  console.log(`  mcp    : POST http://localhost:${PORT}/mcp`);
+});
