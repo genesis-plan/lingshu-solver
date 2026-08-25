@@ -1,0 +1,19 @@
+name: lingshu-solver
+displayName: 灵数求解器 Lingshu Solver
+description: >-
+  确定性（非大模型）实数方程组求解 MCP 工具。结果可验证、不随机、不幻觉；
+  每个解都能回代验证。免费、零依赖，网页打开即用，也可作为 MCP 工具被 AI 智能体调用。
+metadata:
+  category: math
+  author: genesis-plan
+  tags:
+    - math
+    - solver
+    - equation
+    - deterministic
+    - agent-tool
+startCommand:
+  type: stdio
+  command: node
+  args:
+    - mcp-server.js

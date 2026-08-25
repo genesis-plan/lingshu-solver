@@ -40,10 +40,9 @@
   ],
   "mcpServers": {
     "lingshu-solver": {
-      "command": "npx",
+      "command": "node",
       "args": [
-        "-y",
-        "lingshu-solver"
+        "mcp-server.js"
       ]
     }
   },

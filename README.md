@@ -1,6 +1,13 @@
 # 灵数求解器 · Lingshu Solver
 
-> ≤6 维确定性实数方程组求解引擎 · 面向 AI 智能体与普通用户的 MCP 工具
+[![License](https://img.shields.io/github/license/genesis-plan/lingshu-solver)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/genesis-plan/lingshu-solver?style=social)](https://github.com/genesis-plan/lingshu-solver/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/genesis-plan/lingshu-solver)](https://github.com/genesis-plan/lingshu-solver/commits)
+[![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-blue)](https://modelcontextprotocol.io)
+[![Deterministic](https://img.shields.io/badge/core-deterministic%20%2F%20non--LLM-green)](https://genesis-plan.github.io/lingshu-solver/)
+
+> **确定性**实数方程组求解引擎 · 面向 AI 智能体与普通用户的 MCP 工具
+> 同样的题永远得到同样的答案，没有大模型的随机与幻觉，每个解都能回代验证。免费、网页打开即用、也能被 AI 智能体直接调用。
 
 灵数求解器（代号 Epsilon，V4.1）是一个**离线、确定性、零数据**的实数方程组求解器，
 覆盖 ≤6 个变量、实数解、轻量数值定位。它不要求用户提供初值，采用区间算术做保守收缩 +
@@ -76,7 +83,7 @@ node test/regression.js   # 跑回归测试（28 用例）
 - `index.html` —— 单文件产品（浏览器内 UI + 已验证核心脚本 `<script id="solver-core">`）
 - `solver-core.js` —— Node 引擎加载器（读取 index.html 核心脚本，零依赖，供 MCP/测试复用）
 - `mcp-server.js` —— 零依赖 MCP stdio 服务端（手工 JSON-RPC 2.0 + Content-Length 分帧）
-- `package.json` —— 标准元数据，`npx lingshu-solver` 一行接入
+- `package.json` —— 标准元数据，`node mcp-server.js` 本地启动即作为 MCP 工具（发布 npm 后亦可 `npx lingshu-solver`）
 - `test/` —— 回归套件 + 冒烟测试 + 三套常驻考卷
 
 ---
