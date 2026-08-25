@@ -92,7 +92,6 @@ function shapeResult(r) {
     solverVersion: meta.solverVersion || null,
     truncated: !!(r.truncated || meta.truncated),
     terminatedBy: meta.terminatedBy || null,
-    elapsedMs: (typeof meta.elapsedMs === 'number') ? meta.elapsedMs : (typeof r.timeMs === 'number' ? r.timeMs : null),
     provenCount: (typeof r.provenCount === 'number') ? r.provenCount : null,
     completeness: (typeof r.completeness === 'number') ? r.completeness : null
   };

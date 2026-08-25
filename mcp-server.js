@@ -2,7 +2,7 @@
 /**
  * 灵数求解器 · MCP stdio 服务端（零依赖）
  *
- * 手工实现 JSON-RPC 2.0 + Content-Length 分帧（不依赖任何 MCP SDK）。
+ * 手工实现 JSON-RPC 2.0 + 换行符分隔 JSON（与官方 MCP SDK 客户端一致，不依赖任何 MCP SDK）。
  * 核心求解能力来自同目录 solver-core.js（读取 index.html 的已验证核心脚本）。
  *
  * 暴露工具：
@@ -95,7 +95,6 @@ function shapeResult(r) {
     solverVersion: meta.solverVersion || null,
     truncated: !!(r.truncated || meta.truncated),
     terminatedBy: meta.terminatedBy || null,
-    elapsedMs: (typeof meta.elapsedMs === 'number') ? meta.elapsedMs : (typeof r.timeMs === 'number' ? r.timeMs : null),
     provenCount: (typeof r.provenCount === 'number') ? r.provenCount : null,
     completeness: (typeof r.completeness === 'number') ? r.completeness : null
   };

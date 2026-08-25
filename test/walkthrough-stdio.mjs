@@ -4,8 +4,10 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const NODE = process.env.NODE || 'node';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CWD = path.resolve(__dirname, '..'); // 仓库根（含 mcp-server.js / solver-core.js）
 const log = (...a) => console.log(...a);
 function assert(c, m) { if (c) log('    ✅', m); else { log('    ❌', m); process.exitCode = 1; } }
