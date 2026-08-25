@@ -56,7 +56,7 @@ Krawczyk 算子做解认证，并尽力穷尽多解。
   }
 }
 ```
-> `npx` 版需本包发布到 npm 后才可用（正在处理）；在此之前可先 `git clone` 后用方式 C。
+> `npx` 版需本包发布到 npm 后可用；npm 账号已就绪，即将发布，发布后即可一键 `npx -y lingshu-solver`。在此之前可先 `git clone` 后用方式 C。
 
 **方式 C · 本地 clone + 指定路径**
 ```bash
@@ -111,7 +111,7 @@ node test/regression.js   # 跑回归测试（28 用例）
 | 形态 | 端点 / 命令 | 适用 |
 |---|---|---|
 | **远程 HTTP（已上线）** | `http://159.75.154.206:3000/mcp` | 任何支持 Streamable HTTP 的 MCP 客户端，零安装 |
-| 本地 stdio（npx） | `npx -y lingshu-solver` | 本机已装 Node，待 npm 发布后可用 |
+| 本地 stdio（npx） | `npx -y lingshu-solver` | 本机已装 Node，npm 发布后可用 |
 | 本地 stdio（clone） | `node mcp-server.js` | 开发者 / 离线自托管 |
 
 **远程 HTTP 服务端代码**：`http-mcp-server.js`（零依赖，仅用 Node 内置模块；与 `mcp-server.js` 共享 `solver-core.js` 求解核心，结果同源一致）。如需自托管远程服务：
@@ -132,7 +132,7 @@ PORT=3000 node http-mcp-server.js
 }
 ```
 
-**本地 stdio · 一行命令（需先发 npm，暂未发布；当前请用 clone 版）：**
+**本地 stdio · 一行命令（npm 发布后可用；npm 账号已就绪，即将发布）：**
 ```json
 {
   "mcpServers": {
@@ -143,7 +143,7 @@ PORT=3000 node http-mcp-server.js
   }
 }
 ```
-> 注：`npx lingshu-solver` 需本包发布到 npm 后才可用，我们正在处理。在此之前请用下方「手动指定本地路径」版（先 clone 仓库）。
+> 注：`npx lingshu-solver` 需本包发布到 npm 后可用；npm 账号已就绪，即将发布。在此之前请用下方「手动指定本地路径」版（先 clone 仓库）。
 
 **备选 · 手动指定本地路径（已 clone 仓库时）：**
 ```json
