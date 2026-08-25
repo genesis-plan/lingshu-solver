@@ -31,20 +31,9 @@ Krawczyk 算子做解认证，并尽力穷尽多解。
 
 ### 如果你是 AI 用户（Claude / Cursor / Cline 等）
 
-**方式 A · 远程托管（零安装，免密即用）**
-我们已部署常驻公网服务，直接填 URL 即可，无需本机装 Node：
-```json
-{
-  "mcpServers": {
-    "lingshu-solver": {
-      "url": "http://hongchenlingjing.com/mcp"
-    }
-  }
-}
-```
-> 端点（推荐）：`http://hongchenlingjing.com/mcp`（Streamable HTTP，经域名反代，开机自启、崩溃自动拉起）。
-> 备用直连：`http://159.75.154.206:3000/mcp`（裸 IP + Node 端口，等价于上者，适合临时测试）。
-> ⚠️ 当前为 **HTTP** 端点；`hongchenlingjing.com` 备案通过后我们将切换为 `https://hongchenlingjing.com/mcp` 固定 HTTPS（届时更新此处）。Smithery 等需 HTTPS 的平台待备案后正式接入。
+**方式 A · 远程托管（备案中，暂未公开）**
+我们已部署常驻公网服务，**但 `hongchenlingjing.com` 域名 ICP 备案尚未通过**——按合规要求，备案期间该域名端点暂不对外开放。备案批下并切 HTTPS 后，此处将提供 `https://hongchenlingjing.com/mcp` 端点（开机自启、崩溃自动拉起）。
+> 当前想零安装调用，请直接用下方「方式 B · 本地 stdio（npx）」，已发布 npm，现在即可用。
 
 **方式 B · 本地 stdio（需本机 Node）**
 ```json
@@ -111,7 +100,7 @@ node test/regression.js   # 跑回归测试（28 用例）
 
 | 形态 | 端点 / 命令 | 适用 |
 |---|---|---|
-| **远程 HTTP（已上线）** | `http://hongchenlingjing.com/mcp`（备用 `http://159.75.154.206:3000/mcp`） | 任何支持 Streamable HTTP 的 MCP 客户端，零安装 |
+| **远程 HTTP（备案中，暂未公开）** | `hongchenlingjing.com` 域名 ICP 备案尚未通过，端点暂停开放；备案批下后启用 `https://hongchenlingjing.com/mcp` | 任何支持 Streamable HTTP 的 MCP 客户端（待备案后） |
 | 本地 stdio（npx） | `npx -y lingshu-solver` | 本机已装 Node，npm 已发布，直接可用 |
 | 本地 stdio（clone） | `node mcp-server.js` | 开发者 / 离线自托管 |
 
@@ -122,16 +111,18 @@ PORT=3000 node http-mcp-server.js
 
 ### 2. 在 MCP 客户端（Claude Desktop / Cursor / Cline / VS Code 等）配置
 
-**推荐 · 远程托管（零安装，已上线）：**
+**推荐 · 本地 stdio 零安装（npm 已发布，现在即可用）：**
 ```json
 {
   "mcpServers": {
     "lingshu-solver": {
-      "url": "http://hongchenlingjing.com/mcp"
+      "command": "npx",
+      "args": ["-y", "lingshu-solver"]
     }
   }
 }
 ```
+> 远程 HTTP 端点（`hongchenlingjing.com/mcp`）因域名 ICP 备案未通过，备案期间暂停开放；备案批下并切 HTTPS 后将在此处提供 `url` 版配置。
 
 **本地 stdio · 一行命令（npm 已发布，直接可用）：**
 ```json
