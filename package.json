@@ -17,6 +17,8 @@
     "solver",
     "equation",
     "equation-system",
+    "algebra",
+    "non-llm",
     "agent-tool",
     "offline",
     "deterministic",

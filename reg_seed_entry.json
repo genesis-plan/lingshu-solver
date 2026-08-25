@@ -1,0 +1,15 @@
+{
+  "name": "lingshu-solver",
+  "displayName": "灵数求解器 Lingshu Solver",
+  "description": "Deterministic (non-LLM) real algebraic equation-system solver for AI agents. Returns all verified real solutions with best-effort global exhaustion. Free, zero-dependency; runs in-browser or as an MCP tool.",
+  "repository": "https://github.com/genesis-plan/lingshu-solver",
+  "homepage": "https://genesis-plan.github.io/lingshu-solver/",
+  "author": { "name": "genesis-plan" },
+  "license": "Apache-2.0",
+  "tags": ["math", "solver", "equation", "algebra", "deterministic", "non-llm", "agent-tool"],
+  "inputs": {
+    "type": "stdio",
+    "command": "node",
+    "args": ["mcp-server.js"]
+  }
+}

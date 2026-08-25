@@ -10,7 +10,9 @@ metadata:
     - math
     - solver
     - equation
+    - algebra
     - deterministic
+    - non-llm
     - agent-tool
 startCommand:
   type: stdio

@@ -12,8 +12,8 @@
   "mcpServers": {
     "lingshu-solver": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "lingshu-solver"]
+      "command": "node",
+      "args": ["mcp-server.js"]
     }
   }
 }

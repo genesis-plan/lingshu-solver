@@ -82,7 +82,7 @@ node test/regression.js   # 跑回归测试（28 用例）
 本仓库包含：
 - `index.html` —— 单文件产品（浏览器内 UI + 已验证核心脚本 `<script id="solver-core">`）
 - `solver-core.js` —— Node 引擎加载器（读取 index.html 核心脚本，零依赖，供 MCP/测试复用）
-- `mcp-server.js` —— 零依赖 MCP stdio 服务端（手工 JSON-RPC 2.0 + Content-Length 分帧）
+- `mcp-server.js` —— 零依赖 MCP stdio 服务端（手工 JSON-RPC 2.0 + 换行符分隔 JSON，与官方 MCP SDK 线格式对齐）
 - `package.json` —— 标准元数据，`node mcp-server.js` 本地启动即作为 MCP 工具（发布 npm 后亦可 `npx lingshu-solver`）
 - `test/` —— 回归套件 + 冒烟测试 + 三套常驻考卷
 
