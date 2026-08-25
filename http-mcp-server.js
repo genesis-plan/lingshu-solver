@@ -152,13 +152,15 @@ function handleRpc(msg, ip) {
   if (method === 'initialize') {
     return {
       jsonrpc: '2.0', id,
-      protocolVersion: '2024-11-05',
-      capabilities: { tools: {} },
-      serverInfo: { name: SERVER_NAME, version: SERVER_VERSION }
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: { tools: {} },
+        serverInfo: { name: SERVER_NAME, version: SERVER_VERSION }
+      }
     };
   }
   if (method === 'tools/list') {
-    return { jsonrpc: '2.0', id, tools: TOOLS };
+    return { jsonrpc: '2.0', id, result: { tools: TOOLS } };
   }
   if (method === 'tools/call') {
     const name = params.name;
@@ -183,7 +185,7 @@ function handleRpc(msg, ip) {
         dtMs: dt, resultType: result.resultType, nSol: result.solutionCount,
         truncated: result.truncated
       });
-      return { jsonrpc: '2.0', id, content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] } };
     } catch (e) {
       const dt = Date.now() - t0;
       const errObj = (e && e.type) ? e : { type: 'internal_error', message: (e && e.message) || String(e) };
@@ -192,8 +194,8 @@ function handleRpc(msg, ip) {
         dtMs: dt, errorType: errObj.type
       });
       return {
-        jsonrpc: '2.0', id, isError: true,
-        content: [{ type: 'text', text: JSON.stringify({ error: errObj }) }]
+        jsonrpc: '2.0', id,
+        error: { code: -32603, message: JSON.stringify(errObj) }
       };
     }
   }

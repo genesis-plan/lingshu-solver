@@ -160,14 +160,16 @@ function handle(msg) {
   if (method === 'initialize') {
     send({
       jsonrpc: '2.0', id,
-      protocolVersion: '2024-11-05',
-      capabilities: { tools: {} },
-      serverInfo: { name: SERVER_NAME, version: SERVER_VERSION }
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: { tools: {} },
+        serverInfo: { name: SERVER_NAME, version: SERVER_VERSION }
+      }
     });
     return;
   }
   if (method === 'tools/list') {
-    send({ jsonrpc: '2.0', id, tools: TOOLS });
+    send({ jsonrpc: '2.0', id, result: { tools: TOOLS } });
     return;
   }
   if (method === 'tools/call') {
@@ -193,7 +195,7 @@ function handle(msg) {
         dtMs: dt, resultType: result.resultType, nSol: result.solutionCount,
         truncated: result.truncated
       });
-      send({ jsonrpc: '2.0', id, content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
+      send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] } });
     } catch (e) {
       const dt = Date.now() - t0;
       const errObj = (e && e.type) ? e : { type: 'internal_error', message: (e && e.message) || String(e) };
@@ -201,10 +203,10 @@ function handle(msg) {
         ts: new Date().toISOString(), tool: name, status: 'error',
         dtMs: dt, errorType: errObj.type
       });
-      // 结构化错误，绝不回堆栈
+      // 结构化错误，绝不回堆栈（MCP 规范 error 字段）
       send({
-        jsonrpc: '2.0', id, isError: true,
-        content: [{ type: 'text', text: JSON.stringify({ error: errObj }) }]
+        jsonrpc: '2.0', id,
+        error: { code: -32603, message: JSON.stringify(errObj) }
       });
     }
     return;
