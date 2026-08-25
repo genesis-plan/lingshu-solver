@@ -18,3 +18,9 @@
 !test/**
 !.github/
 !.github/**
+!intro.html
+!.nojekyll
+!产品定位话术.md
+!产品说明（完整版）.md
+!promotion-kit.md
+!smithery-listing.md
