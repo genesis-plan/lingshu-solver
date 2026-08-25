@@ -36,9 +36,18 @@ function appendLog(p) {
 }
 
 // ---- 求解结果整理 ----
+// 数值格式化：固定 6 位小数（产品规格「6位小数有限网格」），与界面一致。
+// 解点 values 经 roundToGrid 吸附到 6 位网格，实际残差通常 ≤ 1e-9。
+const fmt6 = (v) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(6) : String(v);
+
 function shapeResult(r) {
   const sols = Array.isArray(r.solutions) ? r.solutions : [];
   const meta = r.meta || {};
+  // 变量名：优先用求解器识别结果，否则退化为 x1/x2/...
+  const varNames = (Array.isArray(r.varNames) && r.varNames.length)
+    ? r.varNames
+    : (sols[0] && Array.isArray(sols[0].values) ? sols[0].values.map((_, i) => 'x' + (i + 1)) : []);
+
   // 推荐解：取范数最小者（与界面"距原点最近"一致）
   let recommended = null;
   let best = Infinity;
@@ -51,19 +60,58 @@ function shapeResult(r) {
   const tierSet = new Set(sols.map(s => (s && s.tier) || 'unknown'));
   const allProven = sols.length > 0 && [...tierSet].every(t => t === 'proven');
   const typeName = r.resultType === 1 ? 'empty' : r.resultType === 3 ? 'infinite' : 'finite';
+
+  // 每个解：保留机器友好字段（values/tier/certified）+ 人类可读 text；
+  // 内部数值（residual/certifiedRadius）收进 internals，机器可整块跳过。
+  const cleanSols = sols.map((s) => {
+    const vals = Array.isArray(s.values) ? s.values : [];
+    const text = varNames.map((vn, i) => `${vn}=${fmt6(vals[i])}`).join(', ');
+    return {
+      values: vals,
+      tier: s.tier || 'unknown',
+      certified: !!s.certified,
+      text: text,
+      internals: {
+        residual: (typeof s.residual === 'number') ? s.residual : null,
+        certifiedRadius: (typeof s.certifiedRadius === 'number') ? s.certifiedRadius : null
+      }
+    };
+  });
+  const recommendedClean = recommended ? cleanSols[sols.indexOf(recommended)] : null;
+
+  // 人类可读总览（A）
+  let summary;
+  if (typeName === 'empty') {
+    summary = '严格证明：该方程组无实数解。';
+  } else if (typeName === 'infinite') {
+    summary = `无限解集；给出距原点最近的推荐解（共展示 ${sols.length} 个候选）。`;
+  } else {
+    summary = `找到 ${sols.length} 个实数解${allProven ? '（全部经 Krawczyk 区间认证）' : ''}。`;
+  }
+
+  // 诊断信息（B）：仅精选对调用方有用的少量字段，不再透传 meta 中 19 个内部运维字段，
+  // 以降低机器侧 token 噪音。如需完整内部轨迹，可另接调试端点。
+  const diagnostics = {
+    solverVersion: meta.solverVersion || null,
+    truncated: !!(r.truncated || meta.truncated),
+    terminatedBy: meta.terminatedBy || null,
+    elapsedMs: (typeof meta.elapsedMs === 'number') ? meta.elapsedMs : (typeof r.timeMs === 'number' ? r.timeMs : null),
+    provenCount: (typeof r.provenCount === 'number') ? r.provenCount : null,
+    completeness: (typeof r.completeness === 'number') ? r.completeness : null
+  };
+
   return {
     resultType: r.resultType,
     resultTypeName: typeName,
     certified: allProven,
-    truncated: !!(r.truncated || meta.truncated),
-    // 输出精度固定 6 位小数（产品规格「6位小数有限网格」），与界面一致，不提供位数切换。
-    // 解点 values 经 roundToGrid 吸附到 6 位网格，实际残差通常 ≤ 1e-9。
+    truncated: diagnostics.truncated,
     precisionDecimals: 6,
     solutionCount: sols.length,
-    recommended: recommended,
-    solutions: sols,
+    summary: summary,
+    recommended: recommendedClean,
+    solutions: cleanSols,
     warnings: r.warnings || [],
-    diagnostics: r.diagnostics || null
+    diagnostics: diagnostics
   };
 }
 
@@ -103,7 +151,7 @@ const TOOLS = [
       '不适用：纯符号推导/闭式证明、微分方程初值问题、整数/必不等于等强制约束（暂不支持）。' +
       '输入：equations 为含 "=" 的方程字符串数组，如 ["x^2+y^2=25","x+y=7"]；variables 可选（不填自动识别，最多6个）；domain 可选（如 {"x":[-30,30]}），否则默认每变量 ±1e6。' +
       '硬限制：变量 ≤6；方程 1–64 条且数量须 ≥ 变量数；单次方程文本 ≤100KB；输出固定 6 位小数（不可切换）。' +
-      '输出（JSON）：resultType=empty(严格证无实数解)/finite(有限已验证解)/infinite(无限解集，仅给距原点最近推荐解)；solutions[] 每解含 values[] 与 tier(proven=Krawczyk已认证/likely/candidate) 及 residual；certified=是否全proven；recommended=距原点最近解。' +
+      '输出（JSON）：resultType=empty(严格证无实数解)/finite(有限已验证解)/infinite(无限解集，仅给距原点最近推荐解)；summary=中文一句话总览；solutions[] 每解含 values[](6位小数数值)、tier(proven=Krawczyk已认证/likely/candidate)、certified、text(人类可读如"x=4.000000, y=3.000000")，残差等内部数值收在 internals 子块(机器可跳过)；certified=是否全proven；recommended=距原点最近解的精简结构。' +
       'truncated=true：预算内未完成全局分支判定、未证明已穷尽——不等于一定漏解，多数情况全部真解已找到；极端病态下可能遗漏个别解，可缩 domain 或提高 budget 重试。' +
       '错误返回 error.type（invalid_input=输入不合法/超限，internal_error=内部异常）。遇卡点或认为结果有误，请调用 give_feedback（内容仅落本地日志，不外传）。相同输入永远返回完全相同结果，可安全缓存与重复调用。',
     inputSchema: {
