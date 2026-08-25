@@ -184,12 +184,15 @@ PORT=3000 node http-mcp-server.js
   "truncated": false,
   "precisionDecimals": 6,
   "solutionCount": 2,
-  "recommended": { "values": [3, 4], "tier": "proven", "residual": 0 },
-  "solutions": [ { "values": [3, 4], "tier": "proven", "residual": 0 }, ... ],
+  "summary": "找到 2 个实数解（全部经 Krawczyk 区间认证）。",
+  "recommended": { "values": [3, 4], "tier": "proven", "certified": true, "text": "x=3.000000, y=4.000000", "internals": { "residual": 0, "certifiedRadius": 0.00001 } },
+  "solutions": [ { "values": [3, 4], "tier": "proven", "certified": true, "text": "x=3.000000, y=4.000000", "internals": { "residual": 0, "certifiedRadius": 0.00001 } }, ... ],
   "warnings": []
 }
 ```
 - `resultType`：`1=empty(无解)` / `2=finite(有限解)` / `3=infinite(无限解集，仅给距原点最近的推荐解)`。
+- `summary`：中文一句话总览，适合直接展示给用户或日志。
+- 每解字段：`values`（6 位小数数值数组）、`tier`、`certified`、`text`（人类可读，如 `"x=3.000000, y=4.000000"`）；残差等内部数值收在 `internals` 子块，机器可整块跳过以降低 token 噪音。
 - `tier`：`proven`（Krawczyk 认证）/ `candidate`（未证但可能为解）/ `structural`（结构推导）。
 
 ### 工具二：`give_feedback`

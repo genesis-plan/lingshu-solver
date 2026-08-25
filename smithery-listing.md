@@ -71,7 +71,7 @@
 ```json
 {
   "name": "solve",
-  "description": "确定性实数方程组求解（非大模型、无随机、同输入输出可复现）。输入含 '=' 的方程字符串数组与可选变量名/域约束，返回结构化结果：resultType(empty/finite/infinite)、每解含 values 与 tier(proven/likely/candidate) 及 residual、certified、recommended、truncated。变量≤6、方程≥变量数(≤64护栏)、默认域±1e6、固定6位小数。truncated=true表示未证明已穷尽（不等于一定漏解）。遇问题可调用 give_feedback。",
+  "description": "确定性实数方程组求解（非大模型、无随机、同输入输出可复现）。输入含 '=' 的方程字符串数组与可选变量名/域约束，返回结构化结果：resultType(empty/finite/infinite)、summary(中文总览)、每解含 values(6位小数) 与 tier(proven/likely/candidate)、certified、text(人类可读)、internals(内部残差等，机器可跳过)、recommended、truncated。变量≤6、方程≥变量数(≤64护栏)、默认域±1e6、固定6位小数。truncated=true表示未证明已穷尽（不等于一定漏解）。遇问题可调用 give_feedback。",
   "inputSchema": {
     "type": "object",
     "properties": {
