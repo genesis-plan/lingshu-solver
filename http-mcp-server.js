@@ -141,7 +141,7 @@ const TOOLS = [
 ];
 
 // ---- JSON-RPC 处理（与 stdio 版 handle 同构，改为返回对象）----
-function handleRpc(msg) {
+function handleRpc(msg, ip) {
   const id = msg.id;
   const method = msg.method;
   const params = msg.params || {};
@@ -176,7 +176,7 @@ function handleRpc(msg) {
       }
       const dt = Date.now() - t0;
       appendLog({
-        ts: new Date().toISOString(), tool: name, status: 'ok',
+        ts: new Date().toISOString(), ip: ip, tool: name, status: 'ok',
         dtMs: dt, resultType: result.resultType, nSol: result.solutionCount,
         truncated: result.truncated
       });
@@ -185,7 +185,7 @@ function handleRpc(msg) {
       const dt = Date.now() - t0;
       const errObj = (e && e.type) ? e : { type: 'internal_error', message: (e && e.message) || String(e) };
       appendLog({
-        ts: new Date().toISOString(), tool: name, status: 'error',
+        ts: new Date().toISOString(), ip: ip, tool: name, status: 'error',
         dtMs: dt, errorType: errObj.type
       });
       return {
@@ -225,6 +225,7 @@ const server = http.createServer((req, res) => {
 
   // MCP 端点：Streamable HTTP
   if (req.method === 'POST' && req.url === '/mcp') {
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').toString().split(',')[0].trim();
     const sessionId = req.headers['mcp-session-id'] || crypto.randomUUID();
     if (!sessions.has(sessionId)) sessions.set(sessionId, { createdAt: Date.now() });
 
@@ -243,7 +244,7 @@ const server = http.createServer((req, res) => {
       const responses = [];
       for (const m of batch) {
         if (m && m.jsonrpc === '2.0') {
-          const r = handleRpc(m);
+          const r = handleRpc(m, ip);
           if (r !== null) responses.push(r);
         }
       }
