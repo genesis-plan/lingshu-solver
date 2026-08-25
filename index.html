@@ -1281,8 +1281,10 @@ function fuzzyFix(str) {
     s = s.replace(/÷/g, '/');
     // × → *
     s = s.replace(/×/g, '*');
-    // π → pi
-    s = s.replace(/π/g, 'pi');
+    // ASCII "pi" → Unicode "π"（交给下方隐式乘与 tokenizer 常量识别，避免 pi 被字母×字母规则误拆成 p*i）
+    s = s.replace(/\bpi\b/g, 'π');
+    // （π 保持原字符，交由下方隐式乘规则与 tokenizer 常量识别处理；
+    //  不再转为 'pi'，避免 2πx 粘连成假变量 pix 导致假阴性）
     // √( → sqrt( 以及 √x → sqrt(x)
     s = s.replace(/√\s*\(/g, 'sqrt(');
     s = s.replace(/√\s*([a-zA-Z_]\w*)/g, 'sqrt($1)');
@@ -1303,8 +1305,12 @@ function fuzzyFix(str) {
     // 匹配 lim(x → a, ...) 和 lim(x->a, ...)
     s = s.replace(/lim\s*\(\s*([a-zA-Z_]\w*)\s*(?:→|->)\s*([^,]+)\s*,\s*/g, 'lim($2, $1, ');
 
-    // 函数名跟变量，补括号: sin x -> sin(x)
-    s = s.replace(/(\b(?:sin|cos|tan|ln|exp|sqrt|log|log10|abs|diff|int|ode|lim|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|floor|ceil|gamma|log2|mod)\b)\s+([a-zA-Z_]\w*)/g, '$1($2)');
+    // 函数名跟变量（带空格），补括号: sin x -> sin(x)
+    // 注意：\b 开头；log10/log2 前置避免被 log 截走；函数名捕获为 $1、变量为 $2
+    s = s.replace(/\b(log10|log2|sin|cos|tan|ln|exp|sqrt|log|abs|diff|int|ode|lim|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|floor|ceil|gamma|mod)\s+([a-zA-Z_]\w*)/g, '$1($2)');
+
+    // 函数名紧跟变量无空格无括号，也补括号: sin2x -> sin(2x)（与上方带空格的 sin x 互补；sin(x)/sin(2x) 因后是 ( 不参与匹配）
+    s = s.replace(/\b(log10|log2|sin|cos|tan|ln|exp|sqrt|log|abs|diff|int|ode|lim|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|floor|ceil|gamma|mod)([0-9a-zA-Z_.]+)/g, '$1($2)');
 
     // 保护科学计数法（数字后跟 e/E 和可选符号及数字，如 1e100, 2e+5, 3.5e-10）
     // 必须在隐式乘法规则之前执行，防止 1e100 被拆成 1*e100
@@ -1322,11 +1328,25 @@ function fuzzyFix(str) {
     s = s.replace(/log2\(/g, '§§LOG2§§');
     s = s.replace(/log10\(/g, '§§LOG10§§');
 
-    // 数字直接跟变量，插入乘号: 2x -> 2*x
-    s = s.replace(/(\d)([a-zA-Z_])/g, '$1*$2');
+    // 数字直接跟变量（含希腊字母如 π），插入乘号: 2x -> 2*x ; 2π -> 2*π
+    s = s.replace(/(\d)([a-zA-Z_\u0370-\u03FF])/g, '$1*$2');
 
     // 变量×变量并列: xy -> x*y （仅当两个字母均为孤立单字母，避免拆坏多字符变量名 x1/xvar、函数名 sin/cos 等；同时支持带空格 x y -> x*y）
-    s = s.replace(/(?<![\w.§])([a-zA-Z_\u0370-\u03FF])\s*([a-zA-Z_\u0370-\u03FF])(?![\w.§])/g, '$1*$2');
+    // 用循环重复替换，避免 JS String.replace 全局匹配不重叠导致 "xy z" 第一次吃掉 y 后 y z 漏拆
+    {
+        let _prev;
+        do {
+            _prev = s;
+            s = s.replace(/(?<![\w.§])([a-zA-Z_\u0370-\u03FF])\s*([a-zA-Z_\u0370-\u03FF])(?![\w.§])/g, '$1*$2');
+        } while (s !== _prev);
+    }
+
+    // 连续≥3 单字母（含希腊）标识符按单字母拆: xyz -> x*y*z（排除已知函数名；长度2已在上方 xy 规则处理；含数字如 x1y 不匹配故不误拆）
+    s = s.replace(/\b([a-zA-Z_\u0370-\u03FF]{3,})\b/g, function(m) {
+        const _f = ['sin','cos','tan','ln','exp','sqrt','log','log10','abs','diff','int','ode','lim','cot','sec','csc','arcsin','arccos','arctan','sinh','cosh','tanh','floor','ceil','gamma','log2','mod'];
+        if (_f.includes(m)) return m;
+        return m.split('').join('*');
+    });
 
     // 数字跟左括号: 2(x -> 2*(x
     s = s.replace(/(\d)\(/g, '$1*(');
