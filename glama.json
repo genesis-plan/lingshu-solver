@@ -1,0 +1,19 @@
+{
+  "$schema": "https://glama.ai/mcp/schema/manifest.json",
+  "name": "Lingshu Solver",
+  "description": "Deterministic (non-LLM) algebraic equation-system solver for AI agents and people. Returns all real solutions, each verified and mathematically faithful, with best-effort global exhaustion. Runs in the browser or as an MCP tool. Free, zero dependencies.",
+  "homepage": "https://genesis-plan.github.io/lingshu-solver/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/genesis-plan/lingshu-solver"
+  },
+  "license": "Apache-2.0",
+  "version": "1.0.0",
+  "mcpServers": {
+    "lingshu-solver": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "lingshu-solver"]
+    }
+  }
+}
