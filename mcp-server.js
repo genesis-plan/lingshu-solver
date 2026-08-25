@@ -142,14 +142,13 @@ const TOOLS = [
   }
 ];
 
-// ---- stdio 字节级分帧（中文"∈"必踩坑，必须 Buffer 字节级）----
-let buf = Buffer.alloc(0);
-const SEP = Buffer.from('\r\n\r\n');
+// ---- stdio 帧格式：换行符分隔的 JSON（与官方 MCP SDK 客户端一致）----
+// 官方 SDK 的 serializeMessage 写 `JSON + '\n'`，ReadBuffer 按行解析；
+// 故服务端也必须用同样格式收发，否则 Claude/Cursor/Cline 等 stdio 客户端收不到响应。
+let lineBuf = '';
 
 function send(obj) {
-  const body = Buffer.from(JSON.stringify(obj), 'utf8');
-  const header = Buffer.from('Content-Length: ' + body.length + '\r\n\r\n', 'utf8');
-  process.stdout.write(Buffer.concat([header, body]));
+  process.stdout.write(JSON.stringify(obj) + '\n');
 }
 
 function handle(msg) {
@@ -203,10 +202,11 @@ function handle(msg) {
         ts: new Date().toISOString(), tool: name, status: 'error',
         dtMs: dt, errorType: errObj.type
       });
-      // 结构化错误，绝不回堆栈（MCP 规范 error 字段）
+      // 工具级错误：返回 isError=true 的工具结果（而非 JSON-RPC error 帧），
+      // 让接入的 LLM 能读到结构化错误并自我纠正，而不是收到一个异常。
       send({
         jsonrpc: '2.0', id,
-        error: { code: -32603, message: JSON.stringify(errObj) }
+        result: { content: [{ type: 'text', text: JSON.stringify(errObj, null, 2) }], isError: true }
       });
     }
     return;
@@ -215,25 +215,21 @@ function handle(msg) {
 }
 
 function pump() {
-  let i;
-  while ((i = buf.indexOf(SEP)) !== -1) {
-    const header = buf.slice(0, i).toString('utf8');
-    const m = /Content-Length:\s*(\d+)/i.exec(header);
-    if (!m) { buf = buf.slice(i + 4); continue; }
-    const len = +m[1];
-    const start = i + 4;
-    if (buf.length < start + len) return; // 字节级判断，避免半帧误判
-    const raw = buf.slice(start, start + len).toString('utf8');
-    buf = buf.slice(start + len);
+  let nl;
+  while ((nl = lineBuf.indexOf('\n')) !== -1) {
+    const line = lineBuf.slice(0, nl).replace(/\r$/, '');
+    lineBuf = lineBuf.slice(nl + 1);
+    if (!line.trim()) continue;
     try {
-      const msg = JSON.parse(raw);
+      const msg = JSON.parse(line);
       if (msg && msg.jsonrpc === '2.0') handle(msg);
-    } catch (_e) { /* 畸形帧忽略 */ }
+    } catch (_e) { /* 畸形行忽略 */ }
   }
 }
 
-process.stdin.on('data', (c) => {
-  buf = Buffer.concat([buf, c]);
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  lineBuf += chunk;
   pump();
 });
 // 不强制 process.exit，避免最后一个响应帧被截断丢失

@@ -195,7 +195,7 @@ function handleRpc(msg, ip) {
       });
       return {
         jsonrpc: '2.0', id,
-        error: { code: -32603, message: JSON.stringify(errObj) }
+        result: { content: [{ type: 'text', text: JSON.stringify(errObj, null, 2) }], isError: true }
       };
     }
   }
@@ -263,6 +263,13 @@ const server = http.createServer((req, res) => {
       }
     });
     return;
+  }
+
+  // MCP 端点仅接受 POST。GET（SSE 流）/ DELETE（会话终止）本服务不支持，
+  // 按 MCP Streamable HTTP 规范返回 405（而非 404），避免真实客户端误报 onerror。
+  if (req.url === '/mcp') {
+    res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', 'Allow': 'POST' });
+    return res.end('Method Not Allowed. MCP endpoint accepts POST only.');
   }
 
   // 其它：404
