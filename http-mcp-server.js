@@ -44,6 +44,8 @@ function appendLog(p) {
 // ---- 求解结果整理（与 stdio 版逐字一致）----
 // 数值格式化：固定 6 位小数（产品规格「6位小数有限网格」），与界面一致。
 const fmt6 = (v) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(6) : String(v);
+// 确定性浮点吸附：消除 IEEE-754 末位 ULP 抖动，保证「同输入输出字节级可复现」
+const detF = (v) => (typeof v === 'number' && isFinite(v)) ? Number(v.toFixed(12)) : null;
 
 function shapeResult(r) {
   const sols = Array.isArray(r.solutions) ? r.solutions : [];
@@ -72,8 +74,8 @@ function shapeResult(r) {
       certified: !!s.certified,
       text: text,
       internals: {
-        residual: (typeof s.residual === 'number') ? s.residual : null,
-        certifiedRadius: (typeof s.certifiedRadius === 'number') ? s.certifiedRadius : null
+        residual: detF(s.residual),
+        certifiedRadius: detF(s.certifiedRadius)
       }
     };
   });
@@ -93,7 +95,7 @@ function shapeResult(r) {
     truncated: !!(r.truncated || meta.truncated),
     terminatedBy: meta.terminatedBy || null,
     provenCount: (typeof r.provenCount === 'number') ? r.provenCount : null,
-    completeness: (typeof r.completeness === 'number') ? r.completeness : null
+    completeness: detF(r.completeness)
   };
 
   return {

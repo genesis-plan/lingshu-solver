@@ -11128,7 +11128,7 @@ function _mergeGlobalBranch(state, gb) {
         budget: gb.budget
     };
     if (gb.residualBoxes.length > 0 && !state.result.warnings) state.result.warnings = [];
-    if (gb.residualBoxes.length > 0) state.result.warnings.push('全局区间分支在预算(' + gb.budget + '盒)内未完全判定，残余 ' + gb.residualBoxes.length + ' 个盒未证（非无解，仅未穷尽，可能含遗漏解）');
+    if (gb.residualBoxes.length > 0) state.result.warnings.push('全局区间分支在预算(' + gb.budget + '盒)内未完全判定（非无解，仅未穷尽，可能含遗漏解）');
     state.truncated = state.truncated || !gb.complete;
 }
 
