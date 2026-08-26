@@ -1337,7 +1337,7 @@ function fuzzyFix(str) {
         let _prev;
         do {
             _prev = s;
-            s = s.replace(/(?<![\w.§])([a-zA-Z_\u0370-\u03FF])\s*([a-zA-Z_\u0370-\u03FF])(?![\w.§])/g, '$1*$2');
+            s = s.replace(/(?<![\w.§])([a-zA-Z_\u0370-\u03FF])\s*([a-zA-Z_\u0370-\u03FF])(?![\w.§(])/g, '$1*$2');
         } while (s !== _prev);
     }
 
