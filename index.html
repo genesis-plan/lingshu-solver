@@ -5514,14 +5514,24 @@ function suan22(state) {
     // 而 1/x=0 这类在抽样点出现除零/无穷 → 自动排除，不会误判。
     var _eq0 = state.equations[0], _vn0 = state.varNames[0];
     var _probes = [-1000000, -100000, -10000, -1000, -100, -10, -1, 0, 1, 10, 100, 1000, 10000, 100000, 1000000];
-    var _ident = true, _allSameConst = true, _firstVal = null;
+    var _ident = true, _allSameConst = true, _firstVal = null, _finiteCount = 0;
     for (var _pdi = 0; _pdi < _probes.length; _pdi++) {
         var _pv = {}; _pv[_vn0] = _probes[_pdi];
         var _pr = evalAST(_eq0, _pv);
-        if (_pr === null || _pr !== _pr || !isFinite(_pr)) { _ident = false; _allSameConst = false; break; }
+        if (_pr === null || _pr !== _pr || !isFinite(_pr)) { _ident = false; _allSameConst = false; continue; }
+        _finiteCount++;
         if (Math.abs(_pr) > 1e-5) _ident = false;
         if (_firstVal === null) _firstVal = _pr;
         else if (Math.abs(_pr - _firstVal) > 1e-5) _allSameConst = false;
+    }
+    // BUG-2 修复：x/0=1 这类方程在所有抽样点均非有限（处处除零/定义域错误/±∞），
+    // 说明左侧在定义域内无有限取值，对任意实数都不可能满足 =0 → 无实数解。
+    // 原逻辑遇到非有限点直接 break，导致恒等式/恒矛盾判定失效且漏判无解，
+    // 最终 fall through 到 suan47 全局分支定界空转满 8 秒(HARD_TIMEOUT)。
+    if (_finiteCount === 0) {
+        state.done = true;
+        state.result = { solutions: [], error: "NO_SOLUTION", message: "方程在定义域内处处无定义（抽样点均非有限，疑似分母恒为零或定义域错误），无实数解", executionPath: "单变量全域无定义检测", timeMs: performance.now() - state.startTime, confidence: "high", varNames: resultVarNames, resultType: 1, resultTypeName: "空结果", resultTypeDesc: "方程在所有抽样点均非有限，定义域内无实数满足等式" };
+        return;
     }
     if (_ident) {
         // 推荐解取声明域内距原点最近的点（声明域可能是 [5,10] 之类不含 0 的区间）
@@ -5779,7 +5789,11 @@ function suan22(state) {
     // 全域扫描证无解（2026-08-21）：域宽≤2e5 时扫描已全覆盖；无符号穿越且网格最小|f|远大于
     // 数值噪声（>1e-4）→ 按中间值定理判无实数解。杜绝 log(xy)=1, x+y=6 这类无解系统
     // 空耗 8 秒走分支定界指数递归（suan47 每层重跑完整流水线）。
-    if (allSolutions.length === 0 && _scanMinAbs !== Infinity && (_hi - _lo) <= 2e5 && !_scanCross && _scanMinAbs > 1e-4) {
+    // BUG-2 修复：x/0=1 这类"分母恒为 0 常量"方程，全域采样点因除零均返回 null（奇点），
+    // 使 _scanMinAbs 恒为 Infinity；原条件(_scanMinAbs!==Infinity)将其排除 → 漏判无解、fall through 到
+    // suan47 全局分支定界空转满 8 秒(HARD_TIMEOUT)。现扩展：全域无有限采样点(处处奇点/除零)
+    // 且无符号穿越时，同样按中间值定理判无实数解（等式在定义域处处无定义 → 无实数解）。
+    if (allSolutions.length === 0 && (_hi - _lo) <= 2e5 && !_scanCross && (_scanMinAbs === Infinity || _scanMinAbs > 1e-4)) {
         state.done = true;
         state.result = { solutions: [], error: "NO_SOLUTION", message: "单变量方程在声明域内扫描无零点：函数与零保持同号（最小距离 " + _scanMinAbs.toExponential(1) + "），按中间值定理判无实数解", executionPath: "单变量全域扫描证无解", timeMs: performance.now() - state.startTime, confidence: "high", varNames: resultVarNames, resultType: 1, resultTypeName: "空结果", resultTypeDesc: "扫描全域无符号穿越且未触零，按中间值定理判无实数解" };
         return;
