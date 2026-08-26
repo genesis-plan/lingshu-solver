@@ -1156,9 +1156,9 @@ function tokenize(str) {
 
         // 变量名或函数名（支持英文字母、下划线、希腊字母——θ/α/β 等数学惯例变量名；
         // π 在常量检查中保持为圆周率常数，其余希腊字母视为普通变量）
-        if (/[a-zA-Z_\u0370-\u03FF]/.test(ch)) {
+        if (/[a-zA-Z_\u0370-\u03FF\u2080-\u209F]/.test(ch)) {
             let name = '';
-            while (i < str.length && /[a-zA-Z0-9_\u0370-\u03FF]/.test(str[i])) {
+            while (i < str.length && /[a-zA-Z0-9_\u0370-\u03FF\u2080-\u209F]/.test(str[i])) {
                 name += str[i];
                 i++;
             }
@@ -1197,6 +1197,22 @@ function tokenize(str) {
     }
 
     return tokens;
+}
+
+// ASCII 希腊字母名 → Unicode 符号（如 theta→θ, alpha→α），便于用常见拼写输入希腊变量名。
+// 排除已被占用的 gamma(函数 gamma) 与 pi(常数 π)，避免与既有行为冲突。
+function _greekNameToSymbol(s) {
+    var MAP = {
+        'alpha':'α','beta':'β','delta':'δ','epsilon':'ε','zeta':'ζ','eta':'η',
+        'theta':'θ','iota':'ι','kappa':'κ','lambda':'λ','mu':'μ','nu':'ν','xi':'ξ',
+        'omicron':'ο','rho':'ρ','sigma':'σ','tau':'τ','upsilon':'υ','phi':'φ',
+        'chi':'χ','psi':'ψ','omega':'ω',
+        'Alpha':'Α','Beta':'Β','Delta':'Δ','Epsilon':'Ε','Zeta':'Ζ','Eta':'Η',
+        'Theta':'Θ','Iota':'Ι','Kappa':'Κ','Lambda':'Λ','Mu':'Μ','Nu':'Ν',
+        'Xi':'Ξ','Omicron':'Ο','Rho':'Ρ','Sigma':'Σ','Tau':'Τ','Upsilon':'Υ',
+        'Phi':'Φ','Chi':'Χ','Psi':'Ψ','Omega':'Ω'
+    };
+    return String(s).replace(/\b([A-Za-z]+)\b/g, function(m){ return MAP.hasOwnProperty(m) ? MAP[m] : m; });
 }
 
 function fuzzyFix(str) {
@@ -1283,6 +1299,10 @@ function fuzzyFix(str) {
     s = s.replace(/×/g, '*');
     // ASCII "pi" → Unicode "π"（交给下方隐式乘与 tokenizer 常量识别，避免 pi 被字母×字母规则误拆成 p*i）
     s = s.replace(/\bpi\b/g, 'π');
+    // ASCII 希腊字母名 → Unicode 符号（alpha→α, theta→θ, ...），便于用常见拼写声明变量名。
+    // 须在隐式乘/单字母拆解规则之前执行，使 theta 先归一化为 θ 再走后续规则，避免被拆成 t*h*e*t*a。
+    // 函数名（sin/cos…）及被占用的 gamma/pi 不在映射表内，不受影响。
+    s = _greekNameToSymbol(s);
     // （π 保持原字符，交由下方隐式乘规则与 tokenizer 常量识别处理；
     //  不再转为 'pi'，避免 2πx 粘连成假变量 pix 导致假阴性）
     // √( → sqrt( 以及 √x → sqrt(x)
@@ -10234,18 +10254,39 @@ function solve(equationStrs, varNames, decimals, initialD0, fastMode, opts) {
         if (_solveRecursionCount > 500) {
             return { solutions: [], resultType: 1, error: "RECURSION_LIMIT", message: "递归调用次数超过限制（500），可能存在矛盾或无限分裂", executionPath: "递归保护", timeMs: 0, varNames: varNames || [] };
         }
-        // === 变量名冲突保护：用户声明 'e' 为变量时，tokenize 会把 'e' 误当欧拉常数 ===
-        // （tokenize 1177 行：name==='e' → Math.E）。在解析前把方程中的独立标识符 e
-        // 替换为占位变量 _E，让 tokenize 走 var 分支；输出时 varNames 仍映射回 'e'。
-        // 未声明 e 为变量时保持原行为（e 仍是欧拉常数，如 exp(x)=e 之类）。
-        if (varNames && varNames.indexOf('e') >= 0 && equationStrs) {
-            var _eqsPatched = equationStrs.map(function(eqStr) {
+        // === 变量名归一化（声明表与方程同步，解析前统一处理）===
+        // (2) 希腊字母名 → Unicode 符号：用户用常见拼写（theta/alpha/...）声明变量时，
+        //     把 varNames 与方程中的同名标识符统一映射为符号（θ/α/...），保证变量表与方程一致。
+        //     映射表不含函数名与被占用的 gamma/pi，且对已是 Unicode 符号的变量名幂等。
+        // (1) 变量名 'e' 保护：tokenize 会把独立标识符 e 误当欧拉常数（Math.E），
+        //     仅在用户声明 e 为变量时才把方程中的独立 e 替换为占位符 ₑ（U+2091 拉丁下标 e）。
+        //     选 ₑ 而非原 _E：ₑ 属 tokenize 下标段 \u2080-\u209F，却不在 fuzzyFix 隐式乘分裂字符类
+        //     [a-zA-Z_\u0370-\u03FF] 内，故不会被 xy→x*y 规则拆成 _*E（这是上一版 _E 占位符的失效根因）。
+        // 两项都在解析前完成，统一走 _solveImpl 一次，避免早期返回导致另一项漏做。
+        if (varNames && equationStrs) {
+            var _vnNorm = varNames.map(function(vn) { return _greekNameToSymbol(vn); });
+            var _eqsNorm = equationStrs.map(function(eqStr) {
                 if (typeof eqStr !== 'string') return eqStr;
-                return eqStr.replace(/(^|[^A-Za-z0-9_])e(?=$|[^A-Za-z0-9_])/g, '$1_E');
+                return _greekNameToSymbol(eqStr);
             });
-            // 变量表同步替换 e → _E
-            var _vnPatched = varNames.map(function(vn) { return vn === 'e' ? '_E' : vn; });
-            return _solveImpl(_eqsPatched, _vnPatched, decimals, initialD0, fastMode, opts);
+            // e 保护：基于已希腊映射的变量表判断是否声明了 e
+            if (_vnNorm.indexOf('e') >= 0) {
+                _eqsNorm = _eqsNorm.map(function(eqStr) {
+                    if (typeof eqStr !== 'string') return eqStr;
+                    return eqStr.replace(/(^|[^A-Za-z0-9_])e(?=$|[^A-Za-z0-9_])/g, '$1ₑ');
+                });
+                _vnNorm = _vnNorm.map(function(vn) { return vn === 'e' ? 'ₑ' : vn; });
+            }
+            // 仅当声明表/方程确有改变才走归一化路径（含希腊名或声明了 e 两种情况），
+            // 纯 ASCII 输入保持原路径，行为完全不变，避免回归。
+            var _changed = false;
+            for (var _i = 0; _i < _vnNorm.length; _i++) { if (_vnNorm[_i] !== varNames[_i]) { _changed = true; break; } }
+            if (!_changed) {
+                for (var _j = 0; _j < _eqsNorm.length; _j++) { if (_eqsNorm[_j] !== equationStrs[_j]) { _changed = true; break; } }
+            }
+            if (_changed) {
+                return _solveImpl(_eqsNorm, _vnNorm, decimals, initialD0, fastMode, opts);
+            }
         }
         return _solveImpl(equationStrs, varNames, decimals, initialD0, fastMode, opts);
     } finally {
