@@ -11134,14 +11134,17 @@ function _krawczykOnce(eqs, vns, xhat, r) {
     var Cd = iMatVec(C, d), K = []; for (var i6 = 0; i6 < n; i6++) K.push(iAdd(rToI(c[i6]), Cd[i6]));
     return { certified: iVecInterior(K, Xvec), box: Xvec, radius: r };
 }
-// 多半径尝试：任一半径收敛即证唯一（取最小成功半径，误差界最紧）
+// 多半径尝试：遍历全部候选半径，取【最小成功半径】作为误差界（注释与实现必须一致）。
+// 历史 bug：原实现是"取第一个成功"而 radii 顺序非单调（1e-5,1e-4,1e-6,1e-3），
+//   导致注释宣称"取最小"、实际可能返回 1e-5 而 1e-6 同样可证——对外承诺的"误差≤半径"被虚松。
 function krawczykCertify(eqs, vns, xhat, radii) {
     var rs = radii || [1e-5, 1e-4, 1e-6, 1e-3];
+    var best = null;
     for (var k = 0; k < rs.length; k++) {
         var res = _krawczykOnce(eqs, vns, xhat, rs[k]);
-        if (res.certified) return res;
+        if (res.certified && (best === null || res.radius < best.radius)) best = res;
     }
-    return { certified: false };
+    return best || { certified: false };
 }
 // 对 state.result.solutions 中每个有限孤立解尝试 Krawczyk 认证，写入 sol.certified / sol.certifiedRadius。
 function _certifySolutions(state) {
