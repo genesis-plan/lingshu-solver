@@ -75,6 +75,22 @@ show('7) 强依赖多项式 x^3-x=0 (3解, 验 AA 相依收缩)', ['x^3 - x = 0'
   const sols = r.solutions || [];
   console.log('  ✓ C1 整数约束诚实标注: 实数解 ±√2≈±1.414 已按实数域返回，并显式标"非整数未强制"');
 }
+// 裸表达式兼容性 + 诚实性回归（2026-08-31 修复）
+// 8) 缺等号的方程须按 "expr=0" 求解（用户直觉：x^2-1 即求 x^2-1=0 的根）
+{
+  const r = solve(['x^2-1'], ['x'], 6, undefined, false, {});
+  const sols = r.solutions || [];
+  assert(sols.length === 2, `裸表达式 x^2-1 须解 2 根（得 ${sols.length}）`);
+  const vals = sols.map(s => s && s.values && s.values[0]).sort((a, b) => a - b);
+  assert(Math.abs((vals[0] || 0) - (-1)) < 1e-6 && Math.abs((vals[1] || 0) - 1) < 1e-6, `裸表达式解须为 ±1`);
+}
+// 9) 畸形输入须诚实返回空集，且不得谎称"严格证明无解"（provenEmpty 不得为 true）
+{
+  const r = solve(['asdf'], ['x'], 6, undefined, false, {});
+  assert(r.resultType === 1 && (r.solutions || []).length === 0, '畸形输入须返回空集且无解');
+  assert(r.provenEmpty !== true, '畸形输入不得谎称 provenEmpty=true（严格证明无解）');
+  assert(/NO_SOLUTION|NO_EQUATION/.test(r.error || ''), `畸形输入须诚实标注 error=${r.error}`);
+}
 console.log('=== 完成 ===');
 if (failures > 0) {
   console.log(`✗ ${failures} 条断言失败`);

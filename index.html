@@ -10343,6 +10343,20 @@ if (typeof __LS_BRANCH_BUDGET === 'undefined') { __LS_BRANCH_BUDGET = 200; }
 
 function solve(equationStrs, varNames, decimals, initialD0, fastMode, opts) {
     _solveRecursionCount++;
+    // 兼容性归一化（诚实性 + 用户直觉）：用户常把「求 expr=0 的根」简写成裸表达式（如 "x^2-1"）。
+    // 缺等号的方程自动补 "=0"，既符合数学直觉，也避免被误判为「无方程」而谎称「严格证明无实数解」。
+    // 全角＝同样视为有等号；已有等号者原样透传，保证幂等、零回归。
+    if (equationStrs && equationStrs.length) {
+        equationStrs = equationStrs.map(function (eqStr) {
+            if (typeof eqStr !== 'string') return eqStr;
+            var _hasEq = eqStr.indexOf('=') !== -1 || eqStr.indexOf('＝') !== -1;
+            if (_hasEq) return eqStr;
+            // 约束/定义域表达式（含成员符 ∈ 或不等式运算符）交给 parseCondition 处理，不得补 "=0"，
+            // 否则会污染整数约束(x∈ℤ)、域约束(x∈[a,b])的识别（C1 回归）。
+            if (/[∈<>≤≥]/.test(eqStr)) return eqStr;
+            return eqStr + '=0';
+        });
+    }
     // 仅最外层调用初始化根计时与预算池；递归子调用继承，避免看门狗/预算被重置
     var _isRoot = !__LS_SOLVE_ACTIVE;
     if (_isRoot) {

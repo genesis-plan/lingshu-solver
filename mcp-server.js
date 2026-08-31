@@ -84,7 +84,17 @@ function shapeResult(r) {
   // 人类可读总览（A）
   let summary;
   if (typeName === 'empty') {
-    summary = '严格证明：该方程组无实数解。';
+    // 诚实三档（产品「不幻觉」红线）：
+    //   NO_EQUATION      → input 无法解析，绝不谎称证明；
+    //   provenEmpty=true → 经 sound 算子（结构恒正/恒负等）严格证明无解，可称「严格证明」；
+    //   其余空集          → 区间穷尽未找到，但未抬 provenEmpty 标志，只能称「未找到」，不得佯称证明。
+    if (r.error === 'NO_EQUATION' || (r.error && /NO_EQUATION|PARSE|UNRECOGNIZED|UNKNOWN/i.test(String(r.error)))) {
+      summary = '部分方程无法解析（疑似缺少 "=" 或含不支持的语法），未给出解。求 expr=0 的根可写 "expr=0"，或直接裸写 "expr"。';
+    } else if (r.provenEmpty === true) {
+      summary = '严格证明：该方程组无实数解。';
+    } else {
+      summary = '未找到实数解（未经标记严格证明不存在；可缩小定义域或提高预算重试）。';
+    }
   } else if (typeName === 'infinite') {
     summary = `无限解集；给出距原点最近的推荐解（共展示 ${sols.length} 个候选）。`;
   } else {
@@ -96,6 +106,7 @@ function shapeResult(r) {
   const diagnostics = {
     solverVersion: meta.solverVersion || null,
     truncated: !!(r.truncated || meta.truncated),
+    provenEmpty: !!(r.provenEmpty || meta.provenEmpty),
     terminatedBy: meta.terminatedBy || null,
     provenCount: (typeof r.provenCount === 'number') ? r.provenCount : null,
     completeness: detF(r.completeness)
