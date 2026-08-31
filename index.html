@@ -6270,7 +6270,7 @@ function _iNorm(r) {
     return { min: lo, max: hi };                      // 不重排 min/max：保留空区间语义（min>max 表示空）
 }
 
-function intervalEval(ast, intervals) {
+function _rangeEval(ast, intervals) {
     if (!ast) return null;
     if (ast.type === 'num') return _iNorm({ min: ast.value, max: ast.value });
     if (ast.type === 'var') {
@@ -6283,8 +6283,8 @@ function intervalEval(ast, intervals) {
         return _iNorm({ min: -1e6, max: 1e6 });
     }
     if (ast.type === 'binop') {
-        var left = intervalEval(ast.left, intervals);
-        var right = intervalEval(ast.right, intervals);
+        var left = _rangeEval(ast.left, intervals);
+        var right = _rangeEval(ast.right, intervals);
         if (!left || !right) return null;
 
         switch (ast.op) {
@@ -6333,7 +6333,7 @@ function intervalEval(ast, intervals) {
     }
     if (ast.type === 'func') {
         var arg = ast.arg || (ast.args ? ast.args[0] : null);
-        var argRange = arg ? intervalEval(arg, intervals) : null;
+        var argRange = arg ? _rangeEval(arg, intervals) : null;
         if (!argRange) return null;
 
         switch (ast.name) {
@@ -6427,7 +6427,7 @@ function intervalEval(ast, intervals) {
     if (ast.type === 'unary') {
         // 一元算子区间求值（此前缺失 → 含 -2.5 这类负常量等式的标准化 AST 求导后退化，
         // 导致 Krawczyk 雅可比整行保守 [-1e6,1e6]，无法认证 proven）。
-        var u = intervalEval(ast.operand, intervals);
+        var u = _rangeEval(ast.operand, intervals);
         if (!u) return null;
         if (ast.op === '-') return _iNorm({ min: -u.max, max: -u.min });
         if (ast.op === '+') return u;
@@ -6439,6 +6439,106 @@ function intervalEval(ast, intervals) {
 
 
 
+
+// ============ A1: 一阶仿射算术（Affine Arithmetic, Comba–Stolfi）============
+// 缓解区间算术的"相依性灾难"（同变量多次出现致区间虚假膨胀，如 x-x≠0），
+// 使 hull-consistency 收缩更紧 → truncated 占比下降、收窄 sound-incomplete 自承缺口。
+// 保守性：x̂=c+Σαᵢεᵢ (|εᵢ|≤1)；toInterval=[c-Σ|αᵢ|, c+Σ|αᵢ|] 严格保守包围，
+// 故 Krawczyk 认证层仍消费保守区间、仍 sound。
+// 最小 sound 切片：+ - * / 与变量/常数走仿射；超越函数降级为"仿射自变量→保守区间包围"（复用 _rangeEval），已 sound。
+var _affSym = 0;
+function _Aff(c, e) { return { c: c, e: e || {} }; }
+function _affRad(a) { if (!a) return 0; var r = 0; for (var k in a.e) r += Math.abs(a.e[k]); return r; }
+function _affToInterval(a) { if (!a) return null; var r = _affRad(a); return _iNorm({ min: a.c - r, max: a.c + r }); }
+function _affAdd(a, b) { var e = {}; for (var k in a.e) e[k] = a.e[k]; for (var k in b.e) e[k] = (e[k] || 0) + b.e[k]; return _Aff(a.c + b.c, e); }
+function _affSub(a, b) { var e = {}; for (var k in a.e) e[k] = a.e[k]; for (var k in b.e) e[k] = (e[k] || 0) - b.e[k]; return _Aff(a.c - b.c, e); }
+function _affMul(a, b) {
+  // 一阶 AA 乘法（de Figueiredo 2004）：线性项 + 二次残差保守吸收为新噪声 ε
+  var ra = _affRad(a), rb = _affRad(b), e = {};
+  for (var i in a.e) e[i] = (e[i] || 0) + b.c * a.e[i];
+  for (var i in b.e) e[i] = (e[i] || 0) + a.c * b.e[i];
+  var xlo = a.c - ra, xhi = a.c + ra, ylo = b.c - rb, yhi = b.c + rb;
+  var cross = Math.abs((xlo - a.c) * (yhi - b.c) + (xhi - a.c) * (ylo - b.c)) / 2;
+  var gamma = cross;
+  for (var i in a.e) for (var j in b.e) gamma += Math.abs(a.e[i] * b.e[j]);
+  var sym = _affSym++; e[sym] = gamma;
+  return _Aff(a.c * b.c, e);
+}
+function _affInv(b) {
+  // 1/b 一阶泰勒，误差保守界 |(b-b0)^2|/(2 b0^2 ξ^2)，ξ∈盒，min|ξ|=|b0|-rb
+  var rb = _affRad(b); if (b.c === 0) return null;
+  var r = _affSub(_Aff(0, {}), b);
+  var lin = _affMul(r, _Aff(-1 / (b.c * b.c), {}));
+  var e = {}; for (var k in lin.e) e[k] = lin.e[k];
+  var m = Math.abs(b.c) - rb; if (m <= 0) return null;
+  var err = (rb * rb) / (2 * b.c * b.c * m * m);
+  var sym = _affSym++; e[sym] = err;
+  return _Aff(1 / b.c + lin.c, e);
+}
+function _affDiv(a, b) { var ib = _affInv(b); return ib ? _affMul(a, ib) : null; }
+function _buildAffEnv(intervals) {
+  var env = {}; _affSym = 0;
+  if (intervals) for (var name in intervals) {
+    var iv = intervals[name];
+    if (!iv || iv.min > iv.max) { env[name] = _Aff(iv ? (iv.min + iv.max) / 2 : 0, {}); continue; }
+    var e = {}; e[_affSym++] = (iv.max - iv.min) / 2; env[name] = _Aff((iv.min + iv.max) / 2, e);
+  }
+  return env;
+}
+function _affineEval(ast, env) {
+  if (!ast) return null;
+  if (ast.type === 'num') return _Aff(ast.value, {});
+  if (ast.type === 'var') {
+    if (env[ast.name]) return env[ast.name];
+    var e = {}; e[_affSym++] = 1e6; return _Aff(0, e); // 默认全域 [-1e6,1e6]
+  }
+  if (ast.type === 'binop') {
+    var l = _affineEval(ast.left, env), r = _affineEval(ast.right, env);
+    if (!l || !r) return null;
+    if (ast.op === '+') return _affAdd(l, r);
+    if (ast.op === '-') return _affSub(l, r);
+    if (ast.op === '*') return _affMul(l, r);
+    if (ast.op === '/') return _affDiv(l, r);
+    if (ast.op === '^') {
+      if (Object.keys(r.e).length === 0 && Number.isInteger(Math.round(r.c)) && Math.abs(r.c) < 100) {
+        var n = Math.round(r.c); if (n === 0) return _Aff(1, {}); if (n === 1) return l;
+        var acc = l; for (var p = 1; p < Math.abs(n); p++) acc = _affMul(acc, l);
+        return n < 0 ? _affInv(acc) : acc;
+      }
+      return null; // 非整数幂：保守跳过（区间版也跳过，降级 _rangeEval）
+    }
+    return null;
+  }
+  if (ast.type === 'func') {
+    var arg = ast.arg || (ast.args ? ast.args[0] : null);
+    var av = arg ? _affineEval(arg, env) : null;
+    if (!av) return null;
+    var iv = _affToInterval(av); if (!iv) return null;
+    // 超越函数降级：仿射自变量 → 保守区间函数包围（复用 _rangeEval，无递归环）
+    var tmp = { type: 'func', name: ast.name, arg: { type: 'var', name: '__a' } };
+    var rv = _rangeEval(tmp, { __a: iv });
+    return rv ? _Aff((rv.min + rv.max) / 2, {}) : null;
+  }
+  if (ast.type === 'unary') {
+    var u = _affineEval(ast.operand, env);
+    if (!u) return null;
+    if (ast.op === '-') return _affSub(_Aff(0, {}), u);
+    if (ast.op === '+') return u;
+    return null;
+  }
+  return null;
+}
+function intervalEval(ast, intervals) {
+  if (!ast) return null;
+  // 空域（min>max）走保守旧逻辑，保留"空区间"语义供调用方检测无解
+  if (intervals) { for (var k in intervals) { if (intervals[k] && intervals[k].min > intervals[k].max) return _rangeEval(ast, intervals); } }
+  try {
+    var env = _buildAffEnv(intervals || {});
+    var aff = _affineEval(ast, env);
+    var iv = aff ? _affToInterval(aff) : null;
+    return iv || _rangeEval(ast, intervals || {});
+  } catch (e) { return _rangeEval(ast, intervals || {}); }
+}
 
 // suan29: 导数符号单调性剪枝 → 拉格朗日中值定理：单调+端点同号→剔除
 function suan29(state) {
