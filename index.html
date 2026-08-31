@@ -4161,11 +4161,11 @@ function picardSolve(exprAST, xVar, yVar, x0, y0, x1, vars, steps) {
     var n = steps || 100;
     var h = (x1 - x0) / n;
     var cx = x0, cy = y0;
-    // Picard 迭代：先用 RK4 作为初始猜测，然后 Picard 校正
-    // 但这里我们直接用 RK4 风格，因为纯 Picard 需要多次全局迭代
-
-    // 纯 Picard 迭代：y_{k+1}(x) = y0 + ∫_{x0}^{x} f(t, y_k(t)) dt
-    // 这里我们实现一个简化版本：在每一步用前一步的 y 值做梯形积分
+    // 实现：Heun / 显式梯形法（二阶 Runge-Kutta, RK2）——非 Picard 迭代，亦非 RK4。
+    // 每步：用当前点斜率 k1 预测 yPred，再用预测点斜率 k2 做梯形平均：cy ← cy + h·(k1+k2)/2。
+    // 收敛性：enhancedODESolve 已在派发前用 isContractionMapping(L·h<1) 确认压缩成立，
+    //   故该二阶方法在步长内稳定收敛（无需多次全局 Picard 迭代）。
+    // 注：函数名 picardSolve 为历史命名（保留以免改动调度引用）；方法实质是 RK2。
 
     for (var i = 0; i < n; i++) {
         var xNext = cx + h;
