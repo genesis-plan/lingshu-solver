@@ -66,6 +66,14 @@ show('3) 空集无解', ['x+y=3', 'x+y=5'], ['x', 'y'], undefined, { nSol: 0 });
 show('4) 圆×双曲线 (4解)', ['x^2 + y^2 = 4', 'x*y = 1'], ['x', 'y'], undefined, { nSol: 4 });
 show('5) 高频+域 (截断, 仅验不崩不伪)', ['sin(20*x)=0.5', 'sin(20*y)=0.5'], ['x', 'y'], { x: [-30, 30], y: [-30, 30] });
 show('6) 无限解推荐 (1候选)', ['x+y=3'], ['x', 'y'], undefined, { nSol: 1 });
+// C1: 整数约束诚实标注（不得静默实数化）——独立用例，断言结构化标志
+{
+  const r = solve(['x^2 = 2', 'x∈ℤ'], ['x'], 1, undefined, false, {});
+  assert(r.integerConstraintUnenforced === true, 'C1: 整数约束须结构化标注 integerConstraintUnenforced=true（不再静默实数化）');
+  assert(Array.isArray(r.warnings) && r.warnings.some(w => /整数约束/.test(w)), 'C1: warnings 须含整数约束提示文字');
+  const sols = r.solutions || [];
+  console.log('  ✓ C1 整数约束诚实标注: 实数解 ±√2≈±1.414 已按实数域返回，并显式标"非整数未强制"');
+}
 console.log('=== 完成 ===');
 if (failures > 0) {
   console.log(`✗ ${failures} 条断言失败`);

@@ -1503,7 +1503,7 @@ function parseCondition(str) {
 
     // ---- 模式5: x∈Z, x∈ℤ, x∈N, x∈ℕ → 仅警告 ----
     if (s.match(/^[a-zA-Z_\u0370-\u03FF]\w*\u2208[Z\u2124N\u2115]$/)) {
-        return { type: 'warn', message: '整数约束无法在当前求解器中强制执行，将按实数域求解' };
+        return { type: 'warn', kind: 'integer-unenforced', message: '整数约束(x∈ℤ/ℕ)无法在当前求解器中强制执行；已按实数域求解，返回的解不一定为整数，请知悉（未静默忽略）' };
     }
 
     // ---- 模式6: x≠a, x!=a → 仅警告 ----
@@ -4371,6 +4371,7 @@ function suan1(state) {
     state.userEquations = [];
     state.domainConstraints = [];
     state.conditionWarnings = [];
+    state.integerConstraintUnenforced = false;
     state.inequalityConstraints = [];
 
     for (var i = 0; i < eqStrs.length; i++) {
@@ -4395,7 +4396,7 @@ function suan1(state) {
                     }
                     continue;
                 }
-                if (cond.type === "warn") { state.conditionWarnings.push(cond.message); continue; }
+                if (cond.type === "warn") { state.conditionWarnings.push(cond.message); if (cond.kind === 'integer-unenforced') state.integerConstraintUnenforced = true; continue; }
                 if (cond.type === "skip") continue;
             }
             var ineqMatch = eqStr.match(/^(.*?)\s*(<=|>=|<|>)\s*(.*)$/);
@@ -4430,7 +4431,7 @@ function suan1(state) {
             var cond = parseCondition(eqStr);
             if (cond) {
                 if (cond.type === "domain") { state.domainConstraints.push(cond); continue; }
-                if (cond.type === "warn") { state.conditionWarnings.push(cond.message); continue; }
+                if (cond.type === "warn") { state.conditionWarnings.push(cond.message); if (cond.kind === 'integer-unenforced') state.integerConstraintUnenforced = true; continue; }
             }
             continue;
         }
@@ -11300,6 +11301,10 @@ function _finish(state) {
                 state.result.warnings.push(state.conditionWarnings[_wi]);
             }
         }
+    }
+    // 结构化诚实标志：整数约束未强制（与 truncated 同级，供程序化/MCP 调用方可靠检测，不依赖解析警告文字）
+    if (state && state.result && state.integerConstraintUnenforced) {
+        state.result.integerConstraintUnenforced = true;
     }
     // 良定义过滤：在附加溯源元数据前，先把不良定义 / 越域的候选解剔除
     if (state && state.result && state.result.solutions && state.result.solutions.length) {
