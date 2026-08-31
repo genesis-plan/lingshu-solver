@@ -1,1 +1,66 @@
-IyDngbXmlbDmsYLop6Plmaggwrcg5a6M5ZaE6Lev57q/5Zu+77yIUm9hZG1hcO+8iQ0KDQo+IOacrOi3r+e6v+WbvuWFrOW8gO+8jOasoui/juS7u+S9leS6uumAmui/hyBbSXNzdWVzXShodHRwczovL2dpdGh1Yi5jb20vZ2VuZXNpcy1wbGFuL2xpbmdzaHUtc29sdmVyL2lzc3Vlcykg5o+Q5Y+N6aaI44CB5oqlIGJ1Z+OAgee7meW7uuiuruOAgg0KPiDkuqflk4Hlk7LlrabvvJoqKuWFiOiuqeWIq+S6uueUqOi1t+adpSDihpIg5LiA6LW35a6M5ZaEIOKGkiDmnIDlkI7miY3otZrpkrEqKuOAguW9k+WJjemYtuauteaYr+OAjOiuqeWIq+S6uueUqCArIOS4gOi1t+WujOWWhOOAjeOAgg0KDQotLS0NCg0KIyMg5b2T5YmN5bey5Y+R5biD77yIdjEuMC4w77yJDQoNCi0g4pyFIOe9kemhteeJiO+8iEdpdEh1YiBQYWdlc++8jOWPjOWHu+WNs+eUqO+8iQ0KLSDinIUgTUNQIOacjeWKoeerr++8iGBucHggLXkgbGluZ3NodS1zb2x2ZXJgIOS4gOihjOaOpeWFpSBDbGF1ZGUvQ3Vyc29yL0NsaW5l77yJDQotIOKchSDlt7Lpqozor4Hop6PmlbDlrabkv53nnJ/vvIhLcmF3Y3p5ayDorqTor4HvvIx0aWVyPXByb3Zlbu+8iQ0KLSDinIUg56a757q/44CB6Zu25L6d6LWW44CB6Zu25pWw5o2uDQotIOKchSDlm7rlrpogNiDkvY3lsI/mlbDnsr7luqbvvIzor5rlrp7moIforrAgYHRydW5jYXRlZGANCi0g4pyFIOS4ieWll+WbnuW9kuiAg+WNtyAyOCDnlKjkvosgMCDltKnmuoPvvIzlt7Lnn6Xop6Plkb3kuK0gMTAwJQ0KDQotLS0NCg0KIyMg5bey55+l5bGA6ZmQ77yI6K+a5a6e5YiX5Ye677yM5qyi6L+O5biu5Yqp6aqM6K+BL+aUuei/m++8iQ0KDQp8IOWxgOmZkCB8IOivtOaYjiB8IOW9k+WJjeeKtuaAgSB8DQp8LS0tfC0tLXwtLS18DQp8ICoq5p6B56uv55eF5oCB5Y+v6IO95ryP6KejKiogfCDpm4Xlj6/mr5Tpq5jluqblpYflvILjgIHop6PnsIfmnoHov5Hml7bvvIzpooTnrpflhoXlj6/og73pgZfmvI/kuKrliKvop6PvvIzmoIforrAgYHRydW5jYXRlZGAgfCDlt7Lor5rlrp7moIforrDvvIzmnKrmoLnmsrsgfA0KfCAqKum7mOiupOWfnyDCsTFlNiDliarmnp3lpLHmlYgqKiB8IOW/q+WinumVv+WHveaVsO+8iGV4cC9zaW5o77yJ5Zyo5aSn5Z+f5LiL5Ymq5p6d5Yqb5LiL6ZmN77yM5Y+v6IO9IGB0cnVuY2F0ZWRgIHwg5bu66K6u55So5oi35pi+5byP5LygIGBkb21haW5gIHwNCnwgKirku4Xlrp7mlbDop6MqKiB8IOS4jeaUr+aMgeWkjeaVsOinoyB8IOaaguS4jeaUr+aMgSB8DQp8ICoq4omkNiDlj5jph48qKiB8IOi2hei/hyA2IOWPmOmHj+S4jeWkhOeQhiB8IOinhOagvOmZkOWItiB8DQp8ICoq5peg56ym5Y+36KejKiogfCDov5Tlm57mlbDlgLzop6PvvIzkuI3ov5Tlm57op6PmnpDooajovr7lvI8gfCDorr7orqHlj5boiI0gfA0KDQotLS0NCg0KIyMg6K6h5YiS5Lit55qE5pS56L+b77yI5oyJ5LyY5YWI57qn77yJDQoNCiMjIyB2MS4xIMK3IOaYk+eUqOaAp++8iOi/keacn++8iQ0KLSBbIF0g572R6aG154mI5aKe5Yqg44CM5LiA6ZSu5aSN5Yi2IE1DUCDphY3nva7jgI3mjInpkq4NCi0gWyBdIOe9kemhteeJiOaUr+aMgeWIhuS6q+mTvuaOpe+8iOaKiuaWueeoi+e8lueggei/myBVUkzvvIkNCi0gWyBdIOabtOWkmuekuuS+i+imhueblui+ueeVjOaDheWGte+8iOeXheaAgeOAgeWkjeaVsOaPkOekuu+8iQ0KLSBbIF0g5aSa6K+t6KiAIFJFQURNRe+8iOiLseaWh+eJiO+8iQ0KDQojIyMgdjEuMiDCtyDog73lipvmianlsZUNCi0gWyBdIOWkjeaVsOino+aUr+aMge+8iOWunumqjOaAp++8iQ0KLSBbIF0g5Y+C5pWw5pa556iLIC8g5LiN562J5byP57qm5p2fDQotIFsgXSDmibnph4/msYLop6MgQVBJ77yI5LiA5qyh5aSa57uE5pa556iL77yJDQoNCiMjIyB2Mi4wIMK3IOaetuaehOa8lOi/m++8iOi/nOacn++8jOWRvOW6lOWOn+S4iemYtuauteinhOWIku+8iQ0KLSBbIF0g5LqR56uv5aSn5qih5Z6LIOKGkiDmnKzlnLDkuJPnlKggQUdJIOKGkiDniannkIYgQUkg55qE6KGU5o6l5o6i57SiDQotIFsgXSDkuI4gVEJBIOiDveWKm+aLk+aJkeS4jeWPmOmHj+eQhuiuuueahOa3seW6pue7k+WQiA0KDQotLS0NCg0KIyMg5aaC5L2V5Y+C5LiO5a6M5ZaEDQoNCjEuICoq55So6LW35p2lKirvvJrmiZPlvIAgW+e9kemhteeJiF0oaHR0cHM6Ly9nZW5lc2lzLXBsYW4uZ2l0aHViLmlvL2xpbmdzaHUtc29sdmVyLykg5oiW5o6l5YWlIE1DUOOAgg0KMi4gKirlj43ppogqKu+8mumBh+WIsOmUmeino+OAgeW0qea6g+OAgeaIlueUqOedgOS4jemhuuaJi++8jFvlvIAgSXNzdWVdKGh0dHBzOi8vZ2l0aHViLmNvbS9nZW5lc2lzLXBsYW4vbGluZ3NodS1zb2x2ZXIvaXNzdWVzKeOAgg0KICAgLSBCdWcg5qih5p2/5Lya6Zeu5L2g5pa556iL44CB5pyf5pyb57uT5p6c44CB5a6e6ZmF57uT5p6c4oCU4oCU54Wn552A5aGr5Y2z5Y+v44CCDQozLiAqKui0oeeMruS7o+eggSoq77yaRm9yayDihpIg5pS5IOKGkiDmj5AgUFLjgIJDSSDkvJroh6rliqjot5Hlm57lvZLmtYvor5XjgIINCg0KLS0tDQoNCiMjIOWVhuS4muWMlu+8iOacgOWQjuS4gOatpe+8jOW9k+WJjeS4jeWBmu+8iQ0KDQrotZrpkrHmmK/mnIDlkI7pmLbmrrXnmoTkuovjgILlvZPliY3miYDmnInlip/og73lhY3otLnjgIFBcGFjaGUgMi4wIOW8gOa6kOOAgg0K5b6F5Lqn5ZOB6KKr55yf5a6e5L2/55So44CB5Y+N6aaI5YWF5YiG44CB6IO95Yqb5omO5a6e5ZCO77yM5YaN6ICD6JmR77yaDQotIOWinuWAvOacjeWKoe+8iOWmgumrmOeyvuW6puaooeW8j+OAgeengeaciemDqOe9suaUr+aMge+8iQ0KLSDkuI7lub/lt54gT1BDIOWFrOWPuOWFtuS7luaKgOacr+i1hOS6p++8iFRCQSAvIOeDm+eFpyAvIFYxOS1WMjbvvInnmoTljY/lkIzkuqflk4ENCg0KPiDkuI3kuLvliqjmjqjlub/vvIzpnaDkuqflk4HlipvkuI4gQWdlbnQg55Sf5oCB6Ieq54S26KKr5Y+R546w44CCDQo=
+# 灵数求解器 · 完善路线图（Roadmap）
+
+> 本路线图公开，欢迎任何人通过 [Issues](https://github.com/genesis-plan/lingshu-solver/issues) 提反馈、报 bug、给建议。
+> 产品哲学：**先让别人用起来 → 一起完善 → 最后才赚钱**。当前阶段是「让别人用 + 一起完善」。
+
+---
+
+## 当前已发布（v1.0.0）
+
+- ✅ 网页版（GitHub Pages，双击即用）
+- ✅ MCP 服务端（`npx -y lingshu-solver` 一行接入 Claude/Cursor/Cline）
+- ✅ 已验证解数学保真（Krawczyk 认证，tier=proven）
+- ✅ 离线、零依赖、零数据
+- ✅ 固定 6 位小数精度，诚实标记 `truncated`
+- ✅ 三套回归考卷 28 用例 0 崩溃，已知解命中 100%
+
+---
+
+## 已知局限（诚实列出，欢迎帮助验证/改进）
+
+| 局限 | 说明 | 当前状态 |
+|---|---|---|
+| **极端病态可能漏解** | 雅可比高度奇异、解簇极近时，预算内可能遗漏个别解，标记 `truncated` | 已诚实标记，未根治 |
+| **默认域 ±1e6 剪枝失效** | 快增长函数（exp/sinh）在大域下剪枝力下降，可能 `truncated` | 建议用户显式传 `domain` |
+| **仅实数解** | 不支持复数解 | 暂不支持 |
+| **≤6 变量** | 超过 6 变量不处理 | 规格限制 |
+| **无符号解** | 返回数值解，不返回解析表达式 | 设计取舍 |
+
+---
+
+## 计划中的改进（按优先级）
+
+### v1.1 · 易用性（近期）
+- [ ] 网页版增加「一键复制 MCP 配置」按钮
+- [ ] 网页版支持分享链接（把方程编码进 URL）
+- [ ] 更多示例覆盖边界情况（病态、复数提示）
+- [ ] 多语言 README（英文版）
+
+### v1.2 · 能力扩展
+- [ ] 复数解支持（实验性）
+- [ ] 参数方程 / 不等式约束
+- [ ] 批量求解 API（一次多组方程）
+
+### v2.0 · 架构演进（远期，呼应原三阶段规划）
+- [ ] 云端大模型 → 本地专用 AGI → 物理 AI 的衔接探索
+- [ ] 与 TBA 能力拓扑不变量理论的深度结合
+
+---
+
+## 如何参与完善
+
+1. **用起来**：打开 [网页版](https://genesis-plan.github.io/lingshu-solver/) 或接入 MCP。
+2. **反馈**：遇到错解、崩溃、或用着不顺手，[开 Issue](https://github.com/genesis-plan/lingshu-solver/issues)。
+   - Bug 模板会问你方程、期望结果、实际结果——照着填即可。
+3. **贡献代码**：Fork → 改 → 提 PR。CI 会自动跑回归测试。
+
+---
+
+## 商业化（最后一步，当前不做）
+
+赚钱是最后阶段的事。当前所有功能免费、Apache 2.0 开源。
+待产品被真实使用、反馈充分、能力扎实后，再考虑：
+- 增值服务（如高精度模式、私有部署支持）
+- 与广州 OPC 公司其他技术资产（TBA / 烛照 / V19-V26）的协同产品
+
+> 不主动推广，靠产品力与 Agent 生态自然被发现。

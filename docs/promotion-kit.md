@@ -1,1 +1,104 @@
-IyDngbXmlbDmsYLop6Plmaggwrcg5o6o5bm/5pud5YWJ5L2c5oiY5YyFDQoNCj4g55uu5qCH77ya5Zyo44CM5aSH5qGI562J5b6F5pyf44CN5YaF77yM55SoKirkuI3kvp3otZblpIfmoYgvSFRUUFMqKiDnmoTmuKDpgZPorqnkuqflk4Hooqvnn6XpgZPjgIHooqvkvb/nlKjjgIINCj4g5ZCI6KeE6L6555WM77ya5Y+q5o6o5bm/5bey5ZCI6KeE5LiK57q/55qE5YWl5Y+j77yIQ09TIOWbveWGhee9kemhteeJiOOAgVBhZ2VzIOa1t+Wklue9kemhteeJiOOAgUdpdEh1YiBjbG9uZSDniYggTUNQ77yJ44CC5LiN5o6o5aSH5qGI5Lit5Z+f5ZCN44CB5LiN5byA572R56uZ44CB5LiN5YWs5byA6KO4IElQ44CCDQoNCi0tLQ0KDQojIyDkuIDjgIHkuqflk4HlrprkvY3or53mnK/vvIjlpI3liLbljbPnlKjvvIznoa7lrprmgKfpoobooZTvvIzor5rlrp7lj6PlvoTvvIkNCg0KKirkuIDlj6Xor53vvIjkuK3mlofvvIkqKg0KPiDngbXmlbDmsYLop6PlmajvvJrkuIDkuKoqKuehruWumuaApyoq55qE5pa556iL57uE5rGC6Kej5bel5YW344CC5ZCM5qC355qE6aKY5rC46L+c5b6X5Yiw5ZCM5qC355qE562U5qGI77yM5rKh5pyJ5aSn5qih5Z6L55qE6ZqP5py65LiO5bm76KeJ77yM5q+P5Liq6Kej6YO96IO95Zue5Luj6aqM6K+B44CC572R6aG15omT5byA5Y2z55So77yM5Lmf6IO95b2TIE1DUCDlt6Xlhbfnu5kgQUkg5pm66IO95L2T6LCD55So44CCDQoNCioq5LiA5Y+l6K+d77yI6Iux5paH77yJKioNCj4gTGluZ3NodSBTb2x2ZXIg4oCUIGEgKipkZXRlcm1pbmlzdGljKiogZXF1YXRpb24tc3lzdGVtIHNvbHZlci4gU2FtZSBpbnB1dCwgYWx3YXlzIHRoZSBzYW1lIHZlcmlmaWVkIGFuc3dlciDigJQgbm8gTExNIHJhbmRvbW5lc3MsIG5vIGhhbGx1Y2luYXRpb24uIFJ1bnMgaW4gdGhlIGJyb3dzZXIgb3IgYXMgYW4gTUNQIHRvb2wgZm9yIEFJIGFnZW50cy4NCg0KKiror5rlrp7moIfms6jvvIjliqHlv4Xkv53nlZnvvIzkuI3mib/or7oi5L+d6K+B5LiN5ryP6KejIu+8iSoqDQo+IOehruWumuaAp+eul+azle+8jOW3sumqjOivgeino+aVsOWtpuS/neecnyArIOWFqOWxgOept+WwveWwveWKm+iAjOS4uuOAguacgOWkmiA2IOS4quacquefpeaVsO+8iOaWueeoi+aVsOmhuyDiiaUg5Y+Y6YeP5pWw77yM5pegIjEw5pa556iLIuWwgemhtu+8ie+8jOiMg+WbtCDCsTEwMOS4h+OAgumAguWQiOS4quS6ui/kvJrorqEvQUkgQWdlbnQg55qE6L276YeP5pWw5YC85bel5YW344CCDQoNCi0tLQ0KDQojIyDkuozjgIHnjrDlnKjlsLHog73mj5DkuqTnmoTnm67lvZXvvIjlj6rpnIAgR2l0SHViIFVSTO+8jOS4jeWNoeWkh+ahiO+8iQ0KDQrmjInkvJjlhYjnuqfmjpLvvIzlhajpg6jlhY3otLnjgIHlj6rpnIDku5PlupPlnLDlnYAgYGh0dHBzOi8vZ2l0aHViLmNvbS9nZW5lc2lzLXBsYW4vbGluZ3NodS1zb2x2ZXJg77yaDQoNCnwg5LyY5YWI57qnIHwg5rig6YGTIHwg5o+Q5Lqk5pa55byPIHwg6K+05piOIHwNCnwtLS18LS0tfC0tLXwtLS18DQp8IFAwIHwgKiptY3BzZXJ2ZXJzLm9yZyoqIHwg572R6aG16KGo5Y2V5o+Q5LqkIHwgMSDlpKnmibnlh4bvvIznroDljZXvvIznq4vliLvmnInlj43lkJHpk77mjqUgfA0KfCBQMCB8ICoqYXdlc29tZS1tY3Atc2VydmVycyoqICg5MmvimIUpIHwgR2l0SHViIFBS77yIWUFNTO+8iSB8IOeUn+aAgeacgOmrmOabneWFie+8jFBSIOWItu+8jOW7uuiuruWFiOaciSBHbGFtYSBiYWRnZSB8DQp8IFAxIHwgKipjdXJzb3IuZGlyZWN0b3J5KiogfCDnvZHpobXmj5DkuqQgcGx1Z2luK01DUCB8IEN1cnNvciDnlKjmiLfnm7TmjqXlj5HnjrAgfA0KfCBQMSB8ICoqR2xhbWEqKiB8IOmcgCBgZ2xhbWEuanNvbmArYERvY2tlcmZpbGVgIHwg5ou/6LSo6YeP5YiGIGJhZGdl77yMYXdlc29tZSDnmoTlhaXlnLrliLggfA0KfCBQMSB8ICoqUHVsc2VNQ1AqKiB8IOe9kemhteaPkOS6pCB8IOWeguebtCBNQ1Ag5rWB6YePIHwNCnwgUDIgfCAqKk9mZmljaWFsIE1DUCBSZWdpc3RyeSoqIHwgYG1jcC1wdWJsaXNoZXJgIHwg5a6Y5pa55rOo5YaM6KGo77yM5pyA6auY5L+h5Lu7IHwNCnwgUDIgfCAqKkRvY2tlciBNQ1AgUmVnaXN0cnkqKiB8IOmcgCBEb2NrZXJmaWxlK0xJQ0VOU0UrU0VDVVJJVFkubWQgfCBQUiDliLYgfA0KDQo+IOazqO+8mlNtaXRoZXJ5IOWboOimgeaxguOAjOi/kOihjOS4reacjeWKoeWZqOeahCBIVFRQUyBVUkzjgI3vvIznrYkgYGhvbmdjaGVubGluZ2ppbmcuY29tYCDlpIfmoYjlkI7ooaXloavvvIzkuI3lnKjmnKzmnJ/jgIINCg0KLS0tDQoNCiMjIOS4ieOAgeWGheWuueenjeiNieaWh+ahiO+8iOWkjeWItuWNs+WPke+8jOiiq+WKqOiOt+Wuou+8iQ0KDQojIyMgMy4xIOefpeS5juWbnuetlOaooeadv++8iOaQnOOAjOaWueeoi+e7hOaAjuS5iOino+OAjeOAjOmdnue6v+aAp+aWueeoi+axguino+OAjeOAjEFJIOaAjuS5iOino+aWueeoi+OAjeetiemrmOa1gemHj+mXrumimOS4i+etlO+8iQ0KYGBgDQrlvojlpJrlt6XnqIsv6LSi5Yqh6Zeu6aKY5pyA57uI6YO96JC95oiQ5LiA5Liq6Z2e57q/5oCn5pa556iL57uE77yMRXhjZWwg6Kej5LiN5LqG44CB5omL566X5aSq5oWi44CCDQrmiJHlhpnkuobkuIDkuKrnuq/nvZHpobXnmoTmsYLop6PlmajvvIzkuI3nlKjoo4Xku7vkvZXkuJzopb/vvIzmiZPlvIDlsLHog73nlKjvvJoNCvCfkYkgaHR0cHM6Ly9oY2xqLTE0MDk3NTUyMjkuY29zLmFwLWd1YW5nemhvdS5teXFjbG91ZC5jb20vbGluZ3NodS1zb2x2ZXIvaW5kZXguaHRtbA0K77yI5rW35aSW6ZWc5YOP77yaaHR0cHM6Ly9nZW5lc2lzLXBsYW4uZ2l0aHViLmlvL2xpbmdzaHUtc29sdmVyL++8iQ0K5pyA5aSaIDYg5Liq5pyq55+l5pWw44CB5pa556iL5pWw5LiN6ZmQ77yI6aG7IOKJpSDlj5jph4/mlbDvvInvvIzlr7npnZ7nur/mgKfnmoTlgZrnoa7lrprmgKflhajlsYDmsYLop6PvvIzlt7Lpqozor4HnmoTop6Pkv53nnJ/jgIINCuavlOWmgiB4wrIrecKyPTI1LCB4K3k9NyDog73nm7TmjqXop6Plh7ogKDQsMykoMyw0KeOAguS5n+aPkOS+myBNQ1Ag54mI57uZIEFJIOaZuuiDveS9k+iwg+eUqOOAgg0KYGBgDQoNCiMjIyAzLjIgQ1NETiAvIOaOmOmHkSDmioDmnK/mloflpKfnurLvvIjmoIfpopjlkKvjgIzlrp7miJjjgI3jgIzku47pm7bjgI3vvIkNCi0g5qCH6aKY56S65L6L77ya44CK5LiN55So6KOF6L2v5Lu277yMNiDlj5jph4/pnZ7nur/mgKfmlrnnqIvnu4TmgI7kuYjnp5Lop6PvvJ/kuIDkuKrlvIDmupDmsYLop6PlmajnmoTlrp7ot7XjgIsNCi0g57uT5p6E77ya55eb54K5IOKGkiDmsYLop6Plmajljp/nkIbvvIjljLrpl7TliIbmlK/lrprnlYzvvIznmb3or53orrLvvInihpIg5Zyo57q/6K+V55So6ZO+5o6lIOKGkiDnu5kgQUkgQWdlbnQg55So55qEIE1DUCDmjqXlhaUg4oaSIOa6kOeggSBHaXRIdWINCi0g5paH5pyr57uf5LiA562+5ZCN5Z2XICsg572R6aG154mI6ZO+5o6l77yI5LiN5YaZ56Gs5bm/77yM5YaZ44CM6ZmE5byA5rqQ5bel5YW344CN77yJDQoNCiMjIyAzLjMg5YWs5LyX5Y+355+t5paH77yI56eB5Z+f5rKJ5reA77yJDQotIOagh+mimO+8muOAiuaIkeWBmuS6huS4quiDveino+aWueeoi+e7hOeahOe9kemhteW3peWFt++8jOWFjei0uee7mSBBSSDnlKjjgIsNCi0g55+t5paHICsg572R6aG154mI5LqM57u056CBL+mTvuaOpe+8jOW8leWvvOWIsCBHaXRIdWIg55yLIE1DUCDnlKjms5XjgIINCg0KIyMjIDMuNCBWMkVYIC8g5bCR5pWw5rS+77yI5Lit5paH5p6B5a6i77yJDQotIOW4lu+8muOAiuWIhuS6q+S4gOS4que6r+WJjeerr+aWueeoi+e7hOaxguino+WZqCArIE1DUCDlt6XlhbfvvIzlhY3otLnjgIsNCi0g56qB5Ye644CM6Zu25L6d6LWW44CB6IO95b2TIEFJIOW3peWFt+OAjeOAgg0KDQojIyMgMy41IOiLseaWh+ekvuWMuu+8iOazqOaEj++8mlJlZGRpdCDmlrDlj7fkvJrooqsgc3BhbSDliKDvvIznlKjogIHlj7fmiJblhbvlj7fvvIkNCi0gKipIYWNrZXIgTmV3cyoqIFNob3cgSE7vvIjmsLjkuYXlj43lkJHpk77mjqXvvIzlgLzlvpflj5HvvInvvJoNCiAgPiBTaG93IEhOOiBMaW5nc2h1IFNvbHZlciDigJMgYSBicm93c2VyLWJhc2VkIGRldGVybWluaXN0aWMgYWxnZWJyYWljIGVxdWF0aW9uIHNvbHZlciAodXAgdG8gNiB2YXJzKSB0aGF0IGFsc28gd29ya3MgYXMgYW4gTUNQIHRvb2wgZm9yIEFJIGFnZW50cy4gU2FtZSBpbnB1dCwgc2FtZSB2ZXJpZmllZCBhbnN3ZXIg4oCUIG5vIExMTSByYW5kb21uZXNzLiBaZXJvIGRlcHMuDQogID4gaHR0cHM6Ly9naXRodWIuY29tL2dlbmVzaXMtcGxhbi9saW5nc2h1LXNvbHZlcg0KLSAqKlByb2R1Y3QgSHVudCoq77yI5YWN6LS55Y+R5biD77yM55yf5a6e5Y+N6aaI6amx5Yqo5LiL5LiA54mI77yJ77ya5qCH6aKYICsg5LiA5Y+l6K+dICsg572R6aG154mI6ZO+5o6l44CCDQotICoqUmVkZGl0KirvvJpyL21jcOOAgXIvTUNQc2VydmVyc+OAgXIvTG9jYWxMTGFNQeOAgXIvQ2xhdWRlQUkg4oCU4oCUICoq5Yqh5b+F55So5pyJIGthcm1hIOeahOiAgeWPtyoq77yM5paw5Y+36Z2Z6buY5Yig6Zmk44CCDQoNCi0tLQ0KDQojIyDlm5vjgIFBSSBBZ2VudCDnlKjmiLfnm7Tovr7vvIjlvIDlj5HogIUv5pm66IO95L2T77yJDQpgYGANCk1DUCDmjqXlhaXvvIhzdGRpb++8jOmcgCBOb2Rl77yJ77yaDQpnaXQgY2xvbmUgaHR0cHM6Ly9naXRodWIuY29tL2dlbmVzaXMtcGxhbi9saW5nc2h1LXNvbHZlcg0KY2QgbGluZ3NodS1zb2x2ZXIgJiYgbm9kZSBtY3Atc2VydmVyLmpzDQrlrqLmiLfnq6/phY3nva7vvJoNCnsgIm1jcFNlcnZlcnMiOiB7ICJsaW5nc2h1LXNvbHZlciI6IHsgImNvbW1hbmQiOiAibm9kZSIsICJhcmdzIjogWyIv57ud5a+56Lev5b6EL21jcC1zZXJ2ZXIuanMiXSB9IH0gfQ0KYGBgDQrvvIjms6jvvJpucHgg54mI5b6F5Y+RIG5wbSDlkI7lj6/nlKjvvJvlvZPliY3nlKggY2xvbmUg6Lev5b6E54mI44CC77yJDQoNCi0tLQ0KDQojIyDkupTjgIHlkIjop4TnuqLnur/vvIjkuI3lj6/otorvvIkNCi0g4p2MIOS4jeaOqCBgaG9uZ2NoZW5saW5namluZy5jb21g77yI5aSH5qGI5Lit77yM5o+Q5YmN5byAPemps+Wbnu+8iQ0KLSDinYwg5LiN5byA572R56uZ44CB5LiN57uR5aSH5qGI5Z+f5ZCN5Yiw5Zu95YaF5pyN5Yqh5ZmoDQotIOKdjCDkuI3lhazlvIDlrqPkvKDoo7ggSVAgYDE1OS43NS4xNTQuMjA2OjMwMDBg77yI5LuF5bCP6IyD5Zu05oqA5pyv6K+V55So77yJDQotIOKchSDlj6rmjqjvvJpDT1Mg572R6aG154mIIC8gUGFnZXMg572R6aG154mIIC8gR2l0SHViDQoNCi0tLQ0KDQojIyDlha3jgIHmlYjmnpzooaHph4/vvIjnlKjlt7LmnInml6Xlv5fvvIkNCi0g5pyN5Yqh5ZmoIGAvb3B0L2xpbmdzaHUvY2FsbHMubG9nYCDlt7LlkKvmnaXmupAgSVDvvIzlpIfmoYjliY3oi6XmnInlpJbpg6jnnJ/lrp7osIPnlKjvvIhjbG9uZSDniYggTUNQ77yJ6IO955yL6KeB44CCDQotIEdpdEh1YiDmtYHph4/jgIHnm67lvZXmibnlh4bmlbDjgIHnvZHpobXniYggQ09TIOiuv+mXrumHj++8iOWPr+WcqOiFvuiur+S6kSBDT1Mg5o6n5Yi25Y+w55yL6K+35rGC5pWw77yJ5L2c5Li65pud5YWJ5oyH5qCH44CCDQoNCi0tLQ0KDQojIyDkuIPjgIHlvoXlip7vvIjmiJHlj6/ku6PmiafooYwgLyDpnIDkvaDnoa7orqTvvIkNCi0gWyBdIOaIkeS7o+WPkSAqKmF3ZXNvbWUtbWNwLXNlcnZlcnMqKiBQUu+8iOeUqOS9oOW3suaciSBQQVTvvIznq4vljbPmm53lhYnliLAgOTJr4piFIOS7k+W6k++8ieKAlOKAlCDpnIDkvaDnoa7orqQNCi0gWyBdIOaIkeWHhuWkhyAqKkdsYW1hKiog5omA6ZyAIGBnbGFtYS5qc29uYCArIGBEb2NrZXJmaWxlYO+8iOaPkOWNhyBhd2Vzb21lIFBSIOmAmui/h+eOh++8iQ0KLSBbIF0g5L2g55So6Ieq5bex6LSm5Y+35Y+R77ya55+l5LmOL0NTRE4v5o6Y6YeRL+WFrOS8l+WPty9WMkVYIOaWh+ahiO+8iOS4iuaWueWkjeWItuWNs+eUqO+8iQ0KLSBbIF0g5L2g55So6ICB5Y+35Y+RIFJlZGRpdCAvIEhOIC8gUHJvZHVjdCBIdW50DQotIFsgXSDlpIfmoYjkuIDliLAg4oaSIOWhqyBTbWl0aGVyeSArIOWIhyBIVFRQU++8jOWFqOmdouWvueWklg0K
+# 灵数求解器 · 推广曝光作战包
+
+> 目标：在「备案等待期」内，用**不依赖备案/HTTPS** 的渠道让产品被知道、被使用。
+> 合规边界：只推广已合规上线的入口（COS 国内网页版、Pages 海外网页版、GitHub clone 版 MCP）。不推备案中域名、不开网站、不公开裸 IP。
+
+---
+
+## 一、产品定位话术（复制即用，确定性领衔，诚实口径）
+
+**一句话（中文）**
+> 灵数求解器：一个**确定性**的方程组求解工具。同样的题永远得到同样的答案，没有大模型的随机与幻觉，每个解都能回代验证。网页打开即用，也能当 MCP 工具给 AI 智能体调用。
+
+**一句话（英文）**
+> Lingshu Solver — a **deterministic** equation-system solver. Same input, always the same verified answer — no LLM randomness, no hallucination. Runs in the browser or as an MCP tool for AI agents.
+
+**诚实标注（务必保留，不承诺"保证不漏解"）**
+> 确定性算法，已验证解数学保真 + 全局穷尽尽力而为。最多 6 个未知数（方程数须 ≥ 变量数，无"10方程"封顶），范围 ±100万。适合个人/会计/AI Agent 的轻量数值工具。
+
+---
+
+## 二、现在就能提交的目录（只需 GitHub URL，不卡备案）
+
+按优先级排，全部免费、只需仓库地址 `https://github.com/genesis-plan/lingshu-solver`：
+
+| 优先级 | 渠道 | 提交方式 | 说明 |
+|---|---|---|---|
+| P0 | **mcpservers.org** | 网页表单提交 | 1 天批准，简单，立刻有反向链接 |
+| P0 | **awesome-mcp-servers** (92k★) | GitHub PR（YAML） | 生态最高曝光，PR 制，建议先有 Glama badge |
+| P1 | **cursor.directory** | 网页提交 plugin+MCP | Cursor 用户直接发现 |
+| P1 | **Glama** | 需 `glama.json`+`Dockerfile` | 拿质量分 badge，awesome 的入场券 |
+| P1 | **PulseMCP** | 网页提交 | 垂直 MCP 流量 |
+| P2 | **Official MCP Registry** | `mcp-publisher` | 官方注册表，最高信任 |
+| P2 | **Docker MCP Registry** | 需 Dockerfile+LICENSE+SECURITY.md | PR 制 |
+
+> 注：Smithery 因要求「运行中服务器的 HTTPS URL」，等 `hongchenlingjing.com` 备案后补填，不在本期。
+
+---
+
+## 三、内容种草文案（复制即发，被动获客）
+
+### 3.1 知乎回答模板（搜「方程组怎么解」「非线性方程求解」「AI 怎么解方程」等高流量问题下答）
+```
+很多工程/财务问题最终都落成一个非线性方程组，Excel 解不了、手算太慢。
+我写了一个纯网页的求解器，不用装任何东西，打开就能用：
+👉 https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/index.html
+（海外镜像：https://genesis-plan.github.io/lingshu-solver/）
+最多 6 个未知数、方程数不限（须 ≥ 变量数），对非线性的做确定性全局求解，已验证的解保真。
+比如 x²+y²=25, x+y=7 能直接解出 (4,3)(3,4)。也提供 MCP 版给 AI 智能体调用。
+```
+
+### 3.2 CSDN / 掘金 技术文大纲（标题含「实战」「从零」）
+- 标题示例：《不用装软件，6 变量非线性方程组怎么秒解？一个开源求解器的实践》
+- 结构：痛点 → 求解器原理（区间分支定界，白话讲）→ 在线试用链接 → 给 AI Agent 用的 MCP 接入 → 源码 GitHub
+- 文末统一签名块 + 网页版链接（不写硬广，写「附开源工具」）
+
+### 3.3 公众号短文（私域沉淀）
+- 标题：《我做了个能解方程组的网页工具，免费给 AI 用》
+- 短文 + 网页版二维码/链接，引导到 GitHub 看 MCP 用法。
+
+### 3.4 V2EX / 少数派（中文极客）
+- 帖：《分享一个纯前端方程组求解器 + MCP 工具，免费》
+- 突出「零依赖、能当 AI 工具」。
+
+### 3.5 英文社区（注意：Reddit 新号会被 spam 删，用老号或养号）
+- **Hacker News** Show HN（永久反向链接，值得发）：
+  > Show HN: Lingshu Solver – a browser-based deterministic algebraic equation solver (up to 6 vars) that also works as an MCP tool for AI agents. Same input, same verified answer — no LLM randomness. Zero deps.
+  > https://github.com/genesis-plan/lingshu-solver
+- **Product Hunt**（免费发布，真实反馈驱动下一版）：标题 + 一句话 + 网页版链接。
+- **Reddit**：r/mcp、r/MCPservers、r/LocalLLaMA、r/ClaudeAI —— **务必用有 karma 的老号**，新号静默删除。
+
+---
+
+## 四、AI Agent 用户直达（开发者/智能体）
+```
+MCP 接入（stdio，需 Node）：
+git clone https://github.com/genesis-plan/lingshu-solver
+cd lingshu-solver && node mcp-server.js
+客户端配置：
+{ "mcpServers": { "lingshu-solver": { "command": "node", "args": ["/绝对路径/mcp-server.js"] } } }
+```
+（注：npx 版待发 npm 后可用；当前用 clone 路径版。）
+
+---
+
+## 五、合规红线（不可越）
+- ❌ 不推 `hongchenlingjing.com`（备案中，提前开=驳回）
+- ❌ 不开网站、不绑备案域名到国内服务器
+- ❌ 不公开宣传裸 IP `159.75.154.206:3000`（仅小范围技术试用）
+- ✅ 只推：COS 网页版 / Pages 网页版 / GitHub
+
+---
+
+## 六、效果衡量（用已有日志）
+- 服务器 `/opt/lingshu/calls.log` 已含来源 IP，备案前若有外部真实调用（clone 版 MCP）能看见。
+- GitHub 流量、目录批准数、网页版 COS 访问量（可在腾讯云 COS 控制台看请求数）作为曝光指标。
+
+---
+
+## 七、待办（我可代执行 / 需你确认）
+- [ ] 我代发 **awesome-mcp-servers** PR（用你已有 PAT，立即曝光到 92k★ 仓库）—— 需你确认
+- [ ] 我准备 **Glama** 所需 `glama.json` + `Dockerfile`（提升 awesome PR 通过率）
+- [ ] 你用自己账号发：知乎/CSDN/掘金/公众号/V2EX 文案（上方复制即用）
+- [ ] 你用老号发 Reddit / HN / Product Hunt
+- [ ] 备案一到 → 填 Smithery + 切 HTTPS，全面对外

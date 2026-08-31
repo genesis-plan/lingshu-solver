@@ -1,1 +1,143 @@
-IyBTbWl0aGVyeSDkuIrmnrbotYTmlpnvvIjloasgVVJMIOWNs+WPkeW4g++8iQ0KDQo+IOeUqOmAlO+8muWkh+ahiOmAmui/h+OAgUhUVFBTIOerr+eCueWwsee7quWQju+8jOaKiuacrOaWh+S7tuWGheWuueeymOi0tOWIsCBTbWl0aGVyeSDms6jlhozooajljZXljbPlj6/lj5HluIPjgIINCj4g5b2T5YmN6Zi75aGe77yaU21pdGhlcnkg6KaB5rGCIEhUVFBTIFVSTO+8m+W+hSBgaG9uZ2NoZW5saW5namluZy5jb21gIOWkh+ahiOWujOaIkCArIOivgeS5puWQr+eUqOWQju+8jOWhqyBgaHR0cHM6Ly9ob25nY2hlbmxpbmdqaW5nLmNvbS9tY3Bg44CCDQoNCi0tLQ0KDQojIyAxLiDln7rnoYDkv6Hmga8NCg0KfCDlrZfmrrUgfCDlhoXlrrkgfA0KfC0tLXwtLS18DQp8IFNlcnZlciBOYW1lIChpZCkgfCBgbGluZ3NodS1zb2x2ZXJgIHwNCnwgRGlzcGxheSBOYW1lIHwg54G15pWw5rGC6Kej5ZmoIChMaW5nc2h1IFNvbHZlcikgfA0KfCDljY/orq4gKFRyYW5zcG9ydCkgfCBTdHJlYW1hYmxlIEhUVFAgfA0KfCDnq6/ngrkgVVJMIHwgYGh0dHBzOi8vaG9uZ2NoZW5saW5namluZy5jb20vbWNwYCB8DQp8IOWIhuexuyAoQ2F0ZWdvcnkpIHwgYG1hdGhgIC8gYGRldmVsb3Blci10b29sc2AgLyBgcmVhc29uaW5nYCB8DQp8IOagh+etviAoVGFncykgfCBgc29sdmVyYCwgYGFsZ2VicmFgLCBgZXF1YXRpb24tc3lzdGVtYCwgYG1hdGhgLCBgbWNwYCwgYGFnZW50LXRvb2xgLCBg5Luj5pWwYCwgYOaWueeoi+e7hGAgfA0KfCDlvIDmupDku5PlupMgfCBodHRwczovL2dpdGh1Yi5jb20vZ2VuZXNpcy1wbGFuL2xpbmdzaHUtc29sdmVyIHwNCnwg6K645Y+v6K+BIHwgQXBhY2hlLTIuMCB8DQoNCi0tLQ0KDQojIyAyLiDkuIDlj6Xor53mj4/ov7DvvIhTaG9ydCBEZXNjcmlwdGlvbu+8iQ0KDQoqKuS4reaWhyoq77ya54G15pWw5rGC6Kej5Zmo4oCU4oCU6Z2i5ZCRIEFJIOaZuuiDveS9k+S4juW8gOWPkeiAheeahCoq56Gu5a6a5oCnKirku6PmlbDmlrnnqIvnu4TmsYLop6MgTUNQIOacjeWKoeOAguWQjOagt+eahOmimOawuOi/nOW+l+WIsOWQjOagt+eahOetlOahiO+8jOayoeacieWkp+aooeWei+eahOmaj+acuuS4juW5u+inie+8jOavj+S4quino+WPr+WbnuS7o+mqjOivgeOAguW3sumqjOivgeino+aVsOWtpuS/neecn+OAgeWFqOWxgOept+WwveWwveWKm+iAjOS4uuOAgg0KDQoqKkVuZ2xpc2gqKu+8mkxpbmdzaHUgU29sdmVyIOKAlCBhICoqZGV0ZXJtaW5pc3RpYyoqIE1DUCBzZXJ2aWNlIGZvciBhbGdlYnJhaWMgZXF1YXRpb24gc3lzdGVtcywgYnVpbHQgZm9yIEFJIGFnZW50cyBhbmQgZGV2ZWxvcGVycy4gU2FtZSBpbnB1dCBhbHdheXMgeWllbGRzIHRoZSBzYW1lIHZlcmlmaWVkIGFuc3dlciDigJQgbm8gTExNIHJhbmRvbW5lc3MsIG5vIGhhbGx1Y2luYXRpb24uIE1hdGhlbWF0aWNhbGx5IGZhaXRoZnVsLCBiZXN0LWVmZm9ydCBnbG9iYWwgZXhoYXVzdGlvbi4NCg0KLS0tDQoNCiMjIDMuIOivpue7huS7i+e7je+8iExvbmcgRGVzY3JpcHRpb27vvIxNYXJrZG93bu+8iQ0KDQojIyMg54G15pWw5rGC6Kej5ZmoIChMaW5nc2h1IFNvbHZlcikNCg0K5LiA5Liq6L276YeP44CB56Gu5a6a5oCn55qE5Luj5pWw5pa556iL57uE5rGC6Kej5pyN5Yqh77yM6YCa6L+HIE1DUCAoTW9kZWwgQ29udGV4dCBQcm90b2NvbCkg5pq06Zyy57uZIEFJIOaZuuiDveS9k+iwg+eUqOOAgg0KDQoqKuaguOW/g+iDveWKmyoqDQotIOaxguinoyoq5aSa5Y+Y6YeP6Z2e57q/5oCn5Luj5pWw5pa556iL57uEKirvvIjmnIDlpJogNiDkuKrmnKrnn6Xph4/vvJvmlrnnqIvmlbDpobsg4omlIOWPmOmHj+aVsO+8jCoq5pegIjEw5pa556iLIuehrOWwgemhtioq77yJDQotICoq56Gu5a6a5oCnKirvvJrlkIzmoLfnmoTovpPlhaXmsLjov5zov5Tlm57lrozlhajnm7jlkIznmoTlrp7mlbDop6PvvIzml6Dpmo/mnLrjgIHml6Dlubvop4kNCi0g6L+U5ZueKirlhajpg6jlrp7mlbDop6MqKu+8iOWMuumXtOWIhuaUr+WumueVjO+8jOWwveWKm+WFqOWxgOept+Wwve+8iQ0KLSDmr4/kuKrop6PmoIfms6gqKuiupOivgeWxgue6pyoq77yIYHByb3ZlbmAgLyBgbGlrZWx5YCAvIGBjYW5kaWRhdGVg77yJ5LiO5q6L5beu77yM6K+a5a6e5Yy65YiGIuW3sumqjOivgSLkuI4i6L+R5Ly8Ig0KLSDmlK/mjIHln5/nuqbmnZ/vvIjlpoIgYHgg4oiIIFswLCAxMF1g77yJ44CB5b+r6YCf5qih5byP44CB5Y+v6YCJ5pWw5YC857K+5bqm5qGj5L2NDQoNCioq6K6+6K6h5Y6f5YiZ77yI6K+a5a6e5LyY5YWI77yJKioNCi0g5LiN6Jma5p6E44CB5LiN5aS45aSn77ya6Kej55qE6K6k6K+B54q25oCB5aaC5a6e6L+U5Zue77yM57ud5LiN5aOw56ewIuS/neivgeS4jea8j+inoyINCi0g6K6h566X5Zu65a6aIDYg5L2N5bCP5pWw5pyJ6ZmQ572R5qC877yM5q6L5beu5a655beu5LiJ5qGj77yIQmFsYW5jZWQgMWUtNiAvIFByZWNpc2UgMWUtOSAvIEZhc3QgMWUtM++8iQ0KLSDlj5jph4/ojIPlm7QgKirCsTEwMOS4h++8iOe6piDCsTFlNu+8iSoqDQoNCioq6YCC55So5Zy65pmvKioNCi0gQUkgQWdlbnQg5Zyo5o6o55CG5Lit6ZyA6KaB5rGC6Kej5Luj5pWw57qm5p2fDQotIOaVmeiCsuOAgeW3peeoi+OAgeS8muiuoeS4reeahOaWueeoi+e7hOiuoeeulw0KLSDkvZzkuLrmm7TlpKfmjqjnkIbnrqHnur/nmoTmlbDlgLzlrZDmqKHlnZcNCg0KKirlv6vpgJ/lvIDlp4vvvIhNQ1Ag5a6i5oi356uv6YWN572u77yJKioNCmBgYGpzb24NCnsNCiAgIm1jcFNlcnZlcnMiOiB7DQogICAgImxpbmdzaHUtc29sdmVyIjogew0KICAgICAgInVybCI6ICJodHRwczovL2hvbmdjaGVubGluZ2ppbmcuY29tL21jcCINCiAgICB9DQogIH0NCn0NCmBgYA0KDQotLS0NCg0KIyMgNC4g5bel5YW3IFNjaGVtYe+8iFNtaXRoZXJ5IOihqOWNlemcgOWhq+WGme+8iQ0KDQojIyMg5bel5YW3IDHvvJpgc29sdmVgDQoNCmBgYGpzb24NCnsNCiAgIm5hbWUiOiAic29sdmUiLA0KICAiZGVzY3JpcHRpb24iOiAi56Gu5a6a5oCn5a6e5pWw5pa556iL57uE5rGC6Kej77yI6Z2e5aSn5qih5Z6L44CB5peg6ZqP5py644CB5ZCM6L6T5YWl6L6T5Ye65Y+v5aSN546w77yJ44CC6L6T5YWl5ZCrICc9JyDnmoTmlrnnqIvlrZfnrKbkuLLmlbDnu4TkuI7lj6/pgInlj5jph4/lkI0v5Z+f57qm5p2f77yM6L+U5Zue57uT5p6E5YyW57uT5p6c77yacmVzdWx0VHlwZShlbXB0eS9maW5pdGUvaW5maW5pdGUp44CBc3VtbWFyeSjkuK3mlofmgLvop4gp44CB5q+P6Kej5ZCrIHZhbHVlcyg25L2N5bCP5pWwKSDkuI4gdGllcihwcm92ZW4vbGlrZWx5L2NhbmRpZGF0ZSnjgIFjZXJ0aWZpZWTjgIF0ZXh0KOS6uuexu+WPr+ivuynjgIFpbnRlcm5hbHMo5YaF6YOo5q6L5beu562J77yM5py65Zmo5Y+v6Lez6L+HKeOAgXJlY29tbWVuZGVk44CBdHJ1bmNhdGVk44CC5Y+Y6YeP4omkNuOAgeaWueeoi+KJpeWPmOmHj+aVsCjiiaQ2NOaKpOagjynjgIHpu5jorqTln5/CsTFlNuOAgeWbuuWumjbkvY3lsI/mlbDjgIJ0cnVuY2F0ZWQ9dHJ1ZeihqOekuuacquivgeaYjuW3suept+Wwve+8iOS4jeetieS6juS4gOWumua8j+ino++8ieOAgumBh+mXrumimOWPr+iwg+eUqCBnaXZlX2ZlZWRiYWNr44CCIiwNCiAgImlucHV0U2NoZW1hIjogew0KICAgICJ0eXBlIjogIm9iamVjdCIsDQogICAgInByb3BlcnRpZXMiOiB7DQogICAgICAiZXF1YXRpb25zIjogew0KICAgICAgICAidHlwZSI6ICJhcnJheSIsDQogICAgICAgICJpdGVtcyI6IHsgInR5cGUiOiAic3RyaW5nIiB9LA0KICAgICAgICAiZGVzY3JpcHRpb24iOiAi5pa556iL5pWw57uE77yM5aaCIFtcInheMiArIHleMiA9IDI1XCIsIFwieCArIHkgPSA3XCJd44CC5pSv5oyBICsgLSAqIC8gXiDjgIFzcXJ044CBc2luL2Nvcy90YW7jgIFsb2cvZXhw44CBYWJzIOetieOAgiINCiAgICAgIH0sDQogICAgICAidmFyaWFibGVzIjogew0KICAgICAgICAidHlwZSI6ICJhcnJheSIsDQogICAgICAgICJpdGVtcyI6IHsgInR5cGUiOiAic3RyaW5nIiB9LA0KICAgICAgICAiZGVzY3JpcHRpb24iOiAi5pyq55+l6YeP5ZCN56ew5pWw57uE77yM5aaCIFtcInhcIiwgXCJ5XCJd77yM5pyA5aSaIDYg5Liq44CCIg0KICAgICAgfSwNCiAgICAgICJkb21haW4iOiB7DQogICAgICAgICJ0eXBlIjogImFycmF5IiwNCiAgICAgICAgIml0ZW1zIjogew0KICAgICAgICAgICJ0eXBlIjogIm9iamVjdCIsDQogICAgICAgICJwcm9wZXJ0aWVzIjogew0KICAgICAgICAgICAgInZhcmlhYmxlIjogeyAidHlwZSI6ICJzdHJpbmciIH0sDQogICAgICAgICAgICAibWluIjogeyAidHlwZSI6ICJudW1iZXIiIH0sDQogICAgICAgICAgICAibWF4IjogeyAidHlwZSI6ICJudW1iZXIiIH0NCiAgICAgICAgICB9DQogICAgICAgIH0sDQogICAgICAgICJkZXNjcmlwdGlvbiI6ICLlj6/pgInvvIzlj5jph4/lrprkuYnln5/nuqbmnZ/vvIzlpoIgW3t2YXJpYWJsZTpcInhcIiwgbWluOjAsIG1heDoxMH1d44CCIg0KICAgICAgfSwNCiAgICAgICJmYXN0TW9kZSI6IHsNCiAgICAgICAgInR5cGUiOiAiYm9vbGVhbiIsDQogICAgICAgICJkZXNjcmlwdGlvbiI6ICLlj6/pgInvvIx0cnVlIOS9v+eUqCBGYXN0IOaho++8iOaui+W3riAxZS0z77yM5pu05b+r77yJ44CC6buY6K6kIGZhbHNl77yIQmFsYW5jZWQgMWUtNu+8ieOAgiINCiAgICAgIH0NCiAgICB9LA0KICAgICJyZXF1aXJlZCI6IFsiZXF1YXRpb25zIiwgInZhcmlhYmxlcyJdDQogIH0NCn0NCmBgYA0KDQojIyMg5bel5YW3IDLvvJpgZ2l2ZV9mZWVkYmFja2ANCg0KYGBganNvbg0Kew0KICAibmFtZSI6ICJnaXZlX2ZlZWRiYWNrIiwNCiAgImRlc2NyaXB0aW9uIjogIuaPkOS6pOS9v+eUqOWPjemmiOOAgeaKpemUmeaIluW7uuiuru+8jOW4ruWKqeWujOWWhOaxguino+WZqOOAgiIsDQogICJpbnB1dFNjaGVtYSI6IHsNCiAgICAidHlwZSI6ICJvYmplY3QiLA0KICAgICJwcm9wZXJ0aWVzIjogew0KICAgICAgInR5cGUiOiB7ICJ0eXBlIjogInN0cmluZyIsICJlbnVtIjogWyJidWciLCAiZmVhdHVyZSIsICJwcmFpc2UiLCAib3RoZXIiXSB9LA0KICAgICAgIm1lc3NhZ2UiOiB7ICJ0eXBlIjogInN0cmluZyIgfSwNCiAgICAgICJjb250YWN0IjogeyAidHlwZSI6ICJzdHJpbmciLCAiZGVzY3JpcHRpb24iOiAi5Y+v6YCJ6IGU57O75pa55byPIiB9DQogICAgfSwNCiAgICAicmVxdWlyZWQiOiBbInR5cGUiLCAibWVzc2FnZSJdDQogIH0NCn0NCmBgYA0KDQotLS0NCg0KIyMgNS4g56S65L6L5a+56K+d77yI5L6bIFNtaXRoZXJ5IOWxleekuu+8iQ0KDQoqKueUqOaIty9BZ2VudCoq77ya5biu5oiR6KejIGB4wrIgKyB5wrIgPSAyNWAg5LiUIGB4ICsgeSA9IDdgDQoqKuiwg+eUqCoq77yaYHNvbHZlKGVxdWF0aW9ucz1bInheMiArIHleMiA9IDI1IiwieCArIHkgPSA3Il0sIHZhcmlhYmxlcz1bIngiLCJ5Il0pYA0KKirov5Tlm54qKu+8muS4pOS4quinoyBgKDQsIDMpYCDkuI4gYCgzLCA0KWDvvIzlnYcgYHByb3ZlbmDvvIzmrovlt64gPCAxZS0244CCDQoNCi0tLQ0KDQojIyA2LiDlj5HluIPmo4Dmn6XmuIXljZUNCi0gWyBdIGBodHRwczovL2hvbmdjaGVubGluZ2ppbmcuY29tL21jcGAg5Y+v6L6+5LiU6L+U5ZueIEpTT04tUlBDIOaPoeaJiw0KLSBbIF0gYHRvb2xzL2xpc3RgIOi/lOWbnuS4iui/sOS4pOS4quW3peWFtw0KLSBbIF0g5pyN5Yqh5ZmoIHN5c3RlbWQg6Ieq5ZCv44CB5bSp5rqD5ouJ6LW35bey6aqM6K+BDQotIFsgXSDmj4/ov7Dml6Ai5L+d6K+B5LiN5ryP6KejIuetiee7neWvueWMluaJv+ivuu+8iOS/neaMgeivmuWunuWPo+W+hO+8iQ0KLSBbIF0g6LS05LiKIEdpdEh1YiDku5PlupPkuI7orrjlj6/or4Hpk77mjqUNCg==
+# Smithery 上架资料（填 URL 即发布）
+
+> 用途：备案通过、HTTPS 端点就绪后，把本文件内容粘贴到 Smithery 注册表单即可发布。
+> 当前阻塞：Smithery 要求 HTTPS URL；待 `hongchenlingjing.com` 备案完成 + 证书启用后，填 `https://hongchenlingjing.com/mcp`。
+
+---
+
+## 1. 基础信息
+
+| 字段 | 内容 |
+|---|---|
+| Server Name (id) | `lingshu-solver` |
+| Display Name | 灵数求解器 (Lingshu Solver) |
+| 协议 (Transport) | Streamable HTTP |
+| 端点 URL | `https://hongchenlingjing.com/mcp` |
+| 分类 (Category) | `math` / `developer-tools` / `reasoning` |
+| 标签 (Tags) | `solver`, `algebra`, `equation-system`, `math`, `mcp`, `agent-tool`, `代数`, `方程组` |
+| 开源仓库 | https://github.com/genesis-plan/lingshu-solver |
+| 许可证 | Apache-2.0 |
+
+---
+
+## 2. 一句话描述（Short Description）
+
+**中文**：灵数求解器——面向 AI 智能体与开发者的**确定性**代数方程组求解 MCP 服务。同样的题永远得到同样的答案，没有大模型的随机与幻觉，每个解可回代验证。已验证解数学保真、全局穷尽尽力而为。
+
+**English**：Lingshu Solver — a **deterministic** MCP service for algebraic equation systems, built for AI agents and developers. Same input always yields the same verified answer — no LLM randomness, no hallucination. Mathematically faithful, best-effort global exhaustion.
+
+---
+
+## 3. 详细介绍（Long Description，Markdown）
+
+### 灵数求解器 (Lingshu Solver)
+
+一个轻量、确定性的代数方程组求解服务，通过 MCP (Model Context Protocol) 暴露给 AI 智能体调用。
+
+**核心能力**
+- 求解**多变量非线性代数方程组**（最多 6 个未知量；方程数须 ≥ 变量数，**无"10方程"硬封顶**）
+- **确定性**：同样的输入永远返回完全相同的实数解，无随机、无幻觉
+- 返回**全部实数解**（区间分支定界，尽力全局穷尽）
+- 每个解标注**认证层级**（`proven` / `likely` / `candidate`）与残差，诚实区分"已验证"与"近似"
+- 支持域约束（如 `x ∈ [0, 10]`）、快速模式、可选数值精度档位
+
+**设计原则（诚实优先）**
+- 不虚构、不夸大：解的认证状态如实返回，绝不声称"保证不漏解"
+- 计算固定 6 位小数有限网格，残差容差三档（Balanced 1e-6 / Precise 1e-9 / Fast 1e-3）
+- 变量范围 **±100万（约 ±1e6）**
+
+**适用场景**
+- AI Agent 在推理中需要求解代数约束
+- 教育、工程、会计中的方程组计算
+- 作为更大推理管线的数值子模块
+
+**快速开始（MCP 客户端配置）**
+```json
+{
+  "mcpServers": {
+    "lingshu-solver": {
+      "url": "https://hongchenlingjing.com/mcp"
+    }
+  }
+}
+```
+
+---
+
+## 4. 工具 Schema（Smithery 表单需填写）
+
+### 工具 1：`solve`
+
+```json
+{
+  "name": "solve",
+  "description": "确定性实数方程组求解（非大模型、无随机、同输入输出可复现）。输入含 '=' 的方程字符串数组与可选变量名/域约束，返回结构化结果：resultType(empty/finite/infinite)、summary(中文总览)、每解含 values(6位小数) 与 tier(proven/likely/candidate)、certified、text(人类可读)、internals(内部残差等，机器可跳过)、recommended、truncated。变量≤6、方程≥变量数(≤64护栏)、默认域±1e6、固定6位小数。truncated=true表示未证明已穷尽（不等于一定漏解）。遇问题可调用 give_feedback。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "equations": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "方程数组，如 [\"x^2 + y^2 = 25\", \"x + y = 7\"]。支持 + - * / ^ 、sqrt、sin/cos/tan、log/exp、abs 等。"
+      },
+      "variables": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "未知量名称数组，如 [\"x\", \"y\"]，最多 6 个。"
+      },
+      "domain": {
+        "type": "array",
+        "items": {
+          "type": "object",
+        "properties": {
+            "variable": { "type": "string" },
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          }
+        },
+        "description": "可选，变量定义域约束，如 [{variable:\"x\", min:0, max:10}]。"
+      },
+      "fastMode": {
+        "type": "boolean",
+        "description": "可选，true 使用 Fast 档（残差 1e-3，更快）。默认 false（Balanced 1e-6）。"
+      }
+    },
+    "required": ["equations", "variables"]
+  }
+}
+```
+
+### 工具 2：`give_feedback`
+
+```json
+{
+  "name": "give_feedback",
+  "description": "提交使用反馈、报错或建议，帮助完善求解器。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "type": { "type": "string", "enum": ["bug", "feature", "praise", "other"] },
+      "message": { "type": "string" },
+      "contact": { "type": "string", "description": "可选联系方式" }
+    },
+    "required": ["type", "message"]
+  }
+}
+```
+
+---
+
+## 5. 示例对话（供 Smithery 展示）
+
+**用户/Agent**：帮我解 `x² + y² = 25` 且 `x + y = 7`
+**调用**：`solve(equations=["x^2 + y^2 = 25","x + y = 7"], variables=["x","y"])`
+**返回**：两个解 `(4, 3)` 与 `(3, 4)`，均 `proven`，残差 < 1e-6。
+
+---
+
+## 6. 发布检查清单
+- [ ] `https://hongchenlingjing.com/mcp` 可达且返回 JSON-RPC 握手
+- [ ] `tools/list` 返回上述两个工具
+- [ ] 服务器 systemd 自启、崩溃拉起已验证
+- [ ] 描述无"保证不漏解"等绝对化承诺（保持诚实口径）
+- [ ] 贴上 GitHub 仓库与许可证链接

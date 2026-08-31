@@ -1,1 +1,45 @@
-IyDotKHnjK7mjIfljZfvvIhDb250cmlidXRpbmfvvIkKCuaEn+iwouWvuSoq54G15pWw5rGC6Kej5ZmoKirnmoTlhbTotqPjgILmnKzku5PlupPph4fnlKjkuI7jgIzngbXohJEgTGluZ05hb+OAjeS4gOiHtOeahOaWh+aho+agh+WHhuOAggoKIyMg5paH5qGj5qCH5YeG77yI5b+F6K+777yJCgrlhazlhbHkuqflk4Hku5PlupPnmoTmlofmoaMqKuWPquacjeWKoeS4pOexu+S6uioq77yaCgoxLiAqKuS9v+eUqOiAhSoqIOKAlOKAlCDmgI7kuYjoo4XjgIHmgI7kuYjphY3jgIHmgI7kuYjosIPvvIhNQ1AgLyDnvZHpobUgLyBDTEnvvInjgIIKMi4gKirotKHnjK7ogIUqKiDigJTigJQg5oCO5LmIIGZvcmvjgIHmnrbmnoTlnKjlk6rjgIHmgI7kuYjot5HmtYvor5XjgIHmgI7kuYjmj5AgUFLjgIIKCioq5LiN6K6w5b2V5YaF6YOo6L+H56iLKirvvJrmgJ3ogIPojYnnqL/jgIHokKXplIDor53mnK/jgIHmm53lhYnmlofmoYjjgIHlhoXpg6jotbDmn6Uv5a6h6K6h5oql5ZGK44CB6LCD56CU57qq6KaB562JKirkuI3ov5vku5PlupPmoLnnm67lvZUqKu+8jOehruacieWPguiAg+S7t+WAvOeahOW9kuWFpSBgZG9jcy9g77yM6L+H5pe25Y2z5Yig44CCCgojIyMg5qC555uu5b2V5paH5Lu257qm5a6aCi0gYFJFQURNRS5tZGAg4oCU4oCUIOWUr+S4gOmdouWQkeS9v+eUqOiAheeahOWFpeWPo++8iOijheOAgemFjeOAgeiwg+OAgeiDveWKm+i+ueeVjO+8ieOAggotIGBDSEFOR0VMT0cubWRgIOKAlOKAlCAqKuaMieeJiOacrOOAgeWPquWGmeWvueeUqOaIt+mHjeimgeeahOWPmOabtCoq77yb5LiN5YaZ6YCQ5qyhIGNvbW1pdCDmtYHmsLTjgIIKLSBgTElDRU5TRWAgLyBgQ09OVFJJQlVUSU5HYCAvIGBDT0RFX09GX0NPTkRVQ1RgIC8gYFNFQ1VSSVRZYCDigJTigJQgT1NTIOaDr+S+i+aWh+S7tuOAggotIOWFtuS9mea3seW6pui1hOaWmeaUviBgZG9jcy9g77yI5aaCIGDkuqflk4Hor7TmmI7vvIjlrozmlbTniYjvvIkubWRg44CBYOiiq+WPkeeOsOaAp+WuoeiuoeaKpeWRii5tZGDjgIFgcHJvbW90aW9uLWtpdC5tZGDjgIFgc21pdGhlcnktbGlzdGluZy5tZGDjgIFgcm9hZG1hcC5tZGDvvInjgIIKCiMjIOacrOWcsOW8gOWPkQoKYGBgYmFzaApnaXQgY2xvbmUgaHR0cHM6Ly9naXRodWIuY29tL2dlbmVzaXMtcGxhbi9saW5nc2h1LXNvbHZlci5naXQKY2QgbGluZ3NodS1zb2x2ZXIKbm9kZSBtY3Atc2VydmVyLmpzICAgICAgICAgICMg5ZCv5YqoIE1DUCBzdGRpbyDmnI3liqHnq68Kbm9kZSB0ZXN0L3JlZ3Jlc3Npb24uanMgICAgICMg5Zue5b2S5aWX5Lu277yIMjgg55So5L6L77yJCmBgYAoK5YW25LuW6aqM6K+B6ISa5pys77yaCmBgYGJhc2gKbm9kZSB2ZXJpZnlfY29yZS5qcyAgICAgICAgICMg5byV5pOO5Yqg6L29ICsgNiDkuKrku6PooajmgKfnlKjkvosKbm9kZSBtY3Bfc21va2UuanMgICAgICAgICAgICMgTUNQIOWtl+iKgue6p+WGkueDn++8iGluaXRpYWxpemUvdG9vbHMvbGlzdC90b29scy9jYWxs77yJCm5vZGUgbWNwX3Ntb2tlMi5qcyAgICAgICAgICAjIGdpdmVfZmVlZGJhY2sgKyDplJnor6/nu5PmnoTljJbvvIjkuI3ms4TpnLLloIbmoIjvvIkKbm9kZSB0ZXN0L3dhbGt0aHJvdWdoLXN0ZGlvLm1qcyAgICMgc3RkaW8g56uv5Yiw56uv6LWw5p+lCm5vZGUgdGVzdC93YWxrdGhyb3VnaC1ucHgubWpzICAgICAjIG5weCDnq6/liLDnq6/otbDmn6UKbm9kZSB0ZXN0L3dhbGt0aHJvdWdoLWh0dHAubWpzICAgICMg6L+c56iLIEhUVFAg56uv5Yiw56uv6LWw5p+lCmBgYAoKIyMg5o+QIFBSIOWJjQotIOi3kemAmiBgbm9kZSB0ZXN0L3JlZ3Jlc3Npb24uanNg77yM56Gu5L+dIDAg5bSp5rqD44CBa25vd24g5ZG95Lit546H5LiN6ZmN44CCCi0g5L+u5pS55YWs5YWx6KGM5Li65pe277yM5ZCM5q2l5pu05pawIGBSRUFETUUubWRgIOeahOOAjOiDveWKm+i+ueeVjOOAjeS4jiBgQ0hBTkdFTE9HLm1kYOOAggotIOS4jeW8leWFpei/kOihjOaXtuesrOS4ieaWueS+nei1lu+8iOaguOW/g+S/neaMgembtuS+nei1luOAgeemu+e6v+OAgeehruWumuaAp++8ieOAggoKIyMg6K+a5a6e5LyY5YWICuacrOS6p+WTgeWvueWkluWPo+W+hOWdmuaMgeOAjOW3sumqjOivgeino+aVsOWtpuS/neecnyArIOWFqOWxgOept+WwveWwveWKm+iAjOS4uuOAjeOAguS7u+S9leaUueWKqOS4jeW+l+aal+ekuiAxMDAlIOept+WwveaIluWjsOensOS4jeWtmOWcqOeahOS/neivge+8m+aXoOazleivgeaYjuW3suept+WwveaXtuW/hemhu+S/neeVmSBgdHJ1bmNhdGVkYCDmoIforrDjgIIK
+# 贡献指南（Contributing）
+
+感谢对**灵数求解器**的兴趣。本仓库采用与「灵脑 LingNao」一致的文档标准。
+
+## 文档标准（必读）
+
+公共产品仓库的文档**只服务两类人**：
+
+1. **使用者** —— 怎么装、怎么配、怎么调（MCP / 网页 / CLI）。
+2. **贡献者** —— 怎么 fork、架构在哪、怎么跑测试、怎么提 PR。
+
+**不记录内部过程**：思考草稿、营销话术、曝光文案、内部走查/审计报告、调研纪要等**不进仓库根目录**，确有参考价值的归入 `docs/`，过时即删。
+
+### 根目录文件约定
+- `README.md` —— 唯一面向使用者的入口（装、配、调、能力边界）。
+- `CHANGELOG.md` —— **按版本、只写对用户重要的变更**；不写逐次 commit 流水。
+- `LICENSE` / `CONTRIBUTING` / `CODE_OF_CONDUCT` / `SECURITY` —— OSS 惯例文件。
+- 其余深度资料放 `docs/`（如 `产品说明（完整版）.md`、`被发现性审计报告.md`、`promotion-kit.md`、`smithery-listing.md`、`roadmap.md`）。
+
+## 本地开发
+
+```bash
+git clone https://github.com/genesis-plan/lingshu-solver.git
+cd lingshu-solver
+node mcp-server.js          # 启动 MCP stdio 服务端
+node test/regression.js     # 回归套件（28 用例）
+```
+
+其他验证脚本：
+```bash
+node verify_core.js         # 引擎加载 + 6 个代表性用例
+node mcp_smoke.js           # MCP 字节级冒烟（initialize/tools/list/tools/call）
+node mcp_smoke2.js          # give_feedback + 错误结构化（不泄露堆栈）
+node test/walkthrough-stdio.mjs   # stdio 端到端走查
+node test/walkthrough-npx.mjs     # npx 端到端走查
+node test/walkthrough-http.mjs    # 远程 HTTP 端到端走查
+```
+
+## 提 PR 前
+- 跑通 `node test/regression.js`，确保 0 崩溃、known 命中率不降。
+- 修改公共行为时，同步更新 `README.md` 的「能力边界」与 `CHANGELOG.md`。
+- 不引入运行时第三方依赖（核心保持零依赖、离线、确定性）。
+
+## 诚实优先
+本产品对外口径坚持「已验证解数学保真 + 全局穷尽尽力而为」。任何改动不得暗示 100% 穷尽或声称不存在的保证；无法证明已穷尽时必须保留 `truncated` 标记。

@@ -1,1 +1,29 @@
-IyDmm7TmlrDml6Xlv5fvvIhDaGFuZ2Vsb2fvvIkKCj4g5Y+q6K6w5b2VKirlr7nnlKjmiLfph43opoHnmoTlj5jmm7QqKu+8iOiDveWKm+OAgei+ueeVjOOAgeS/ruWkje+8ieOAguWGhemDqOW8gOWPkei/h+eoi+S4jeWcqOatpOiusOW9leOAggo+IOW9k+WJjeWPkeW4g+eJiOacrO+8mioqYGxpbmdzaHUtc29sdmVyQDEuMC4yYCoq77yIbnBt77yJ44CCCgojIyB2MS4wLjIKLSDmsYLop6PmoLjlv4PnqLPlrprmgKfvvJrljLrpl7TliIbmlK/lrprnlYwgKyBLcmF3Y3p5ayDorqTor4Hot6/lvoTliqDlm7rvvIzlm57lvZLlpZfku7YgMjgg55So5L6L44CBMCDltKnmuoPvvIxrbm93biDlkb3kuK0gNTAvNTDvvIgxMDAl77yJ44CCCi0g6K+a5a6e6L6555WM5pi+5byP5YyW77ya5p6B56uv55eF5oCB6L6T5YWl5Zyo6aKE566X5YaF5Y+v6IO95qCH6K6w5Li6IGB0cnVuY2F0ZWQ9dHJ1ZWDvvIznu53kuI3osI7np7Dlt7LnqbflsL3jgIIKLSDov5znqIsgSFRUUCDmnI3liqHnq68gYGh0dHAtbWNwLXNlcnZlci5qc2Ag5LiOIHN0ZGlvIOerryBgbWNwLXNlcnZlci5qc2Ag5YWx5Lqr5ZCM5LiA5rGC6Kej5qC45b+D77yM57uT5p6c5ZCM5rqQ5LiA6Ie044CCCgojIyB2MS4wLjAg4oCUIOmmluS4quWFrOW8gOeJiAotIOehruWumuaAp+WunuaVsOaWueeoi+e7hOaxguino+W8leaTju+8iOKJpDYg5Y+Y6YeP44CB5a6e5pWw6Kej44CB6L276YeP5pWw5YC85a6a5L2N77yJ77yM5LiN6KaB5rGC5Yid5YC844CCCi0g5LiJ56eN5o6l5YWl5b2i5oCB77ya5pys5ZywIHN0ZGlv77yIYG5weCAteSBsaW5nc2h1LXNvbHZlcmDvvInjgIHmnKzlnLAgY2xvbmXjgIHov5znqIsgSFRUUO+8iOWkh+ahiOacn+mXtOaaguWBnO+8ieOAggotIE1DUCDlt6XlhbfvvJpgc29sdmVg77yIS3Jhd2N6eWsg6K6k6K+B6Kej77yMNiDkvY3lsI/mlbDnsr7luqbvvInjgIFgZ2l2ZV9mZWVkYmFja2DvvIjmnKzlnLDokL3ml6Xlv5fvvIzkuI3lpJbkvKDvvInjgIIKLSDnuq/mnKzlnLDjgIHnprvnur/jgIHpm7bmlbDmja7vvJvml6Dpmo/mnLrliIbmlK/vvIzlkIzovpPlhaXmsLjov5zlkIzovpPlh7rjgIIKLSDnvZHpobXniYggYGluZGV4Lmh0bWxgIOWNleaWh+S7tuS6p+WTge+8iOa1j+iniOWZqOWGhSBVSSArIOW3sumqjOivgeaguOW/g++8ie+8jEdpdEh1YiBQYWdlcyDkuI7ohb7orq/kupEgQ09TIOWPjOaJmOeuoeOAggoKIyMg6IO95Yqb5LiO6L6555WM77yI5oGS5a6a77yJCi0g5bey6aqM6K+B6Kej77ya5q+P6Kej57uPIEtyYXdjenlrIOiupOivge+8iGB0aWVyPXByb3ZlbmDvvInvvIzor6/lt64g4omkIOiupOivgeWNiuW+hO+8jOaVsOWtpuS/neecn+OAggotIOept+WwveaAp++8mioq5bC95Yqb56m35bC95aSa6KejKirvvJvml6Dms5Xor4HmmI7lt7LnqbflsL3ml7bmmL7lvI8gYHRydW5jYXRlZGDvvIzpnZ7nvLrpmbfjgIIKLSDmlbDlgLzojIPlm7TvvJrpu5jorqTmkJzntKLln58gwrExZTbvvJvlv6vlop7plb/lh73mlbDvvIhgZXhwYC9gc2luaGDvvInmiJblpKfln5/lu7rorq7mmL7lvI/nu5nlrpogYGRvbWFpbmDjgIIKLSDkuI3kv53or4HvvJrlr7nkuIDliIfovpPlhaUgMTAwJSDnqbflsL3vvJvpq5jluqbnl4XmgIHns7vnu5/lnKjpooTnrpflhoXlv4XmlLbmlZvjgIIK
+# 更新日志（Changelog）
+
+> 只记录**对用户重要的变更**（能力、边界、修复）。内部开发过程不在此记录。
+> 当前发布版本：**`lingshu-solver@1.0.2`**（npm）。
+
+## 2026-08-31（仓库与官网，npm 版本号未变）
+- **官网与远程端点开放**：域名 ICP 备案已通过，`hongchenlingjing.com` 正式上线——首页产品介绍、在线求解器（`/index.html`）、远程 MCP 端点（`/mcp`，HTTPS，Streamable HTTP）、健康检查（`/health`）。
+- **C1 · 整数约束不再静默实数化**：用户写 `x∈ℤ` 时，输出新增结构化标志 `integerConstraintUnenforced`（与 `truncated` 同级，MCP 自动透传），并如实提示"返回解不一定为整数"。此前只在 `warnings` 里放一段文字，程序化调用方无法检测。
+- **A1 · 一阶仿射算术**：`intervalEval` 内部改为仿射形式求值后转回保守区间，缓解区间算术的"相依性灾难"（如 `x-x` 虚假膨胀）。Krawczyk 仍消费保守区间，soundness 不变。
+- **D1 · 认证半径取最紧**：`krawczykCertify` 注释宣称"取最小成功半径"、实现却取第一个成功（候选半径顺序非单调）。已改为遍历取最小，兑现 README 承诺的"误差 ≤ 认证半径"。
+- **修复**：仓库部分 Markdown 文件曾被误存为 base64 文本（GitHub 上显示为一整行乱码），已全部还原为原文。
+
+## v1.0.2
+- 求解核心稳定性：区间分支定界 + Krawczyk 认证路径加固，回归套件 28 用例、0 崩溃，known 命中 50/50（100%）。
+- 诚实边界显式化：极端病态输入在预算内可能标记为 `truncated=true`，绝不谎称已穷尽。
+- 远程 HTTP 服务端 `http-mcp-server.js` 与 stdio 端 `mcp-server.js` 共享同一求解核心，结果同源一致。
+
+## v1.0.0 — 首个公开版
+- 确定性实数方程组求解引擎（≤6 变量、实数解、轻量数值定位），不要求初值。
+- 三种接入形态：本地 stdio（`npx -y lingshu-solver`）、本地 clone、远程 HTTP（备案期间暂停，2026-08-31 起开放）。
+- MCP 工具：`solve`（Krawczyk 认证解，6 位小数精度）、`give_feedback`（本地落日志，不外传）。
+- 纯本地、离线、零数据；无随机分支，同输入永远同输出。
+- 网页版 `index.html` 单文件产品（浏览器内 UI + 已验证核心），GitHub Pages 与腾讯云 COS 双托管。
+
+## 能力与边界（恒定）
+- 已验证解：每解经 Krawczyk 认证（`tier=proven`），误差 ≤ 认证半径，数学保真。
+- 穷尽性：**尽力穷尽多解**；无法证明已穷尽时显式 `truncated`，非缺陷。
+- 数值范围：默认搜索域 ±1e6；快增长函数（`exp`/`sinh`）或大域建议显式给定 `domain`。
+- 不保证：对一切输入 100% 穷尽；高度病态系统在预算内必收敛。
