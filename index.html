@@ -10449,30 +10449,19 @@ if (typeof __LS_SOLVE_ACTIVE === 'undefined') { __LS_SOLVE_ACTIVE = false; }
 if (typeof __LS_BRANCH_BUDGET === 'undefined') { __LS_BRANCH_BUDGET = 200; }
 
 // ============================================================================
-// 合规输入门禁（2026-09-01 安全等保加固）
+// 输入门禁（2026-09-01；2026-09-01 晚放宽：数字串不再拦截）
 // ----------------------------------------------------------------------------
-// 定位：本工具是「纯数学方程求解器」，非通用文本/聊天入口。为满足安全等保要求，
-// 在 solve() 总入口（网页端与 MCP 端共用同一入口）统一执行：
+// 定位：本工具是「纯数学方程求解器」，不是通用文本/聊天入口。在 solve() 总入口
+// （网页端与 MCP 端共用同一入口）只做两件事：
 //   1. 数学表达式约束：拒绝中文/日文/韩文等自然语言文字（方程不含文字说明）；
-//   2. 敏感个人信息拦截：手机号、身份证号、邮箱、超长数字串（银行卡/证件等）
-//      一律在入口拒收——个人信息不进入系统（PIPL 最小化：不收集、不存储、不处理）；
-//   3. 输入体量上限：与 MCP 端护栏一致（方程文本总长 100KB）。
-// 设计原则：黑名单只拒「明显非数学 / 涉敏」输入，不改变任何合法数学表达式的行为；
+//   2. 输入体量上限：与 MCP 端护栏一致（方程文本总长 100KB）。
+// 注意（2026-09-01 用户决策）：手机号/身份证号/银行卡号等长数字串与邮箱一律放行，
+// 不做敏感信息拦截——它们本质是合法数学输入（常量），本系统本就不存储、不外传。
+// 设计原则：黑名单只拒「明显非数学」输入，不改变任何合法数学表达式的行为；
 // 纯 ES5 实现（不用 lookbehind 等新语法），旧浏览器解析不报错。
 function _complianceGuard(equationStrs, varNames) {
     var _maxTotal = 100 * 1024;
-    var _reEmail = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;              // 邮箱
     var _reCJK = /[\u2E80-\u2EFF\u3040-\u30FF\u3130-\u318F\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF]/; // 中/日/韩表意文字
-    // 数字段检测：按「最大连续数字段」判级——11 位=疑似手机号，≥12 位=疑似银行卡/证件号。
-    // 必须取整段而非固定窗口滑窗：窗口滑进长数字内部时会因相邻是数字而误判"非独立"导致漏拦。
-    function _maxDigitRun(s) {
-        var _m, _best = 0, _re = /\d+/g;
-        while ((_m = _re.exec(s)) !== null) {
-            if (_m[0].length > _best) _best = _m[0].length;
-            if (_best >= 12) return _best;
-        }
-        return _best;
-    }
     var _total = 0, _i, _w;
     if (Array.isArray(equationStrs)) {
         for (_i = 0; _i < equationStrs.length; _i++) {
@@ -10480,22 +10469,19 @@ function _complianceGuard(equationStrs, varNames) {
             if (typeof _s !== 'string') continue;
             _total += _s.length;
             if (_reCJK.test(_s)) _w = '包含自然语言文字';
-            else if (_maxDigitRun(_s) >= 12) _w = '疑似银行卡号/证件号等长数字串';
-            else if (_maxDigitRun(_s) === 11) _w = '疑似手机号（11 位数字串）';
-            else if (_reEmail.test(_s)) _w = '疑似邮箱地址';
             else _w = null;
             if (_w) {
-                throw { type: 'invalid_input', message: '合规拦截：第 ' + (_i + 1) + ' 条输入' + _w + '。本工具仅接受数学方程，请勿输入姓名、电话号码、身份证号、银行卡号等个人信息或文字说明；本系统不收集、不存储任何个人信息。' };
+                throw { type: 'invalid_input', message: '第 ' + (_i + 1) + ' 条输入' + _w + '。本工具是数学方程求解器，仅接受数学方程（可含数字、变量与运算符），不接受文字说明。' };
             }
         }
         if (_total > _maxTotal) {
-            throw { type: 'invalid_input', message: '合规拦截：方程文本总长超过 100KB 上限。' };
+            throw { type: 'invalid_input', message: '方程文本总长超过 100KB 上限。' };
         }
     }
     if (Array.isArray(varNames)) {
         for (_i = 0; _i < varNames.length; _i++) {
             if (typeof varNames[_i] === 'string' && _reCJK.test(varNames[_i])) {
-                throw { type: 'invalid_input', message: '合规拦截：变量名包含自然语言文字。变量名仅支持字母 / 希腊字母 / 下标等形式。' };
+                throw { type: 'invalid_input', message: '变量名包含自然语言文字。变量名仅支持字母 / 希腊字母 / 下标等形式。' };
             }
         }
     }
@@ -10503,7 +10489,7 @@ function _complianceGuard(equationStrs, varNames) {
 
 function solve(equationStrs, varNames, decimals, initialD0, fastMode, opts) {
     _solveRecursionCount++;
-    // 合规门禁：敏感个人信息 / 自然语言文本 / 体量超限，一律在总入口拒收（网页端 + MCP 端共用）
+    // 门禁：非数学文字 / 体量超限，在总入口拒收（网页端 + MCP 端共用；数字串已放行）
     try { _complianceGuard(equationStrs, varNames); } catch (_cgErr) { _solveRecursionCount--; throw _cgErr; }
     // 兼容性归一化（诚实性 + 用户直觉）：用户常把「求 expr=0 的根」简写成裸表达式（如 "x^2-1"）。
     // 缺等号的方程自动补 "=0"，既符合数学直觉，也避免被误判为「无方程」而谎称「严格证明无实数解」。
@@ -12043,7 +12029,7 @@ function runSolver() {
             displayResult(result, eqLines);
         } catch(e) {
             if (e && e.type === 'invalid_input') {
-                showError(e.message || "输入未通过合规校验");
+                showError(e.message || "输入不是有效的数学方程");
             } else {
                 showError("求解器内部错误: " + (e.message || String(e)));
             }
