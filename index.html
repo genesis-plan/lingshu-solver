@@ -10448,8 +10448,63 @@ if (typeof __LS_ROOT_START === 'undefined') { __LS_ROOT_START = 0; }
 if (typeof __LS_SOLVE_ACTIVE === 'undefined') { __LS_SOLVE_ACTIVE = false; }
 if (typeof __LS_BRANCH_BUDGET === 'undefined') { __LS_BRANCH_BUDGET = 200; }
 
+// ============================================================================
+// 合规输入门禁（2026-09-01 安全等保加固）
+// ----------------------------------------------------------------------------
+// 定位：本工具是「纯数学方程求解器」，非通用文本/聊天入口。为满足安全等保要求，
+// 在 solve() 总入口（网页端与 MCP 端共用同一入口）统一执行：
+//   1. 数学表达式约束：拒绝中文/日文/韩文等自然语言文字（方程不含文字说明）；
+//   2. 敏感个人信息拦截：手机号、身份证号、邮箱、超长数字串（银行卡/证件等）
+//      一律在入口拒收——个人信息不进入系统（PIPL 最小化：不收集、不存储、不处理）；
+//   3. 输入体量上限：与 MCP 端护栏一致（方程文本总长 100KB）。
+// 设计原则：黑名单只拒「明显非数学 / 涉敏」输入，不改变任何合法数学表达式的行为；
+// 纯 ES5 实现（不用 lookbehind 等新语法），旧浏览器解析不报错。
+function _complianceGuard(equationStrs, varNames) {
+    var _maxTotal = 100 * 1024;
+    var _reEmail = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;              // 邮箱
+    var _reCJK = /[\u2E80-\u2EFF\u3040-\u30FF\u3130-\u318F\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF]/; // 中/日/韩表意文字
+    // 数字段检测：按「最大连续数字段」判级——11 位=疑似手机号，≥12 位=疑似银行卡/证件号。
+    // 必须取整段而非固定窗口滑窗：窗口滑进长数字内部时会因相邻是数字而误判"非独立"导致漏拦。
+    function _maxDigitRun(s) {
+        var _m, _best = 0, _re = /\d+/g;
+        while ((_m = _re.exec(s)) !== null) {
+            if (_m[0].length > _best) _best = _m[0].length;
+            if (_best >= 12) return _best;
+        }
+        return _best;
+    }
+    var _total = 0, _i, _w;
+    if (Array.isArray(equationStrs)) {
+        for (_i = 0; _i < equationStrs.length; _i++) {
+            var _s = equationStrs[_i];
+            if (typeof _s !== 'string') continue;
+            _total += _s.length;
+            if (_reCJK.test(_s)) _w = '包含自然语言文字';
+            else if (_maxDigitRun(_s) >= 12) _w = '疑似银行卡号/证件号等长数字串';
+            else if (_maxDigitRun(_s) === 11) _w = '疑似手机号（11 位数字串）';
+            else if (_reEmail.test(_s)) _w = '疑似邮箱地址';
+            else _w = null;
+            if (_w) {
+                throw { type: 'invalid_input', message: '合规拦截：第 ' + (_i + 1) + ' 条输入' + _w + '。本工具仅接受数学方程，请勿输入姓名、电话号码、身份证号、银行卡号等个人信息或文字说明；本系统不收集、不存储任何个人信息。' };
+            }
+        }
+        if (_total > _maxTotal) {
+            throw { type: 'invalid_input', message: '合规拦截：方程文本总长超过 100KB 上限。' };
+        }
+    }
+    if (Array.isArray(varNames)) {
+        for (_i = 0; _i < varNames.length; _i++) {
+            if (typeof varNames[_i] === 'string' && _reCJK.test(varNames[_i])) {
+                throw { type: 'invalid_input', message: '合规拦截：变量名包含自然语言文字。变量名仅支持字母 / 希腊字母 / 下标等形式。' };
+            }
+        }
+    }
+}
+
 function solve(equationStrs, varNames, decimals, initialD0, fastMode, opts) {
     _solveRecursionCount++;
+    // 合规门禁：敏感个人信息 / 自然语言文本 / 体量超限，一律在总入口拒收（网页端 + MCP 端共用）
+    try { _complianceGuard(equationStrs, varNames); } catch (_cgErr) { _solveRecursionCount--; throw _cgErr; }
     // 兼容性归一化（诚实性 + 用户直觉）：用户常把「求 expr=0 的根」简写成裸表达式（如 "x^2-1"）。
     // 缺等号的方程自动补 "=0"，既符合数学直觉，也避免被误判为「无方程」而谎称「严格证明无实数解」。
     // 全角＝同样视为有等号；已有等号者原样透传，保证幂等、零回归。
@@ -11987,7 +12042,11 @@ function runSolver() {
             }
             displayResult(result, eqLines);
         } catch(e) {
-            showError("求解器内部错误: " + (e.message || String(e)));
+            if (e && e.type === 'invalid_input') {
+                showError(e.message || "输入未通过合规校验");
+            } else {
+                showError("求解器内部错误: " + (e.message || String(e)));
+            }
         }
         btn.textContent = origText;
         btn.disabled = false;
@@ -12003,6 +12062,17 @@ function _fmtResidual(r) {
     var tolStr = tol < 1e-3 ? tol.toExponential(0) : String(tol);
     if (Math.abs(r) < tol) return "< " + tolStr;
     return r.toExponential(2);
+}
+
+// HTML 转义（安全等保加固 2026-09-01）：所有用户可控内容（变量名、诊断信息、警告、
+// 方程回显等）注入 innerHTML 前必须转义，杜绝 XSS 注入。
+function _escHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function displayResult(result, eqLines) {
@@ -12032,7 +12102,7 @@ function displayResult(result, eqLines) {
     html += '<div style="margin-bottom:10px">';
     html += '<span style="background:' + (typeColors[rt] || '#28a745') + ';color:#fff;padding:3px 12px;border-radius:12px;font-size:13px;font-weight:bold;display:inline-block">类型' + rt + ': ' + (typeLabels[rt] || '未知') + '</span>';
     if (result.resultTypeDesc) {
-        html += '<div style="font-size:13px;color:#666;margin-top:6px;line-height:1.5;padding:8px 12px;background:#f8f9fa;border-radius:6px">' + result.resultTypeDesc + '</div>';
+        html += '<div style="font-size:13px;color:#666;margin-top:6px;line-height:1.5;padding:8px 12px;background:#f8f9fa;border-radius:6px">' + _escHtml(result.resultTypeDesc) + '</div>';
     }
     // 人话总结：无解 / 唯一解 / 有限个解 / 无限个解
     var summaryText = "", summaryColor = "";
@@ -12066,7 +12136,7 @@ function displayResult(result, eqLines) {
         var _diagColor = result.error ? "#dc3545" : "#0c5460";
         var _diagBg = result.error ? "#f8d7da" : "#d1ecf1";
         html += '<div style="font-size:13px;color:' + _diagColor + ';margin-top:6px;padding:8px 12px;background:' + _diagBg + ';border-radius:6px;border:1px solid ' + _diagColor + '44;line-height:1.6">';
-        html += '<b>诊断信息</b>：' + _diag;
+        html += '<b>诊断信息</b>：' + _escHtml(_diag);
         html += '</div>';
     }
     if (rt === 1) {
@@ -12105,10 +12175,11 @@ function displayResult(result, eqLines) {
             html += '<div style="margin-top:4px;font-size:13px;font-family:monospace">';
             for (var _mvi = 0; _mvi < outVars.length; _mvi++) {
                 var _v = Number(minSol.values[_mvi].toFixed(6));
+                var _vnEsc = _escHtml(outVars[_mvi]);
                 if (Math.abs(minSol.values[_mvi]) < 1e-9) {
-                    html += '<span style="margin-right:10px;color:#dc3545;font-weight:bold">' + outVars[_mvi] + ' = ' + _v + '</span>';
+                    html += '<span style="margin-right:10px;color:#dc3545;font-weight:bold">' + _vnEsc + ' = ' + _v + '</span>';
                 } else {
-                    html += '<span style="margin-right:10px">' + outVars[_mvi] + ' = ' + _v + '</span>';
+                    html += '<span style="margin-right:10px">' + _vnEsc + ' = ' + _v + '</span>';
                 }
             }
             var _zc = 0; for (var _mz = 0; _mz < minSol.values.length; _mz++) if (Math.abs(minSol.values[_mz]) < 1e-9) _zc++;
@@ -12132,8 +12203,8 @@ function displayResult(result, eqLines) {
                 var val = sol.values[vi];
                 if (typeof val === "number") val = Number(val.toFixed(6));
                 html += '    <div class="var-item">';
-                html += '      <span class="var-name">' + outVars[vi] + '</span>';
-                html += '      <span class="var-value">' + (val !== undefined ? val : "?") + '</span>';
+                html += '      <span class="var-name">' + _escHtml(outVars[vi]) + '</span>';
+                html += '      <span class="var-value">' + (val !== undefined ? _escHtml(val) : "?") + '</span>';
                 html += '    </div>';
             }
 
@@ -12146,7 +12217,7 @@ function displayResult(result, eqLines) {
     if (result.warnings && result.warnings.length > 0) {
         html += '<div class="warnings-section">';
         for (var wi = 0; wi < result.warnings.length; wi++) {
-            html += '<div class="warning-item">' + result.warnings[wi] + '</div>';
+            html += '<div class="warning-item">' + _escHtml(result.warnings[wi]) + '</div>';
         }
         html += '</div>';
     }
@@ -12173,7 +12244,8 @@ function showError(msg) {
 
 <footer style="margin-top:34px;padding:18px 12px;text-align:center;color:#64748b;font-size:12px;border-top:1px solid #334155;line-height:1.8;">
   粤ICP备2026031206号 ·
-  远程调用端点：<code style="color:#94a3b8;">https://hongchenlingjing.com/mcp</code>
+  <a href="/privacy.html" style="color:#94a3b8;">隐私与安全说明</a> ·
+  远程调用端点：<code style="color:#94a3b8;">hongchenlingjing.com/mcp</code>
 </footer>
 </body>
 </html>
