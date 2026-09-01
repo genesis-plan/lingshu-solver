@@ -6,56 +6,6 @@
 [![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-blue)](https://modelcontextprotocol.io)
 [![Deterministic](https://img.shields.io/badge/core-deterministic%20%2F%20non--LLM-green)](https://genesis-plan.github.io/lingshu-solver/)
 
-## 🎯 我做了什么：6 行演示（全部实测，可直接复制）
-
-不用先读原理——先看它能算什么。下面每一行都是真实场景，实测通过，方程可直接粘给 MCP 的 `solve` 工具。
-
-| # | 场景 | 求什么 | 实测解 | 耗时 |
-|---|---|---|---|---|
-| 1 | **医疗贴片契约资产定价** | 3 年供货合同，目标 IRR 12% 下的保本单价 | **16.5606 元/贴** | 32 ms |
-| 2 | **贷款真实利率** | 10 万本金 / 24 期 / 月供 4600，反解真实月利率 | **0.008071**（APR 9.69%） | 370 ms |
-| 3 | **药代动力学（一室模型）** | 由 2h、6h 两个血药浓度反求 C₀ 与消除速率 k | **C₀=13.827，k=0.2492** | 391 ms |
-| 4 | **化学平衡** | 平衡常数 K=0.5 时的转化率 | **x=0.4286**（42.86%） | 305 ms |
-| 5 | **EVM · 抵押清算** | 10 ETH 抵押 / 12000 债务 / 阈值 0.825 的清算价 | **1454.55 USDC/ETH** | 1 ms |
-| 6 | **EVM · 无常损失** | LP 相对 HODL 亏损 5% 时的价格变动比 | **r=0.5241 或 1.9080** | 16 ms |
-
-全部 `tier=proven`——经 Krawczyk 区间认证，误差 ≤ 1e-6，不是"大概对"。
-
-<details>
-<summary><b>展开：6 个可直接粘贴的 MCP 调用</b></summary>
-
-```json
-// 1. 医疗贴片契约资产定价：NPV=0 反解单价（良率 94% → 单位成本 8.5/0.94）
-{"equations":["-2400000 + (P-8.5/0.94)*120000/1.12 - 320000/1.12 + (P-8.5/0.94)*180000/1.12^2 - 320000/1.12^2 + (P-8.5/0.94)*240000/1.12^3 - 320000/1.12^3 = 0"],"variables":["P"],"domain":{"P":[5,100]}}
-// → P = 16.5606 元/贴。低于此价，3 年项目 IRR 不足 12%。
-
-// 2. 等额本息反解真实月利率
-{"equations":["100000*r*(1+r)^24/((1+r)^24-1)-4600 = 0"],"variables":["r"],"domain":{"r":[0.0001,0.05]}}
-// → r = 0.008071（月），APR 9.69%
-
-// 3. 一室模型：两个时点浓度反求 C0 与 k
-{"equations":["C0*exp(-k*2)-8.4 = 0","C0*exp(-k*6)-3.1 = 0"],"variables":["C0","k"],"domain":{"C0":[0.1,100],"k":[0.001,3]}}
-// → C0 = 13.827, k = 0.2492
-
-// 4. 化学平衡转化率
-{"equations":["4*x^2/((1-x)*(3-x))-K = 0","K-0.5 = 0"],"variables":["x","K"],"domain":{"x":[0,0.999]}}
-// → x = 0.4286
-
-// 5. EVM 清算价格：抵押 10 ETH、债务 12000、清算阈值 0.825
-{"equations":["10*P*0.825-12000 = 0"],"variables":["P"],"domain":{"P":[1,10000]}}
-// → P = 1454.545455 USDC/ETH
-
-// 6. 无常损失反解价格比（IL = -5%）
-{"equations":["2*sqrt(r)/(1+r)-1+0.05 = 0"],"variables":["r"],"domain":{"r":[0.01,100]}}
-// → r = 0.5241 或 1.9080（价格腰斩或涨 91%，LP 相对 HODL 亏 5%）
-```
-
-> EVM / 智能合约的更多场景（含套利与滑点、对照验证）见 [docs/evm-use-cases.md](./docs/evm-use-cases.md)。
-
-</details>
-
----
-
 > **确定性**实数方程组求解引擎 · 面向 AI 智能体与普通用户的 MCP 工具
 > 同样的题永远得到同样的答案，没有大模型的随机与幻觉，每个解都能回代验证。免费、网页打开即用、也能被 AI 智能体直接调用。
 
@@ -63,7 +13,7 @@
 覆盖 ≤6 个变量、实数解、轻量数值定位。它不要求用户提供初值，采用区间算术做保守收缩 +
 Krawczyk 算子做解认证，并尽力穷尽多解。
 
-👉 **完整产品规格与 FAQ（对外统一口径）**：[docs/产品说明（完整版）.md](./docs/产品说明（完整版）.md) ｜ [官网 https://hongchenlingjing.com](https://hongchenlingjing.com)
+👉 **给用户看的产品介绍（大白话，帮你看懂它能干嘛、适不适合你）**：[点这里](intro.html) ｜ [国内 COS 在线版](https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/intro.html)
 
 ---
 
@@ -71,32 +21,19 @@ Krawczyk 算子做解认证，并尽力穷尽多解。
 
 ### 如果你完全不懂技术 —— 直接用网页版
 **打开这个链接就能用，不用安装任何东西：**
-👉 **https://hongchenlingjing.com/** （官网，已备案，国内直连，HTTPS）
+👉 **https://genesis-plan.github.io/lingshu-solver/** （GitHub Pages，海外/通用）
 
-**备用入口（更快，腾讯云 COS 托管）：**
+**国内用户（更快，腾讯云 COS 托管）：**
 👉 **https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/index.html**
-
-**海外/通用：**
-👉 **https://genesis-plan.github.io/lingshu-solver/** （GitHub Pages）
 
 在输入框写方程（例如 `x^2 + y^2 = 25` 和 `x + y = 7`），点求解即可。
 页面里有 6 个示例按钮，点一下就知道它能解什么。
 
 ### 如果你是 AI 用户（Claude / Cursor / Cline 等）
 
-**方式 A · 远程托管（推荐，零安装）** ⭐
-域名 ICP 备案**已通过**，公网端点已开放，直接填这个 URL 就能用（开机自启、崩溃自动拉起、HTTPS 加密）：
-```json
-{
-  "mcpServers": {
-    "lingshu-solver": {
-      "url": "https://hongchenlingjing.com/mcp"
-    }
-  }
-}
-```
-> 传输协议：Streamable HTTP。工具：`solve`（求解）/ `give_feedback`（反馈）。
-> 想先确认服务是否在线，浏览器打开 `https://hongchenlingjing.com/health`。
+**方式 A · 远程托管（备案中，暂未公开）**
+我们已部署常驻公网服务，**但 `hongchenlingjing.com` 域名 ICP 备案尚未通过**——按合规要求，备案期间该域名端点暂不对外开放。备案批下并切 HTTPS 后，此处将提供 `https://hongchenlingjing.com/mcp` 端点（开机自启、崩溃自动拉起）。
+> 当前想零安装调用，请直接用下方「方式 B · 本地 stdio（npx）」，已发布 npm，现在即可用。
 
 **方式 B · 本地 stdio（需本机 Node）**
 ```json
@@ -127,7 +64,7 @@ MCP 配置：
 git clone https://github.com/genesis-plan/lingshu-solver.git
 cd lingshu-solver
 node mcp-server.js        # 启动 MCP 服务端
-node test/regression.js   # 跑回归测试（28 用例，0 崩溃；known 参考解命中 47/50 = 94%）
+node test/regression.js   # 跑回归测试（28 用例）
 ```
 
 ---
@@ -163,7 +100,7 @@ node test/regression.js   # 跑回归测试（28 用例，0 崩溃；known 参�
 
 | 形态 | 端点 / 命令 | 适用 |
 |---|---|---|
-| **远程 HTTP（推荐，零安装）** | `https://hongchenlingjing.com/mcp` | 任何支持 Streamable HTTP 的 MCP 客户端；ICP 备案已通过，已开放 |
+| **远程 HTTP（备案中，暂未公开）** | `hongchenlingjing.com` 域名 ICP 备案尚未通过，端点暂停开放；备案批下后启用 `https://hongchenlingjing.com/mcp` | 任何支持 Streamable HTTP 的 MCP 客户端（待备案后） |
 | 本地 stdio（npx） | `npx -y lingshu-solver` | 本机已装 Node，npm 已发布，直接可用 |
 | 本地 stdio（clone） | `node mcp-server.js` | 开发者 / 离线自托管 |
 
@@ -174,18 +111,7 @@ PORT=3000 node http-mcp-server.js
 
 ### 2. 在 MCP 客户端（Claude Desktop / Cursor / Cline / VS Code 等）配置
 
-**推荐 A · 远程 HTTP 零安装（备案已通过，现在即可用）：**
-```json
-{
-  "mcpServers": {
-    "lingshu-solver": {
-      "url": "https://hongchenlingjing.com/mcp"
-    }
-  }
-}
-```
-
-**推荐 B · 本地 stdio 零安装（npm 已发布，现在即可用）：**
+**推荐 · 本地 stdio 零安装（npm 已发布，现在即可用）：**
 ```json
 {
   "mcpServers": {
@@ -196,6 +122,7 @@ PORT=3000 node http-mcp-server.js
   }
 }
 ```
+> 远程 HTTP 端点（`hongchenlingjing.com/mcp`）因域名 ICP 备案未通过，备案期间暂停开放；备案批下并切 HTTPS 后将在此处提供 `url` 版配置。
 
 **本地 stdio · 一行命令（npm 已发布，直接可用）：**
 ```json
@@ -275,7 +202,7 @@ AI 智能体遇到卡点/错误/疑似问题时主动回报，仅落本地 `feed
 node verify_core.js        # 引擎加载 + 6 个代表性用例
 node mcp_smoke.js          # MCP 字节级冒烟（initialize/tools/list/tools/call）
 node mcp_smoke2.js         # give_feedback + 错误结构化（不泄露堆栈）
-node test/regression.js    # 三套常驻考卷回归（28 用例，0 崩溃，known 命中 47/50 ≈ 94%）
+node test/regression.js    # 三套常驻考卷回归（28 用例，known 命中率统计）
 ```
 
 ---
@@ -295,12 +222,9 @@ node test/regression.js    # 三套常驻考卷回归（28 用例，0 崩溃，k
 
 ## 文档
 
-- [CHANGELOG.md](./CHANGELOG.md) —— 按版本的能力/边界变更记录
-- [docs/产品说明（完整版）.md](./docs/产品说明（完整版）.md) —— 完整产品规格（深度）
-- [docs/roadmap.md](./docs/roadmap.md) —— 方向与规划
-- [docs/promotion-kit.md](./docs/promotion-kit.md) / [docs/smithery-listing.md](./docs/smithery-listing.md) —— 注册市场分发说明
-- [docs/被发现性审计报告.md](./docs/被发现性审计报告.md) —— 目录/爬虫视角的被发现性分析
-- 发明专利申请书系列（已提交，不在仓库内）
+- 《灵数求解器_代码流程中文说明.md》—— 从解析到输出的完整内部流程（面向数学背景读者）
+- 《灵数求解器商业化战略白皮书.md》—— 定位、能力边界、风险
+- 发明专利申请书系列（已提交）
 
 ## 许可
 
