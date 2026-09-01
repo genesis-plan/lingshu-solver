@@ -1,4 +1,4 @@
-// 合规门禁专项测试：敏感信息拦截 + 正常数学零误伤
+// 输入门禁专项测试（2026-09-01 晚放宽后）：仅拦非数学文字 + 体量上限；数字串/邮箱一律放行
 'use strict';
 const { solve } = require('../solver-core');
 
@@ -18,17 +18,19 @@ function expectOk(label, eqs, vars, dom) {
   } catch (e) { fail++; console.log('FAIL(误拦截) ' + label + ' → ' + (e.message || e)); }
 }
 
-console.log('=== 应拦截 ===');
-expectBlock('手机号', ['x + 13812345678 = 0']);
-expectBlock('手机号(纯数字)', ['13800138000']);
-expectBlock('身份证号', ['x = 110101199003074512']);
-expectBlock('身份证号(尾部X)', ['x = 11010119900307451X']);
-expectBlock('银行卡类长数字', ['x * 6222020200112233 = 1']);
-expectBlock('邮箱', ['x + zhangsan@example.com = 0']);
+console.log('=== 应拦截（非数学文字 / 超限）===');
 expectBlock('中文文字', ['其中a等于1']);
 expectBlock('中文人名', ['张三 + x = 5']);
 expectBlock('变量名中文', ['x + y = 3'], ['中文']);
 expectBlock('总长超限(>100KB)', ['x' + '+1'.repeat(60000) + '=0']);
+
+console.log('=== 应放行（数字串/邮箱 = 合法数学常量，不拦）===');
+expectOk('手机号作常量', ['x + 13812345678 = 0']);
+expectOk('纯数字(手机号式)', ['13800138000']);
+expectOk('身份证号(18位)', ['x = 110101199003074512']);
+expectOk('身份证号(尾部X)', ['x = 11010119900307451X']);
+expectOk('银行卡类长数字', ['x * 6222020200112233 = 1']);
+expectOk('邮箱符号@', ['x + zhangsan@example.com = 0']);
 
 console.log('=== 应放行（正常数学，零误伤）===');
 expectOk('一元二次', ['x^2 - 5*x + 6 = 0']);
