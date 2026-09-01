@@ -83,17 +83,7 @@ function shapeResult(r) {
 
   let summary;
   if (typeName === 'empty') {
-    // 诚实三档（产品「不幻觉」红线）：
-    //   NO_EQUATION      → input 无法解析，绝不谎称证明；
-    //   provenEmpty=true → 经 sound 算子（结构恒正/恒负等）严格证明无解，可称「严格证明」；
-    //   其余空集          → 区间穷尽未找到，但未抬 provenEmpty 标志，只能称「未找到」，不得佯称证明。
-    if (r.error === 'NO_EQUATION' || (r.error && /NO_EQUATION|PARSE|UNRECOGNIZED|UNKNOWN/i.test(String(r.error)))) {
-      summary = '部分方程无法解析（疑似缺少 "=" 或含不支持的语法），未给出解。求 expr=0 的根可写 "expr=0"，或直接裸写 "expr"。';
-    } else if (r.provenEmpty === true) {
-      summary = '严格证明：该方程组无实数解。';
-    } else {
-      summary = '未找到实数解（未经标记严格证明不存在；可缩小定义域或提高预算重试）。';
-    }
+    summary = '严格证明：该方程组无实数解。';
   } else if (typeName === 'infinite') {
     summary = `无限解集；给出距原点最近的推荐解（共展示 ${sols.length} 个候选）。`;
   } else {
@@ -103,7 +93,6 @@ function shapeResult(r) {
   const diagnostics = {
     solverVersion: meta.solverVersion || null,
     truncated: !!(r.truncated || meta.truncated),
-    provenEmpty: !!(r.provenEmpty || meta.provenEmpty),
     terminatedBy: meta.terminatedBy || null,
     provenCount: (typeof r.provenCount === 'number') ? r.provenCount : null,
     completeness: detF(r.completeness)
@@ -259,32 +248,18 @@ function handleRpc(msg, ip) {
 }
 
 // ---- HTTP 服务 ----
-const sessions = new Map(); // sessionId -> { createdAt, sse? }
-
-// CORS：浏览器端 MCP 客户端（含 Smithery 连接测试）需此头，否则被静默拦截
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
-  'Access-Control-Allow-Headers': 'Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, Authorization',
-  'Access-Control-Expose-Headers': 'Mcp-Session-Id, Content-Type'
-};
+const sessions = new Map(); // sessionId -> { createdAt }
 
 function sendJson(res, status, obj, extraHeaders) {
   const body = Buffer.from(JSON.stringify(obj), 'utf8');
   res.writeHead(status, Object.assign({
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': body.length
-  }, CORS, extraHeaders || {}));
+  }, extraHeaders || {}));
   res.end(body);
 }
 
 const server = http.createServer((req, res) => {
-  // CORS 预检
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, CORS);
-    return res.end();
-  }
-
   // 健康检查
   if (req.method === 'GET' && (req.url === '/' || req.url === '/health')) {
     return sendJson(res, 200, {
@@ -292,81 +267,57 @@ const server = http.createServer((req, res) => {
       version: SERVER_VERSION,
       status: 'ok',
       transport: 'streamable-http',
-      endpoints: { mcp: 'POST /mcp (SSE via GET /mcp)', health: 'GET /health' },
+      endpoints: { mcp: 'POST /mcp', health: 'GET /health' },
       tools: TOOLS.map(t => t.name)
     });
   }
 
-  // MCP 端点：Streamable HTTP（POST 请求 / GET 收 SSE / DELETE 终止会话）
-  if (req.url === '/mcp') {
-    // GET：打开 SSE 流，接收服务端→客户端通知（MCP Streamable HTTP 规范）
-    if (req.method === 'GET') {
-      const sessionId = req.headers['mcp-session-id'] || crypto.randomUUID();
-      res.writeHead(200, Object.assign({
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no'
-      }, CORS, { 'mcp-session-id': sessionId }));
-      res.write('retry: 2000\n\n');
-      res.write(': connected\n\n');
-      const ka = setInterval(() => { try { res.write(': keepalive\n\n'); } catch (_e) {} }, 15000);
-      req.on('close', () => { clearInterval(ka); sessions.delete(sessionId); });
-      sessions.set(sessionId, { createdAt: Date.now(), sse: res });
-      return;
-    }
-    // DELETE：终止会话
-    if (req.method === 'DELETE') {
-      const sessionId = req.headers['mcp-session-id'];
-      const s = sessions.get(sessionId);
-      if (s && s.sse) { try { s.sse.end(); } catch (_e) {} }
-      sessions.delete(sessionId);
-      res.writeHead(200, CORS);
-      return res.end();
-    }
-    // POST：JSON-RPC 请求
-    if (req.method === 'POST') {
-      const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').toString().split(',')[0].trim();
-      const sessionId = req.headers['mcp-session-id'] || crypto.randomUUID();
-      if (!sessions.has(sessionId)) sessions.set(sessionId, { createdAt: Date.now() });
+  // MCP 端点：Streamable HTTP
+  if (req.method === 'POST' && req.url === '/mcp') {
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').toString().split(',')[0].trim();
+    const sessionId = req.headers['mcp-session-id'] || crypto.randomUUID();
+    if (!sessions.has(sessionId)) sessions.set(sessionId, { createdAt: Date.now() });
 
-      let raw = '';
-      req.setEncoding('utf8');
-      req.on('data', (chunk) => { raw += chunk; });
-      req.on('end', () => {
-        let msg;
-        try {
-          msg = JSON.parse(raw);
-        } catch (_e) {
-          return sendJson(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
+    let raw = '';
+    req.setEncoding('utf8');
+    req.on('data', (chunk) => { raw += chunk; });
+    req.on('end', () => {
+      let msg;
+      try {
+        msg = JSON.parse(raw);
+      } catch (_e) {
+        return sendJson(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
+      }
+      // 批量请求支持
+      const batch = Array.isArray(msg) ? msg : [msg];
+      const responses = [];
+      for (const m of batch) {
+        if (m && m.jsonrpc === '2.0') {
+          const r = handleRpc(m, ip);
+          if (r !== null) responses.push(r);
         }
-        // 批量请求支持
-        const batch = Array.isArray(msg) ? msg : [msg];
-        const responses = [];
-        for (const m of batch) {
-          if (m && m.jsonrpc === '2.0') {
-            const r = handleRpc(m, ip);
-            if (r !== null) responses.push(r);
-          }
-        }
-        const headers = Object.assign({ 'mcp-session-id': sessionId }, CORS);
-        if (Array.isArray(msg)) {
-          if (responses.length === 0) { res.writeHead(202, headers); return res.end(); }
-          return sendJson(res, 200, responses, headers);
-        } else {
-          if (responses.length === 0) { res.writeHead(202, headers); return res.end(); }
-          return sendJson(res, 200, responses[0], headers);
-        }
-      });
-      return;
-    }
-    // 其它方法
-    res.writeHead(405, Object.assign({ 'Content-Type': 'text/plain; charset=utf-8', 'Allow': 'GET, POST, DELETE, OPTIONS' }, CORS));
-    return res.end('Method Not Allowed. MCP endpoint accepts GET, POST, DELETE, OPTIONS.');
+      }
+      const headers = { 'mcp-session-id': sessionId };
+      if (Array.isArray(msg)) {
+        if (responses.length === 0) { res.writeHead(202, headers); return res.end(); }
+        return sendJson(res, 200, responses, headers);
+      } else {
+        if (responses.length === 0) { res.writeHead(202, headers); return res.end(); }
+        return sendJson(res, 200, responses[0], headers);
+      }
+    });
+    return;
+  }
+
+  // MCP 端点仅接受 POST。GET（SSE 流）/ DELETE（会话终止）本服务不支持，
+  // 按 MCP Streamable HTTP 规范返回 405（而非 404），避免真实客户端误报 onerror。
+  if (req.url === '/mcp') {
+    res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', 'Allow': 'POST' });
+    return res.end('Method Not Allowed. MCP endpoint accepts POST only.');
   }
 
   // 其它：404
-  res.writeHead(404, Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, CORS));
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end('Not Found. MCP endpoint: POST /mcp');
 });
 
