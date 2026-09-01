@@ -15,7 +15,7 @@
 - `README.md` —— 唯一面向使用者的入口（装、配、调、能力边界）。
 - `CHANGELOG.md` —— **按版本、只写对用户重要的变更**；不写逐次 commit 流水。
 - `LICENSE` / `CONTRIBUTING` / `CODE_OF_CONDUCT` / `SECURITY` —— OSS 惯例文件。
-- 其余深度资料放 `docs/`（如 `产品说明（完整版）.md`、`被发现性审计报告.md`、`promotion-kit.md`、`smithery-listing.md`、`roadmap.md`）。
+- 其余深度资料放 `docs/`（当前仅 `docs/ARCHITECTURE.md`：数学/结构/代码/算法框架与处理流程）。
 
 ## 本地开发
 
@@ -28,10 +28,9 @@ node test/regression.js     # 回归套件（28 用例）
 
 其他验证脚本：
 ```bash
-node verify_core.js         # 引擎加载 + 6 个代表性用例
-node mcp_smoke.js           # MCP 字节级冒烟（initialize/tools/list/tools/call）
-node mcp_smoke2.js          # give_feedback + 错误结构化（不泄露堆栈）
-node test/walkthrough-stdio.mjs   # stdio 端到端走查
+node verify_core.js                # 引擎加载 + 6 个代表性用例
+node test/verify_paste.js          # 粘贴容错专项（7 例）
+node test/walkthrough-stdio.mjs    # stdio 端到端走查
 node test/walkthrough-npx.mjs     # npx 端到端走查
 node test/walkthrough-http.mjs    # 远程 HTTP 端到端走查
 ```
