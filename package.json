@@ -50,7 +50,6 @@
   },
   "scripts": {
     "start": "node mcp-server.js",
-    "test": "node test/regression.js",
-    "smoke": "node mcp_smoke.js"
+    "test": "node test/regression.js"
   }
 }
