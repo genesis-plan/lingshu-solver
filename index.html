@@ -1227,6 +1227,11 @@ function fuzzyFix(str) {
         return map[ch] || ch;
     });
 
+    // 去除换行：从豆包/通义等复制时方程常"打竖"（每个字符独立成行），
+    // 换行会打断隐式乘法的相邻性（如 4⏎(x-2)、2⏎x），致解析失败→0解。
+    // 核心路径以"方程数组"为契约，单条方程内的换行直接去除（不影响数组层面的多方程分隔）。
+    s = s.replace(/\r?\n/g, '');
+
     // Unicode上标转 ^N 表示法（必须在其他规则之前执行）
     // ⁰¹²³⁴⁵⁶⁷⁸⁹ → ^0 ^1 ^2 ...
     s = s.replace(/[\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079]+/g, function(match) {
@@ -1297,6 +1302,14 @@ function fuzzyFix(str) {
     s = s.replace(/÷/g, '/');
     // × → *
     s = s.replace(/×/g, '*');
+    // 兼容从其他 AI（豆包/通义等）复制时带入的 Unicode 数学符号：
+    // 减号 − / 短破折号 – / 长破折号 —（U+2212/U+2013/U+2014）→ ASCII -
+    // 注意：core/MCP 路径只走 fuzzyFix（不走 cleanInput），此处补齐，否则 U+2212 会让 lexer 抛"无法识别字符"→ 解析失败 → 变量看似"未识别"。
+    s = s.replace(/[−–—]/g, '-');
+    // 中点乘号 ·（U+00B7，豆包常用）→ *
+    s = s.replace(/·/g, '*');
+    // 不等号 ≠（U+2260）→ !=（约束语法已支持）
+    s = s.replace(/≠/g, '!=');
     // ASCII "pi" → Unicode "π"（交给下方隐式乘与 tokenizer 常量识别，避免 pi 被字母×字母规则误拆成 p*i）
     s = s.replace(/\bpi\b/g, 'π');
     // ASCII 希腊字母名 → Unicode 符号（alpha→α, theta→θ, ...），便于用常见拼写声明变量名。
@@ -1330,7 +1343,7 @@ function fuzzyFix(str) {
     s = s.replace(/\b(log10|log2|sin|cos|tan|ln|exp|sqrt|log|abs|diff|int|ode|lim|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|floor|ceil|gamma|mod)\s+([a-zA-Z_]\w*)/g, '$1($2)');
 
     // 函数名紧跟变量无空格无括号，也补括号: sin2x -> sin(2x)（与上方带空格的 sin x 互补；sin(x)/sin(2x) 因后是 ( 不参与匹配）
-    s = s.replace(/\b(log10|log2|sin|cos|tan|ln|exp|sqrt|log|abs|diff|int|ode|lim|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|floor|ceil|gamma|mod)([0-9a-zA-Z_.]+)/g, '$1($2)');
+    s = s.replace(/\b(log10|log2|sin|cos|tan|ln|exp|sqrt|log(?!2|10)|abs|diff|int|ode|lim|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|floor|ceil|gamma|mod)([0-9a-zA-Z_.]+)/g, '$1($2)');
 
     // 保护科学计数法（数字后跟 e/E 和可选符号及数字，如 1e100, 2e+5, 3.5e-10）
     // 必须在隐式乘法规则之前执行，防止 1e100 被拆成 1*e100
@@ -5524,6 +5537,67 @@ function _recScanInterval(eq, vn, a, b, state, allSolutions, resultVarNames, dep
     _recScanInterval(eq, vn, a, _m, state, allSolutions, resultVarNames, depth + 1);
     _recScanInterval(eq, vn, _m, b, state, allSolutions, resultVarNames, depth + 1);
 }
+
+// 单变量线性系数提取（issue A 修复 2026-09-01 辅助）：判断节点是否为 vn 的线性函数 a*vn+b。
+// 支持 num/var/一元负号/二元 + - * /（* / 仅当一侧为常数）。非线性（x^2、exp(x) 等）返回 null。
+function _linearCoef1D(n, vn) {
+    if (!n) return null;
+    if (n.type === 'num') return { a: 0, b: n.value };
+    if (n.type === 'var') return (n.name === vn) ? { a: 1, b: 0 } : null;
+    if (n.type === 'unary' && n.op === '-') { var _t = _linearCoef1D(n.operand, vn); return _t ? { a: -_t.a, b: -_t.b } : null; }
+    if (n.type === 'binop') {
+        if (n.op === '+' || n.op === '-') {
+            var _l = _linearCoef1D(n.left, vn), _r = _linearCoef1D(n.right, vn);
+            if (_l && _r) return { a: _l.a + (n.op === '-' ? -_r.a : _r.a), b: _l.b + (n.op === '-' ? -_r.b : _r.b) };
+            return null;
+        }
+        if (n.op === '*') {
+            if (n.left.type === 'num' && n.right.type === 'var' && n.right.name === vn) return { a: n.left.value, b: 0 };
+            if (n.right.type === 'num' && n.left.type === 'var' && n.left.name === vn) return { a: n.right.value, b: 0 };
+            return null;
+        }
+        if (n.op === '/') {
+            var _ld = _linearCoef1D(n.left, vn);
+            if (_ld && n.right.type === 'num' && n.right.value !== 0) return { a: _ld.a / n.right.value, b: _ld.b / n.right.value };
+            return null;
+        }
+    }
+    return null;
+}
+// 单变量周期检测（issue A 修复 2026-09-01）：遍历 AST，对 sin/cos/tan/cot/sec/csc 且参数为 vn 的
+// 线性函数 a*vn+b 的项，取其最小周期（sin/cos/sec/csc → 2π/|a|；tan/cot → π/|a|）。用于把单变量网格
+// 扫描步长设为 < 周期/2，确保高频/多周期方程不漏根。无周期/非线性参数返回 null。
+function _detectPeriod1D(node, vn) {
+    var _P = null;
+    (function _walkPer(n) {
+        if (!n) return;
+        if (n.type === 'func' && ['sin', 'cos', 'sec', 'csc', 'tan', 'cot'].indexOf(n.name) >= 0) {
+            var _c = _linearCoef1D(n.arg, vn);
+            if (_c && _c.a !== 0) {
+                var _p = (n.name === 'tan' || n.name === 'cot') ? (Math.PI / Math.abs(_c.a)) : (2 * Math.PI / Math.abs(_c.a));
+                if (_P === null || _p < _P) _P = _p;
+            }
+        }
+        if (n.type === 'func') { if (n.arg) _walkPer(n.arg); if (n.args) for (var _ai = 0; _ai < n.args.length; _ai++) _walkPer(n.args[_ai]); }
+        else if (n.type === 'binop') { _walkPer(n.left); _walkPer(n.right); }
+        else if (n.type === 'unary') { _walkPer(n.operand); }
+    })(node);
+    return _P;
+}
+
+// 判断方程是否只引用 allowed 集合内的变量（用于区分"纯净单变量"与"消元后的伪单变量"）。
+function _eqRefsOnlyAllowed(eq, allowed) {
+    var _ok = true;
+    (function _w(n) {
+        if (!n || !_ok) return;
+        if (n.type === 'var') { if (allowed.indexOf(n.name) < 0) _ok = false; }
+        else if (n.type === 'binop') { _w(n.left); _w(n.right); }
+        else if (n.type === 'unary') { _w(n.operand); }
+        else if (n.type === 'func') { if (n.arg) _w(n.arg); if (n.args) for (var _ai = 0; _ai < n.args.length; _ai++) _w(n.args[_ai]); }
+    })(eq);
+    return _ok;
+}
+
 function suan22(state) {
     if (!(state.equations.length === 1 && state.varNames.length === 1)) return;
     var resultVarNames = getOutputVarNames(state);
@@ -5695,6 +5769,7 @@ function suan22(state) {
         var _vn = state.varNames[0];
         // 全域扫描证据（无解快速判定用）：是否有符号穿越 / 网格点最小|f|
         var _scanCross = false, _scanMinAbs = Infinity;
+        var _scanStep = (_hi - _lo) / 32;   // 实际网格步长（周期感知扫描会改写），供尾部密度自检使用
         // ---- 确定搜索域：声明域约束 ∩ D0（默认全域）----
         var _lo = -1e6, _hi = 1e6;
         for (var _dci = 0; _dci < state.domainConstraints.length; _dci++) {
@@ -5757,7 +5832,17 @@ function suan22(state) {
             }
             _walk1(_eq);
         })();
-        if (_lo < _hi && (_hi - _lo) <= 2e5) {
+        if (_lo < _hi) {
+            // ---- 周期感知步长（issue A 修复 2026-09-01）：高频/多周期方程用 < 周期/2 的网格，
+            //      确保不漏根；非周期方程回退到 4096 点默认细网格。点数上限 _NMAX 护栏防宽域爆炸。 ----
+            var _P = _detectPeriod1D(_eq, _vn);
+            var _NMAX = 400000;
+            var _hTarget = (_P !== null) ? (_P / 10) : ((_hi - _lo) / 4096);
+            var _N = Math.ceil((_hi - _lo) / _hTarget);
+            var _truncScan = false;
+            if (_N > _NMAX) { _N = _NMAX; _truncScan = true; }
+            var _h = (_hi - _lo) / _N;
+            _scanStep = _h;
             // ---- 收集域内 tan 奇点 kπ+π/2（奇点分裂点）----
             var _sings = [];
             for (var _k = Math.floor((_lo - Math.PI / 2) / Math.PI); _k <= Math.ceil((_hi - Math.PI / 2) / Math.PI); _k++) {
@@ -5774,15 +5859,31 @@ function suan22(state) {
             for (var _seg = 0; _seg < _bounds.length - 1; _seg++) {
                 var _A = _bounds[_seg], _B = _bounds[_seg + 1];
                 if (_B - _A < 1e-12) continue;
-                // ---- 子区间内网格细分（8 段）找异号 ----
-                var _gN = 32, _gH = (_B - _A) / _gN;
+                // ---- 子区间内自适应网格（按周期步长细分）找异号 + 近零点 ----
+                var _gN = Math.max(8, Math.round((_B - _A) / _h));
+                if (_gN > _NMAX) _gN = _NMAX;
+                var _gH = (_B - _A) / _gN;
                 var _gxP = _A, _gfP = _pointResidual(_eq, _vn, _A);
+                // 起始端点若有根（恰落在域边界）也记录，避免漏端点根
+                if (_gfP !== null && Math.abs(_gfP) < 1e-7) {
+                    var _faV = reconstructSolution(state, [_A]).map(roundToGrid);
+                    allSolutions.push({ values: _faV, residual: Math.abs(_gfP), _bisect: true });
+                }
                 for (var _gi = 1; _gi <= _gN; _gi++) {
                     var _gx = _A + _gH * _gi;
                     var _gf = _pointResidual(_eq, _vn, _gx);
                     if (_gf === null) { _gxP = _gx; _gfP = null; continue; }
                     if (_gfP !== null && _gfP * _gf < 0) _scanCross = true;
                     if (Math.abs(_gf) < _scanMinAbs) _scanMinAbs = Math.abs(_gf);
+                    // 近零网格点（根恰落格点 / 偶重根）：局部极小值且 |f| 极小 → 直接记为候选根（防漏）
+                    if (Math.abs(_gf) < 1e-7) {
+                        var _gnxt = (_gi < _gN) ? _pointResidual(_eq, _vn, _A + _gH * (_gi + 1)) : null;
+                        var _localMin = (_gfP === null || Math.abs(_gfP) >= Math.abs(_gf)) && (_gnxt === null || Math.abs(_gnxt) >= Math.abs(_gf));
+                        if (_localMin) {
+                            var _fullV = reconstructSolution(state, [_gx]).map(roundToGrid);
+                            allSolutions.push({ values: _fullV, residual: Math.abs(_gf), _bisect: true });
+                        }
+                    }
                     if (_gfP !== null && _gfP * _gf < 0) {
                         // ---- 区间求值预检：异号区间含奇点（除零/定义域错/±∞）→ 不二分，防把奇点当根 ----
                         var _sv = { nan: _IEEE.nan, inf: _IEEE.inf, divZero: _IEEE.divZero, domainErr: _IEEE.domainErr };
@@ -5803,7 +5904,13 @@ function suan22(state) {
                     }
                     _gxP = _gx; _gfP = _gf;
                 }
+                // 终止端点若有根也记录
+                if (_gfP !== null && Math.abs(_gfP) < 1e-7) {
+                    var _fbV = reconstructSolution(state, [_B]).map(roundToGrid);
+                    allSolutions.push({ values: _fbV, residual: Math.abs(_gfP), _bisect: true });
+                }
             }
+            if (_truncScan) state.truncated = true; // 周期感知扫描因域过宽/频率过高被点数上限截断 → 诚实标记
         }
     }
 
@@ -10400,7 +10507,20 @@ function solve(equationStrs, varNames, decimals, initialD0, fastMode, opts) {
                 for (var _j = 0; _j < _eqsNorm.length; _j++) { if (_eqsNorm[_j] !== equationStrs[_j]) { _changed = true; break; } }
             }
             if (_changed) {
-                return _solveImpl(_eqsNorm, _vnNorm, decimals, initialD0, fastMode, opts);
+                // 域键同步归一化：initialD0 的键必须按 varNames 同样规则映射（theta→θ、声明 e→ₑ），
+                // 否则域键与归一化后的变量名失配 → 用户域被静默丢弃 → 退回默认 ±1e6
+                // （周期方程如 sin(theta)=0.5 会在全域穷举数十万根，表现为长时间无响应）。
+                var _d0Norm = initialD0;
+                if (initialD0 && typeof initialD0 === 'object' && !(initialD0 instanceof Array)) {
+                    _d0Norm = {};
+                    for (var _dk in initialD0) {
+                        if (!Object.prototype.hasOwnProperty.call(initialD0, _dk)) continue;
+                        var _nk = _greekNameToSymbol(_dk);
+                        if (_vnNorm.indexOf('ₑ') >= 0 && _nk === 'e') _nk = 'ₑ';
+                        _d0Norm[_nk] = initialD0[_dk];
+                    }
+                }
+                return _solveImpl(_eqsNorm, _vnNorm, decimals, _d0Norm, fastMode, opts);
             }
         }
         return _solveImpl(equationStrs, varNames, decimals, initialD0, fastMode, opts);
@@ -11491,6 +11611,7 @@ function _solveImpl(equationStrs, varNames, decimals, initialD0, fastMode, opts)
     var state = {};
     if (initialD0 === undefined) _ieeeReset();   // 仅顶层求解重置 IEEE 标记；分支递归子盒累积异常，不丢聚合信息
     state.equations = [];
+    state._origEqs = (equationStrs && equationStrs.length) || 0;   // 原始方程数（区分"纯净单变量输入"与"多变量消元后的伪单变量"）
     state.varNames = varNames || [];
     state.D0 = {};
     state.userDomain = (initialD0 && typeof initialD0 === 'object') ? initialD0 : null;  // 用户初始域，供全局区间分支使用
@@ -11660,7 +11781,13 @@ function _solveImpl(equationStrs, varNames, decimals, initialD0, fastMode, opts)
     if (!__LS_MSNEWTON_DONE && state.equations.length === state.varNames.length && !state.fastMode) {
         __LS_MSNEWTON_DONE = true;
         suan47_tryNewton(state);
-        if (state.done) return _finish(state);
+        // 仅"纯净单变量输入"（原始即 1 方程 1 变量，如 cos(x)=0.5）清空短路标志，
+        // 交 suan22 周期感知扫描补全全部根（修复 issue A 静默漏支）。
+        // 多变量方阵、以及消元后的"伪单变量"（原方程数≠1，含自由参数，如 T_Wikibooks/M01）
+        // 保持原行为短路返回，避免丢失自由参数采样得到的多解。
+        var _genuineSingle = (state.varNames.length === 1 && state._origEqs === 1 && _eqRefsOnlyAllowed(state.equations[0], state.varNames));
+        if (state.done && !_genuineSingle) return _finish(state);
+        if (_genuineSingle) { state.done = false; state.result = null; }
     }
 
     // ===== 阶段 4｜单变量专项求解（cost 2~3）=====
@@ -11812,7 +11939,11 @@ function runSolver() {
     eqText = cleanInput(eqText);
     var varText = document.getElementById("variables").value.trim();
 
-    var eqLines = eqText.split("\n").filter(function(l) { return l.trim().length > 0; });
+    // 按行拆分方程；但兼容"豆包式打竖粘贴"：若整段只含一个 '=' 却跨多行，
+    // 说明是单条方程被换行拆散，合并换行成一条方程（否则每字符会被当成假方程）。
+    var _rawLines = eqText.split("\n").map(function(l) { return l.trim(); }).filter(function(l) { return l.length > 0; });
+    var _eqCount = (_rawLines.join('').match(/=/g) || []).length;
+    var eqLines = (_eqCount === 1 && _rawLines.length > 1) ? [_rawLines.join('')] : _rawLines;
     if (eqLines.length === 0) {
         showError("请输入方程");
         return;
