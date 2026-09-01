@@ -199,10 +199,11 @@ AI 智能体遇到卡点/错误/疑似问题时主动回报，仅落本地 `feed
 ## 本地验证
 
 ```bash
-node verify_core.js        # 引擎加载 + 6 个代表性用例
-node mcp_smoke.js          # MCP 字节级冒烟（initialize/tools/list/tools/call）
-node mcp_smoke2.js         # give_feedback + 错误结构化（不泄露堆栈）
-node test/regression.js    # 三套常驻考卷回归（28 用例，known 命中率统计）
+node verify_core.js                    # 引擎加载 + 6 个代表性用例
+node test/regression.js                # 三套常驻考卷回归（28 用例，known 命中率统计）
+node test/verify_paste.js              # 粘贴容错专项（7 例）
+node test/verify_issueA.js             # 周期/高频单变量多解专项（15 例）
+node test/verify_compliance.js         # 输入门禁专项（20 例）
 ```
 
 ---
@@ -222,8 +223,8 @@ node test/regression.js    # 三套常驻考卷回归（28 用例，known 命中
 
 ## 文档
 
-- 《灵数求解器_代码流程中文说明.md》—— 从解析到输出的完整内部流程（面向数学背景读者）
-- 《灵数求解器商业化战略白皮书.md》—— 定位、能力边界、风险
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) —— 产品现状：数学框架 / 结构框架 / 代码框架 / 算法框架 / 处理流程（忠实于真实实现）
+- [CHANGELOG.md](./CHANGELOG.md) —— 能力、边界与修复记录
 - 发明专利申请书系列（已提交）
 
 ## 许可
