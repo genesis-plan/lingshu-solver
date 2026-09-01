@@ -11436,8 +11436,30 @@ function _finish(state) {
             if (_gbEqs && _gbVns && _gbEqs.length === _gbVns.length && _gbVns.length > 0) {
                 var _gbOpts = { budget: 5e5, maxDepth: 28, minWidth: 1e-4 };
                 if (state.solverDecimals != null) _gbOpts.minWidth = Math.max(1e-4, Math.pow(10, -state.solverDecimals));
-                var _gb = _globalBranchCertify(_gbEqs, _gbVns, state.userDomain, _gbOpts);
-                if (_gb) _mergeGlobalBranch(state, _gb);
+                // 构造"补全 + 数组格式"的初始域后再交给全局分支定界。
+                // _globalBranchCertify 内部 mkBox 直接取 dom[vn][0]/[1]，要求每个变量都是 [lo,hi]；
+                // 用户只给部分变量域时直接传 state.userDomain，缺失变量为 undefined → undefined[0] 崩溃。
+                // （2026-09-01 修复：缺失变量回退初始域快照 _initD0，仍缺失则用默认 ±1e6）
+                var _gbDom = {}, _gbOk = true;
+                for (var _gi = 0; _gi < _gbVns.length; _gi++) {
+                    var _gvn = _gbVns[_gi];
+                    var _gv = state.userDomain[_gvn];
+                    var _snap = (state._initD0 && state._initD0[_gvn]) ? state._initD0[_gvn] : null;
+                    var _lo = -1000000, _hi = 1000000;
+                    if (Array.isArray(_gv) && _gv.length >= 2) {
+                        _lo = Number(_gv[0]); _hi = Number(_gv[1]);
+                    } else if (_gv && typeof _gv === 'object' && _gv.min !== undefined) {
+                        _lo = Number(_gv.min); _hi = Number(_gv.max);
+                    } else if (_snap && _snap.min !== undefined) {
+                        _lo = Number(_snap.min); _hi = Number(_snap.max);
+                    }
+                    if (!isFinite(_lo) || !isFinite(_hi) || _lo > _hi) { _gbOk = false; break; }
+                    _gbDom[_gvn] = [_lo, _hi];
+                }
+                if (_gbOk) {
+                    var _gb = _globalBranchCertify(_gbEqs, _gbVns, _gbDom, _gbOpts);
+                    if (_gb) _mergeGlobalBranch(state, _gb);
+                }
             }
         }
     }
@@ -11544,7 +11566,12 @@ function _solveImpl(equationStrs, varNames, decimals, initialD0, fastMode, opts)
             //  后续 17 处 state.D0[vn].min/.max 全部读到 undefined → NaN → 域约束静默失效）
             for (var _dnorm = 0; _dnorm < state.varNames.length; _dnorm++) {
                 var _dnv = state.varNames[_dnorm];
-                if (state.D0[_dnv] === undefined || state.D0[_dnv] === null) continue;
+                // 用户只给了部分变量的域：其余变量必须补默认全域，不能 continue 跳过。
+                // （此前跳过 → 该变量在 D0 中无条目 → 后续 state.D0[vn].min 读 undefined 属性直接崩溃）
+                if (state.D0[_dnv] === undefined || state.D0[_dnv] === null) {
+                    state.D0[_dnv] = { min: -1000000, max: 1000000 };
+                    continue;
+                }
                 var _dval = state.D0[_dnv];
                 if (Array.isArray(_dval)) {
                     // 数组格式 [lo, hi]
