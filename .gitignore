@@ -6,8 +6,8 @@
 !LICENSE
 !README.md
 !CHANGELOG.md
-!CONTRIBUTING.md
 !package.json
+!roadmap.md
 !index.html
 !solver-core.js
 !mcp-server.js
@@ -21,9 +21,14 @@
 !.github/**
 !intro.html
 !.nojekyll
+!产品定位话术.md
+!产品说明（完整版）.md
+!promotion-kit.md
+!smithery-listing.md
 !glama.json
 !smithery.yaml
+!曝光文案.md
+!实测报告-真SDK走查.md
 !enable_https.sh
 !reg_seed_entry.json
-!docs/
-!docs/**
+!被发现性审计报告.md
