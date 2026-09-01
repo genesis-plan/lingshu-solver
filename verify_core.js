@@ -91,6 +91,26 @@ show('7) 强依赖多项式 x^3-x=0 (3解, 验 AA 相依收缩)', ['x^3 - x = 0'
   assert(r.provenEmpty !== true, '畸形输入不得谎称 provenEmpty=true（严格证明无解）');
   assert(/NO_SOLUTION|NO_EQUATION/.test(r.error || ''), `畸形输入须诚实标注 error=${r.error}`);
 }
+// 10) 部分变量域不得崩溃（2026-09-01 修复：_globalBranchCertify 内部按 dom[v][0]/[1] 取数组格式域，
+//     直接传原始 userDomain 时，用户未指定的变量为 undefined → undefined[0] 抛异常）
+{
+  const eq = ['x1 = 12', 'x2 = 5', 'x1 / x2 - x3 = 0'];
+  const v = ['x1', 'x2', 'x3'];
+  const doms = [{ x3: [0, 10] }, { x1: [11, 13] }, { x2: [4, 6] }, { x1: [11, 13], x2: [4, 6] }];
+  for (const d of doms) {
+    let r = null, threw = null;
+    try { r = solve(eq, v, 6, d); } catch (e) { threw = (e && e.message) || String(e); }
+    assert(!threw, `部分变量域 ${JSON.stringify(d)} 不得抛异常（得 ${threw}）`);
+    assert(r && r.resultType === 2 && (r.solutions || []).length === 1,
+      `部分变量域 ${JSON.stringify(d)} 应解出 1 组解 (12,5,2.4)，实得 ${r ? (r.solutions || []).length : 'null'}`);
+    if (r && r.solutions && r.solutions.length) {
+      const s = r.solutions[0].values;
+      assert(Math.abs(s[0] - 12) < 1e-6 && Math.abs(s[1] - 5) < 1e-6 && Math.abs(s[2] - 2.4) < 1e-6,
+        `部分变量域 ${JSON.stringify(d)} 解须为 (12,5,2.4)，实得 ${JSON.stringify(s)}`);
+    }
+  }
+  console.log('  ✓ 部分变量域不再崩溃，且正确解出 (12,5,2.4)');
+}
 console.log('=== 完成 ===');
 if (failures > 0) {
   console.log(`✗ ${failures} 条断言失败`);
