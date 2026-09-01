@@ -13,7 +13,7 @@
 覆盖 ≤6 个变量、实数解、轻量数值定位。它不要求用户提供初值，采用区间算术做保守收缩 +
 Krawczyk 算子做解认证，并尽力穷尽多解。
 
-👉 **给用户看的产品介绍（大白话，帮你看懂它能干嘛、适不适合你）**：[点这里](intro.html) ｜ [官网 https://hongchenlingjing.com](https://hongchenlingjing.com) ｜ [国内 COS 在线版](https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/intro.html)
+👉 **完整产品规格与 FAQ（对外统一口径）**：[docs/产品说明（完整版）.md](./docs/产品说明（完整版）.md) ｜ [官网 https://hongchenlingjing.com](https://hongchenlingjing.com)
 
 ---
 
@@ -77,7 +77,7 @@ MCP 配置：
 git clone https://github.com/genesis-plan/lingshu-solver.git
 cd lingshu-solver
 node mcp-server.js        # 启动 MCP 服务端
-node test/regression.js   # 跑回归测试（28 用例）
+node test/regression.js   # 跑回归测试（28 用例，0 崩溃；known 参考解命中 47/50 = 94%）
 ```
 
 ---
@@ -225,7 +225,7 @@ AI 智能体遇到卡点/错误/疑似问题时主动回报，仅落本地 `feed
 node verify_core.js        # 引擎加载 + 6 个代表性用例
 node mcp_smoke.js          # MCP 字节级冒烟（initialize/tools/list/tools/call）
 node mcp_smoke2.js         # give_feedback + 错误结构化（不泄露堆栈）
-node test/regression.js    # 三套常驻考卷回归（28 用例，known 命中率统计）
+node test/regression.js    # 三套常驻考卷回归（28 用例，0 崩溃，known 命中 47/50 ≈ 94%）
 ```
 
 ---
