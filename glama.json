@@ -1,19 +1,19 @@
 {
   "$schema": "https://glama.ai/mcp/schema/manifest.json",
   "name": "Lingshu Solver",
-  "description": "Deterministic (non-LLM) algebraic equation-system solver for AI agents and people. Returns all real solutions, each verified and mathematically faithful, with best-effort global exhaustion. Runs in the browser or as an MCP tool. Free, zero dependencies.",
+  "description": "灵数求解器 — 确定性（非大模型）实数方程组求解 MCP 工具，≤6 变量。区间算术 + 仿射算术 + Krawczyk 构造性认证；每个已验证解数学保真，全局穷尽为尽力而为并诚实标记 truncated。支持三角函数/指数对数/竖排粘贴，零依赖、离线、无数据上传。安装即用最新稳定版：npx -y lingshu-solver。",
   "homepage": "https://genesis-plan.github.io/lingshu-solver/",
   "repository": {
     "type": "git",
     "url": "https://github.com/genesis-plan/lingshu-solver"
   },
   "license": "Apache-2.0",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "mcpServers": {
     "lingshu-solver": {
       "type": "stdio",
-      "command": "node",
-      "args": ["mcp-server.js"]
+      "command": "npx",
+      "args": ["-y", "lingshu-solver"]
     }
   }
 }
