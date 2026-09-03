@@ -65,7 +65,7 @@
 - 本复盘。
 
 ### 3.5 分发与获客（被动姿态）
-- npm `lingshu-solver@1.0.3`（Apache-2.0，面向 AI Agent 免费分发）。
+- npm `lingshu-solver@1.0.4`（非商业免费+商业授权，见 LICENSE；1.0.3 及更早版本按 Apache-2.0 发布）。
 - 市场收录：**Glama 已收录**；mcp.so / PulseMCP / Smithery **未收录**（需人工提交，Smithery 表单只填 `https://hongchenlingjing.com/mcp`）。
 - 获客策略：**被动获客、不主动推广**。
 - 路演脚本已备（定位"不卖功能，卖信任"——"同样的题，永远同一个答案。不靠猜，靠算"）。

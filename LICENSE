@@ -1,206 +1,101 @@
-                                 Apache License
-                           Version 2.0, January 2004
-                        http://www.apache.org/licenses/
+灵数求解器 (LingShu Solver) 商业授权许可协议
+LingShu Solver Commercial License
 
-   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+Copyright (c) 2026 红尘灵境数字科技有限公司 / 太白（邓其聪）.
+版权所有，保留一切权利。All rights reserved.
 
-   1. Definitions.
+--------------------------------------------------------------------------------
+一、著作权与权利保留
+--------------------------------------------------------------------------------
+本软件（包括但不限于源代码、目标代码、二进制文件、文档及随附资料，以下简称
+"本软件"）的著作权及相关知识产权均归上述版权方（以下简称"版权方"）所有。
+除本协议明确授予的有限许可外，任何权利（包括但不限于复制、修改、分发、再许可、
+出租、出借、商业使用、制作衍生作品之权利）均由版权方保留。
 
-      "License" shall mean the terms and conditions for use, reproduction,
-      and distribution as defined by Sections 1 through 9 of this document.
+--------------------------------------------------------------------------------
+二、非商业性使用（免费）
+--------------------------------------------------------------------------------
+在同时满足下列全部条件的"非商业性使用"范围内，版权方免费授予您一项非独占、
+不可转让、可随时撤销的使用许可：
+  1. 个人学习、研究、教学或技术评测；
+  2. 非营利组织、开源社区或教育机构的内部非营利用途；
+  3. 年营业收入不超过人民币 100 万元的团队，将本软件仅用于内部评估，且同时
+     运行的实例数不超过 3 个。
+上述许可的前提条件：
+  (a) 您须在每一份副本或任何实质性部分中完整保留本版权声明与许可声明；
+  (b) 未经版权方书面同意，不得移除、遮挡或篡改本软件中的任何版权、商标或
+      许可标识；
+  (c) 为互操作性所必须的法定反向工程情形除外，您不得对本软件进行反向工程、
+      反编译或反汇编。
 
-      "Licensor" shall mean the copyright owner or entity authorized by
-      the copyright owner that is granting the License.
+--------------------------------------------------------------------------------
+三、商业使用（须事先取得书面授权）
+--------------------------------------------------------------------------------
+任何"商业使用"均须事先取得版权方签署的书面《商业授权协议》（Commercial
+License），未获书面授权一律禁止。商业使用包括但不限于：
+  - 将本软件用于任何以营利为目的的产品、服务或业务；
+  - 通过 SaaS、云部署、API 或任何其他方式，向第三方提供基于本软件的能力
+    （无论是否收费）；
+  - 将本软件集成、嵌入或捆绑进任何商业发行物、设备或解决方案；
+  - 对本软件进行再分发、转授权或对外提供托管；
+  - 任何超出第二条"非商业性使用"范围的使用。
+未经书面授权的任何商业使用均构成对版权的侵权，版权方保留依法追究全部法律
+责任（包括但不限于停止侵权、损害赔偿及诉讼费用）的权利。
 
-      "Legal Entity" shall mean the union of the acting entity and all
-      other entities that control, are controlled by, or are under common
-      control with that entity. For the purposes of this definition,
-      "control" means (i) the power, direct or indirect, to cause the
-      direction or management of such entity, whether by contract or
-      otherwise, or (ii) ownership of fifty percent (50%) or more of the
-      outstanding shares, or (iii) beneficial ownership of such entity.
+--------------------------------------------------------------------------------
+四、获取商业授权
+--------------------------------------------------------------------------------
+商业授权申请与商务合作，请通过以下渠道联系版权方：
+  联系人：红尘灵境数字科技有限公司 / 太白（邓其聪）
+  邮箱：553420544@qq.com
+  仓库：https://github.com/genesis-plan/lingshu-solver（Issues 亦可用于商务咨询）
+授权范围、地域、期限与费用以双方签署的书面协议为准。
 
-      "You" (or "Your") shall mean an individual or Legal Entity
-      exercising permissions granted by this License.
+--------------------------------------------------------------------------------
+五、商标与品牌
+--------------------------------------------------------------------------------
+"灵数 / 灵数求解器 / LingShu Solver" 及相关名称、标识为版权方的商标或商号。
+本协议不授予任何商标使用权。未经书面许可，您不得使用上述名称、标识进行任何
+宣传或背书。
 
-      "Source" form shall mean the preferred form for making modifications,
-      including but not limited to software source code, documentation
-      source, and configuration files.
+--------------------------------------------------------------------------------
+六、无担保与责任限制
+--------------------------------------------------------------------------------
+本软件按"现状"提供，不提供任何明示或默示担保（包括但不限于对适销性、
+特定用途适用性及不侵权的担保）。在任何情况下，无论基于合同、侵权或其他法
+理，版权方均不对因使用或无法使用本软件所产生的任何直接、间接、附带、特殊
+或后果性损害承担责任。
 
-      "Object" form shall mean any form resulting from mechanical
-      transformation or translation of a Source form, including but
-      not limited to compiled object code, generated documentation,
-      and conversions to other media types.
+--------------------------------------------------------------------------------
+七、终止
+--------------------------------------------------------------------------------
+若您违反本协议任何条款，本许可自动终止。终止后您须立即停止使用本软件，并
+销毁所持有的全部副本（包括任何备份与衍生作品）。
 
-      "Work" shall mean the work of authorship, whether in Source or
-      Object form, made available under the License, as indicated by a
-      copyright notice that is included in or attached to the work
-      (an example is provided in the Appendix below).
+--------------------------------------------------------------------------------
+八、适用法律
+--------------------------------------------------------------------------------
+本协议受中华人民共和国法律管辖，并按其解释。因本协议产生的争议，提交版权
+方所在地有管辖权的人民法院诉讼解决。
 
-      "Derivative Works" shall mean any work, whether in Source or Object
-      form, that is based on (or derived from) the Work and for which the
-      editorial revisions, annotations, elaborations, or other modifications
-      represent, as a whole, an original work of authorship. For the purposes
-      of this License, Derivative Works shall not include works that remain
-      separable from, or merely link (or bind by name) to the interfaces of,
-      the Work and Derivative Works thereof.
+--------------------------------------------------------------------------------
+九、版本适用范围（重要）
+--------------------------------------------------------------------------------
+自 lingshu-solver@1.0.4 起的版本适用本协议。更早版本（含 1.0.3 及此前）曾
+以 Apache License 2.0 发布，该等已发布版本继续按其发布时随附的 Apache
+License 2.0 条款提供，此为历史事实且不可撤回；但其不延伸适用于本协议生效
+后的任何新版本。
 
-      "Contribution" shall mean any work of authorship, including
-      the original version of the Work and any modifications or additions
-      to that Work or Derivative Works thereof, that is intentionally
-      submitted to Licensor for inclusion in the Work by the copyright owner
-      or by an individual or Legal Entity authorized to submit on behalf of
-      the copyright owner. For the purposes of this definition, "submitted"
-      means any form of electronic, verbal, or written communication sent
-      to the Licensor or its representatives, including but not limited to
-      communication on electronic mailing lists, source code control systems,
-      and issue tracking systems that are managed by, or on behalf of, the
-      Licensor for the purpose of discussing and improving the Work, but
-      excluding communication that is conspicuously marked or otherwise
-      designated in writing by the copyright owner as "Not a Contribution."
-
-      "Contributor" shall mean Licensor and any individual or Legal Entity
-      on behalf of whom a Contribution has been received by Licensor and
-      subsequently incorporated within the Work.
-
-   2. Grant of Copyright License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      copyright license to reproduce, prepare Derivative Works of,
-      publicly display, publicly perform, sublicense, and distribute the
-      Work and such Derivative Works in Source or Object form.
-
-   3. Grant of Patent License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      (except as stated in this section) patent license to make, have made,
-      use, offer to sell, sell, import, and otherwise transfer the Work,
-      where such license applies only to those patent claims licensable
-      by such Contributor that are necessarily infringed by their
-      Contribution(s) alone or by combination of their Contribution(s)
-      with the Work to which such Contribution(s) was submitted. If You
-      institute patent litigation against any entity (including a
-      cross-claim or counterclaim in a lawsuit) alleging that the Work
-      or a Contribution incorporated within the Work constitutes direct
-      or contributory patent infringement, then any patent licenses
-      granted to You under this License for that Work shall terminate
-      as of the date such litigation is filed.
-
-   4. Redistribution. You may reproduce and distribute copies of the
-      Work or Derivative Works thereof in any medium, with or without
-      modifications, and in Source or Object form, provided that You
-      meet the following conditions:
-
-      (a) You must give any other recipients of the Work or Derivative
-          Works a copy of this License; and
-
-      (b) You must cause any modified files to carry prominent notices
-          stating that You changed the files; and
-
-      (c) You must retain, in the Source form of any Derivative Works
-          that You distribute, all copyright, patent, trademark, and
-          attribution notices from the Source form of the Work,
-          excluding those notices that do not pertain to any part of
-          the Derivative Works; and
-
-      (d) If the Work includes a "NOTICE" text file as part of its
-          distribution, then any Derivative Works that You distribute must
-          include a readable copy of the attribution notices contained
-          within such NOTICE file, excluding those notices that do not
-          pertain to any part of the Derivative Works.
-
-      You may add Your own copyright statement to Your modifications and
-      may provide additional or different license terms and conditions
-      for use, reproduction, or distribution of Your modifications, or
-      for any such Derivative Works as a whole, provided Your use,
-      reproduction, and distribution of the Work otherwise complies with
-      the conditions stated in this License.
-
-   5. Submission of Contributions. Unless You explicitly state otherwise,
-      any Contribution intentionally submitted for inclusion in the Work
-      by You to the Licensor shall be under the terms and conditions of
-      this License, without any additional terms or conditions.
-      Notwithstanding the above, nothing herein shall supersede or modify
-      the terms of any separate license agreement you may have executed
-      with Licensor regarding such Contributions.
-
-   6. Trademarks. This License does not grant permission to use the trade
-      names, trademarks, service marks, or product names of the Licensor,
-      except as required for reasonable and customary use in describing the
-      origin of the Work and reproducing the content of the NOTICE file.
-
-   7. Disclaimer of Warranty. Unless required by applicable law or
-      agreed to in writing, Licensor provides the Work (and each
-      Contributor provides its Contributions) on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-      implied, including, without limitation, any warranties or conditions
-      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-      PARTICULAR PURPOSE. You are solely responsible for determining the
-      appropriateness of using or redistributing the Work and assume any
-      risks associated with Your exercise of permissions under this License.
-
-   8. Limitation of Liability. In no event and under no legal theory,
-      whether in tort (including negligence), contract, or otherwise,
-      unless required by applicable law (such as deliberate and grossly
-      negligent acts) or agreed to in writing, shall any Contributor be
-      liable to You for damages, including any direct, indirect, special,
-      incidental, or consequential damages of any character arising as a
-      result of this License or out of the use or inability to use the
-      Work (including but not limited to damages for loss of goodwill,
-      work stoppage, computer failure or malfunction, or any and all
-      other commercial damages or losses), even if such Contributor
-      has been advised of the possibility of such damages.
-
-   9. Accepting Warranty or Additional Liability. While redistributing
-      the Work or Derivative Works thereof, You may choose to offer,
-      and charge a fee for, acceptance of support, warranty, indemnity,
-      or other liability obligations and/or rights consistent with this
-      License. However, in accepting such obligations, You may act only
-      on Your own behalf and on Your sole responsibility, not on behalf
-      of any other Contributor, and only if You agree to indemnify,
-      defend, and hold each Contributor harmless for any liability
-      incurred by, or claims asserted against, such Contributor by reason
-      of your accepting any such warranty or additional liability.
-
-   END OF TERMS AND CONDITIONS
-
-   APPENDIX: How to apply the Apache License to your work.
-
-      To apply the Apache License to your work, attach the following
-      boilerplate notice, with the fields enclosed by brackets "[]"
-      replaced with your own identifying information. (Don't include
-      the brackets!)  The text should be enclosed in the appropriate
-      comment syntax for the file format. We also recommend that a
-      file or class name and description of purpose be included on the
-      same "printed page" as the copyright notice for easier
-      identification within third-party archives.
-
-   Copyright [yyyy] [name of copyright owner]
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-
-   ----------------------------------------------------------------------------
-
-   Copyright 2026 广州OPC（红尘灵境）
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
+--------------------------------------------------------------------------------
+英文摘要 / English Summary
+--------------------------------------------------------------------------------
+Copyright (c) 2026 红尘灵境数字科技有限公司 / 太白（邓其聪）. All rights reserved.
+This software is NOT open source and NOT free for commercial use. Non-commercial
+use (personal study, research, non-profit / educational internal use, or limited
+internal evaluation within a small low-revenue team) is permitted free of charge
+subject to retaining this notice. ANY commercial use requires a prior written
+Commercial License from the copyright holder. Unauthorized commercial use is
+prohibited and constitutes copyright infringement. This license applies to
+lingshu-solver@1.0.4 and later; earlier versions remain under the Apache License
+2.0 as originally distributed. Provided "AS IS" without warranty; liability is
+excluded to the maximum extent permitted by law.
