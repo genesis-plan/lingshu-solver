@@ -5833,6 +5833,9 @@ function suan22(state) {
             _walk1(_eq);
         })();
         if (_lo < _hi) {
+            var _dense = false;  // 修3：根稠密/超时提前终止扫描（防宽域周期方程穷举挂起）
+            var _denseByCount = false;  // 修3：仅由"根数超阈值"触发的稠密标记（用于无限/截断判定，区别于超时触发）
+            var _denseNonPeriodic = false;  // 修3：非周期稠密截断标记（与 periodic→无限 分支互补）
             // ---- 周期感知步长（issue A 修复 2026-09-01）：高频/多周期方程用 < 周期/2 的网格，
             //      确保不漏根；非周期方程回退到 4096 点默认细网格。点数上限 _NMAX 护栏防宽域爆炸。 ----
             var _P = _detectPeriod1D(_eq, _vn);
@@ -5902,8 +5905,11 @@ function suan22(state) {
                             _recScanInterval(_eq, _vn, _gxP, _gx, state, allSolutions, resultVarNames, 0);
                         }
                     }
+                    if (allSolutions.length > 200) { _dense = true; _denseByCount = true; break; }
+                    if ((performance.now() - state.startTime) > 1500) { _dense = true; break; }
                     _gxP = _gx; _gfP = _gf;
                 }
+                if (_dense) break;
                 // 终止端点若有根也记录
                 if (_gfP !== null && Math.abs(_gfP) < 1e-7) {
                     var _fbV = reconstructSolution(state, [_B]).map(roundToGrid);
@@ -5949,6 +5955,31 @@ function suan22(state) {
         var mergedSolutions = [];
         for (var _mi = 0; _mi < _uniqueIdx.length; _mi++) {
             if (_dedupMap[_mi]) mergedSolutions.push(_dedupMap[_mi]);
+        }
+
+        // 修3（2026-09-04）：稠密根防护——单变量周期方程在宽域内根稠密，
+        // 继续穷举既耗时（曾致 solve 挂起 >110s）又产出无用的海量解集。
+        // 含周期函数且根数超阈值 ⇒ 解集实际为无限（周期平移），如实标 rt=3 无限解集(代表解)；
+        // 非周期但稠密（如高次多项式）⇒ 不谎称无限，置 truncated 并后续告警，诚实返回部分代表根。
+        if (_denseByCount) {
+            if (_P !== null) {
+                state.done = true;
+                state.result = {
+                    solutions: mergedSolutions,
+                    error: null,
+                    message: "单变量周期方程在声明域内出现大量（>" + 200 + "）孤立根，呈周期性稠密分布，解集实际为无限（如 x = x₀ + k·" + _P.toFixed(4) + "）。已给出 " + mergedSolutions.length + " 个代表根；如需有限个解请收窄变量定义域。",
+                    executionPath: "单变量稠密周期根判定(无限解集)",
+                    timeMs: performance.now() - state.startTime,
+                    confidence: "high",
+                    varNames: resultVarNames,
+                    resultType: 3,
+                    resultTypeName: "无限解集(代表解)",
+                    resultTypeDesc: "周期方程在宽域内根稠密，解集为周期平移的无穷集合，已给出代表根"
+                };
+                return;
+            }
+            state.truncated = true;  // 非周期稠密：诚实截断（避免海量/不完整解集），下方 domainFiltered 产出部分代表根
+            _denseNonPeriodic = true;
         }
 
         // 2) 原始方程回代验证：对每组候选解，代入全部原始方程重新计算残差
@@ -6081,6 +6112,12 @@ function suan22(state) {
                     ]);
                 }
             }
+        }
+        // 修3：非周期稠密截断告警（与上方 periodic→无限 分支互补）
+        if (_denseNonPeriodic && state.result) {
+            state.result.warnings = (state.result.warnings || []).concat([
+                "方程在声明域内根数量过多（>" + 200 + "），已截断扫描；结果不完整，缩小变量范围或确认方程规模可获完整解集。"
+            ]);
         }
     }
 }

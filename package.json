@@ -1,6 +1,6 @@
 {
   "name": "lingshu-solver",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "灵数求解器 · 确定性实数方程组求解 MCP 工具（≤6变量）：区间收缩 + Krawczyk 认证，离线零依赖零数据，诚实标记 truncated。",
   "homepage": "https://genesis-plan.github.io/lingshu-solver/",
   "repository": {
