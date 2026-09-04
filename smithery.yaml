@@ -1,6 +1,6 @@
 ﻿name: lingshu-solver
 displayName: 灵数求解器 Lingshu Solver
-description: 确定性（非大模型）实数方程组求解 MCP 工具，≤6 变量。区间算术 + 仿射算术 + Krawczyk 构造性认证，结果可验证、不随机、不幻觉；每个解都能回代验证。全局穷尽为尽力而为并诚实标记 truncated。Apache-2.0、零依赖、离线、无数据上传。安装即用最新稳定版：npx -y lingshu-solver。
+description: 确定性（非大模型）实数方程组求解 MCP 工具，≤6 变量。区间算术 + 仿射算术 + Krawczyk 构造性认证，结果可验证、不随机、不幻觉；每个解都能回代验证。全局穷尽为尽力而为并诚实标记 truncated。非商业免费、商业须版权方书面授权（详见仓库 LICENSE）；零依赖、离线、无数据上传。安装即用最新稳定版：npx -y lingshu-solver。
 metadata:
   category: math
   author: genesis-plan
