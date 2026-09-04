@@ -1,7 +1,13 @@
 # 更新日志（Changelog）
 
 > 只记录**对用户重要的变更**（能力、边界、修复）。内部开发过程不在此记录。
-> 当前发布版本：**`lingshu-solver@1.0.4`**（npm）。
+> 当前发布版本：**`lingshu-solver@1.0.4`**（npm）；**`1.0.5`（待发版，2026-09-04）** 含以下两处 P0 修复。
+
+## 1.0.5（待发版，2026-09-04）
+- **P0 修复 · 全局分支定界谎报 complete（#P0-1）**：`_newtonRefine` 把裸**点值**（number）喂给 `intervalEval` 求雅可比，而 `intervalEval` 期望 `{min,max}` 区间——裸数的 `iv.min/iv.max` 为 `undefined` → `_buildAffEnv` 算出 `NaN` 噪声 → 雅可比整行 `NaN` → `realMatInv` 失败 → 对一切良置问题**恒返 `null`**。后果：`_globalBranchCertify` 的 Krawczyk 收敛盒中点永远无法精化为真解，却仍把该盒消费掉，最终对 `x^2-2` 之类方程返回 **0 解却 `complete=true`**（假证"已穷尽无遗漏"）。修复：雅可比求导改用退化点区间 `{min:x,max:x}`，使 `intervalEval` 正常求值。验证：`_newtonRefine(x^2-2, 1.5) → √2`；`_globalBranchCertify(x^2-2)@[-3,3]` 现返回 **2 解且 `complete=true`**。
+- **P0 修复 · 超越函数区间塌缩为点（#P0-2，soundness 破坏）**：`_affineEval` 的 `func` 分支算得正确区间 `rv` 后却 `return _Aff((rv.min+rv.max)/2, {})`——把合法区间宽度丢成 0，致 `intervalEval(sin x)@[-2,2]` 塌成 `[0,0]`、`d/dx[sin(x)]` 雅可比退化为中点点值。后果：对含 sin/cos/exp/ln/sqrt 等超越函数的方程，区间包络与 Krawczyk 雅可比**不可信**（声称的包含区间实际不含真值）。修复：用半径 `(rv.max-rv.min)/2` 的噪声符号把 `rv` 完整编码为仿射，使 `_affToInterval` 还原为 `[rv.min, rv.max]`（sound 且紧致）。验证：`intervalEval(sin x)@[-2,2] → [-1,1]`；`d/dx[sin(x)-0.5]@[-2,2] → [-cos2, 1]`。
+- **新增回归测试** `test/p0_fix_regression.js`（13 项全绿）：覆盖上述两 P0 的修复前/后行为，作为 `npm test` 主验证。
+- **已知未修（独立既有缺陷，非本版引入）**：顶层 `solve()` 对单变量超越方程（如 `sin(x)-0.5`）会挂起（>110s 不返回），内部超时未拦截该策略路径；多项式与多变量方阵 `solve` 正常。该缺陷与本次两 P0 无关（在 1.0.4 代码即存在），列入后续「修3」跟踪，不阻塞本次发布。
 
 ## 1.0.4（npm 发版，2026-09-03）
 - **许可证变更（重大）**：自本版本起，由 Apache License 2.0 变更为**自有《灵数求解器商业授权许可协议》**——非商业用途免费（个人学习/研究/教学/评测、非营利与教育机构内部、小团队评估 ≤3 实例），**商业用途须事先取得版权方书面授权**（联系 553420544@qq.com）。

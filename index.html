@@ -6624,7 +6624,13 @@ function _affineEval(ast, env) {
     // 超越函数降级：仿射自变量 → 保守区间函数包围（复用 _rangeEval，无递归环）
     var tmp = { type: 'func', name: ast.name, arg: { type: 'var', name: '__a' } };
     var rv = _rangeEval(tmp, { __a: iv });
-    return rv ? _Aff((rv.min + rv.max) / 2, {}) : null;
+    if (!rv || !isFinite(rv.min) || !isFinite(rv.max)) return null; // 含 ±Inf：交还 _rangeEval 直接给出保守区间
+    // 关键修复（P0-2）：旧实现 return _Aff((rv.min+rv.max)/2, {}) 把合法区间宽度丢成 0，
+    // 致 intervalEval(sin x)@[-2,2] 塌成 [0,0]（unsound：真值须含 [-1,1]）。
+    // 正确做法：用半径 (rv.max-rv.min)/2 的噪声符号把 rv 完整编码为仿射，
+    // 使 _affToInterval 还原为 [rv.min, rv.max]（sound 且紧致），Krawczyk 雅可比随之可信。
+    var e = {}; e[_affSym++] = (rv.max - rv.min) / 2;
+    return _Aff((rv.min + rv.max) / 2, e);
   }
   if (ast.type === 'unary') {
     var u = _affineEval(ast.operand, env);
@@ -11378,7 +11384,11 @@ function _newtonRefine(eqs, vns, x0, box) {
         var F = []; for (var e = 0; e < n; e++) { var fe = evalAST(eqs[e], vmap); if (!isFinite(fe)) return null; F.push(fe); }
         var rms = 0; for (var i2 = 0; i2 < n; i2++) rms += F[i2] * F[i2]; rms = Math.sqrt(rms / n);
         if (rms < 1e-11) return x;
-        var J = []; for (var a = 0; a < n; a++) { J.push([]); for (var b = 0; b < n; b++) { var d = _diffAST(eqs[a], vns[b]); var dv = intervalEval(d, vmap); if (!dv) return null; J[a].push((dv.min + dv.max) / 2); } }
+        // 雅可比区间求导：必须喂退化的点区间 {min:x,max:x}（而非裸点值）。
+        // 旧实现 intervalEval(d, vmap) 把裸数当 iv，iv.min/iv.max 为 undefined → _buildAffEnv 算出 NaN 噪声
+        // → 雅可比整行 NaN → realMatInv 失败 → 本函数对一切良置问题恒返 null（P0-1）。
+        var pmap = {}; for (var i3 = 0; i3 < n; i3++) pmap[vns[i3]] = { min: x[i3], max: x[i3] };
+        var J = []; for (var a = 0; a < n; a++) { J.push([]); for (var b = 0; b < n; b++) { var d = _diffAST(eqs[a], vns[b]); var dv = intervalEval(d, pmap); if (!dv) return null; J[a].push((dv.min + dv.max) / 2); } }
         var Y = realMatInv(J); if (!Y) return null;
         var dX = rMatVec(Y, F);
         for (var j = 0; j < n; j++) x[j] = x[j] - dX[j];
