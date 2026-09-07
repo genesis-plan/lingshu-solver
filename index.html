@@ -4737,7 +4737,7 @@ function suan7(state) {
                     for (var kb in known) ibox[kb] = { min: known[kb], max: known[kb] };
                     ibox[uv] = box;
                     var iF = intervalEval(eq, ibox);
-                    if (iF && (iF.max < 0 || iF.min > 0)) {
+                    if (iF && _ivExcludesZero(iF)) {
                         state.done = true;
                         var knownList = Object.keys(known).sort().map(function(v) { return v + "=" + known[v]; }).join(", ");
                         state.result = { solutions: [], error: "NO_SOLUTION", message: "前向传播检测到矛盾：代入已知值后，方程在变量 " + uv + " 的全域上 f 的严格区间包络不含 0（包络=[" + iF.min.toExponential(2) + "," + iF.max.toExponential(2) + "]），严格证明无根", detail: "已知值: " + knownList, executionPath: "前向传播矛盾检测", timeMs: performance.now() - state.startTime, confidence: "high", varNames: state.varNames, resultType: 1, resultTypeName: "空结果", resultTypeDesc: "前向传播检测到矛盾" };
@@ -6594,6 +6594,16 @@ var _affSym = 0;
 function _Aff(c, e) { return { c: c, e: e || {} }; }
 function _affRad(a) { if (!a) return 0; var r = 0; for (var k in a.e) r += Math.abs(a.e[k]); return r; }
 function _affToInterval(a) { if (!a) return null; var r = _affRad(a); return _iNorm({ min: a.c - r, max: a.c + r }); }
+// sound 容差：区间求值受浮点舍入影响，包络可能偏离真值几个 ulp（如 12/5 经 12*(1/5)
+// 算得 2.4000000000000001，与字面 2.4 差 ~2e-16，加仿射半径后包络中心落正侧）。
+// 判"严格不含 0 → 证明无解/严格单调"时，必须要求包络离 0 超过此容差；否则保守地
+// 不判无解（降级为继续求解 / 诚实报未找到），绝不因舍入把真解误杀为假阴性（sound-safe，
+// 绝不引入假阳性）。容差随量级缩放（相对 1e-12）+ 1e-12 绝对下限。
+function _ivExcludesZero(iv) {
+  if (!iv || !isFinite(iv.min) || !isFinite(iv.max)) return false;
+  var pad = Math.max(1e-12, 1e-12 * Math.max(1, Math.abs(iv.min), Math.abs(iv.max)));
+  return iv.max < -pad || iv.min > pad;
+}
 function _affAdd(a, b) { var e = {}; for (var k in a.e) e[k] = a.e[k]; for (var k in b.e) e[k] = (e[k] || 0) + b.e[k]; return _Aff(a.c + b.c, e); }
 function _affSub(a, b) { var e = {}; for (var k in a.e) e[k] = a.e[k]; for (var k in b.e) e[k] = (e[k] || 0) - b.e[k]; return _Aff(a.c - b.c, e); }
 function _affMul(a, b) {
@@ -6610,14 +6620,18 @@ function _affMul(a, b) {
 }
 function _affInv(b) {
   // 1/b 一阶泰勒，误差保守界 |(b-b0)^2|/(2 b0^2 ξ^2)，ξ∈盒，min|ξ|=|b0|-rb
+  // ⚠️ 修正（sound 正确性，2026-09-07）：旧实现 r=0-b=-b，lin=(-1/b.c²)·(-b) 的中心 lin.c 已是 1/b.c，
+  //   return 又写 1/b.c + lin.c → 中心被双重计数为 2/b.c（如 1/5 算成 0.4、12/5 算成 4.8），
+  //   导致所有含除法的区间包络 / 中值定理判无解（suan7/suan29/suan35 等）系统性假阴性。
+  //   正确：dev = b - b.c（中心 0）做一阶泰勒，lin.c=0，return 中心恰为 1/b.c，且噪声符号正确。
   var rb = _affRad(b); if (b.c === 0) return null;
-  var r = _affSub(_Aff(0, {}), b);
-  var lin = _affMul(r, _Aff(-1 / (b.c * b.c), {}));
+  var dev = _affSub(b, _Aff(b.c, {}));   // b - b0，中心为 0
+  var lin = _affMul(dev, _Aff(-1 / (b.c * b.c), {}));   // 一阶项，中心为 0
   var e = {}; for (var k in lin.e) e[k] = lin.e[k];
   var m = Math.abs(b.c) - rb; if (m <= 0) return null;
   var err = (rb * rb) / (2 * b.c * b.c * m * m);
   var sym = _affSym++; e[sym] = err;
-  return _Aff(1 / b.c + lin.c, e);
+  return _Aff(1 / b.c + lin.c, e);   // 现 lin.c=0 → 中心 = 1/b.c
 }
 function _affDiv(a, b) { var ib = _affInv(b); return ib ? _affMul(a, ib) : null; }
 function _buildAffEnv(intervals) {
@@ -6705,7 +6719,7 @@ function suan29(state) {
 
     // 严格测试①（最强）：f 在区间上的区间包络不含 0 → 由中值定理严格证明该盒内无根
     var F = intervalEval(state.equations[0], box);
-    if (F && (F.max < 0 || F.min > 0)) {
+    if (F && _ivExcludesZero(F)) {
         state.done = true;
         state.result = { solutions: [], error: "NO_SOLUTION", provenEmpty: true, message: "f 在 [" + a + "," + b + "] 上的严格区间包络不含 0（包络=[" + F.min.toExponential(2) + "," + F.max.toExponential(2) + "]），由中值定理严格证明该盒内无根", executionPath: "导数单调性剪枝", timeMs: performance.now() - state.startTime, confidence: "high", varNames: state.varNames, resultType: 1, resultTypeName: "空结果", resultTypeDesc: "区间包络严格证明区间内无根" };
         return;
@@ -6716,7 +6730,7 @@ function suan29(state) {
     //   用符号微分+区间求值得到【紧致】导数包络，取代原“3 条割线同号”启发式（会漏根，见评审 unsound）。
     var dAST = _diffAST(state.equations[0], vn);
     var dI = dAST ? intervalEval(dAST, box) : null;
-    if (dI && (dI.min > 0 || dI.max < 0)) {
+    if (dI && _ivExcludesZero(dI)) {
         var faBox = {}, fbBox = {}; faBox[vn] = { min: a, max: a }; fbBox[vn] = { min: b, max: b };
         var faI = intervalEval(state.equations[0], faBox);
         var fbI = intervalEval(state.equations[0], fbBox);
@@ -6870,7 +6884,7 @@ function suan35(state) {
         //     故仅在“不含 0”时返回 false（不可行）。
         for (var r = 0; r < subEqs.length; r++) {
             var iF = intervalEval(subEqs[r], box);
-            if (iF && isFinite(iF.min) && isFinite(iF.max) && (iF.max < 0 || iF.min > 0)) {
+            if (iF && _ivExcludesZero(iF)) {
                 return false; // 该方程在 used 全域上严格无根 ⇒ 子问题不可行 ⇒ 全局不可行
             }
         }
@@ -11083,7 +11097,7 @@ function _runTail(state) {
 
 // —— 可审计结构化溯源（切片A）：每个结果附带完整证据链元数据 ——
 // 设计目标：Agent / 上层系统拿到的不只是裸数字，而是"为什么是这个解"的可读证据链。
-var SOLVER_VERSION = "lingshu-solver/1.0.0-auditable";
+var SOLVER_VERSION = "lingshu-solver/1.0.7-auditable";
 
 // Movability 完整读取（切片B）：每变量携带 status + width，供 Agent 读懂"为何是这个解"
 function _movabilityFull(state) {
