@@ -36,7 +36,9 @@
   "files": [
     "index.html",
     "mcp-server.js",
+    "http-mcp-server.js",
     "solver-core.js",
+    "beian.png",
     "README.md",
     "LICENSE"
   ],

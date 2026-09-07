@@ -23,10 +23,11 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { solve } = require('./solver-core');
+const solverCore = require('./solver-core');
+const { solve } = solverCore;
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '4.1.0';
+const SERVER_VERSION = '1.0.8';
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源，与 stdio 版一致）----
@@ -331,9 +332,13 @@ const server = http.createServer((req, res) => {
 
   // 健康检查
   if (req.method === 'GET' && (req.url === '/' || req.url === '/health')) {
+    // solverVersion 从已加载的求解沙箱实时读取，保证 /health 报告的版本与实际核心一致（不靠手写常量，杜绝假版本）
+    let solverVersion = null;
+    try { solverVersion = solverCore.raw().SOLVER_VERSION || null; } catch (_e) { /* index.html 未就绪时降级为 null */ }
     return sendJson(res, 200, {
       name: SERVER_NAME,
       version: SERVER_VERSION,
+      solverVersion,
       status: 'ok',
       transport: 'streamable-http',
       endpoints: { mcp: 'POST /mcp (SSE via GET /mcp)', health: 'GET /health' },

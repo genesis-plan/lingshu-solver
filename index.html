@@ -11097,7 +11097,7 @@ function _runTail(state) {
 
 // —— 可审计结构化溯源（切片A）：每个结果附带完整证据链元数据 ——
 // 设计目标：Agent / 上层系统拿到的不只是裸数字，而是"为什么是这个解"的可读证据链。
-var SOLVER_VERSION = "lingshu-solver/1.0.7-auditable";
+var SOLVER_VERSION = "lingshu-solver/1.0.8-auditable";
 
 // Movability 完整读取（切片B）：每变量携带 status + width，供 Agent 读懂"为何是这个解"
 function _movabilityFull(state) {
@@ -12290,12 +12290,13 @@ function showError(msg) {
 </script>
 
 <footer style="margin-top:34px;padding:18px 12px;text-align:center;color:#64748b;font-size:12px;border-top:1px solid #334155;line-height:1.8;">
+  <div style="margin-bottom:8px;">广州市红尘灵境数字科技有限公司 版权所有</div>
   <div style="margin-bottom:8px;">
-    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;color:#94a3b8;text-decoration:none;margin:0 8px;">
-      <img src="beian.png" alt="ICP备案图标" style="height:18px;vertical-align:middle;" />
-      <span>粤ICP备2026031206号-3</span>
+    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:none;margin:0 8px;">粤ICP备2026031206号-3</a>
+    <a href="https://www.beian.gov.cn/portal/registerSystemInfo?recordcode=44011402001444" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;color:#94a3b8;text-decoration:none;margin:0 8px;">
+      <img src="beian.png" alt="公安备案图标" style="height:18px;vertical-align:middle;" />
+      <span>粤公网安备44011402001444号</span>
     </a>
-    <a href="https://www.beian.gov.cn/portal/registerSystemInfo?recordcode=44011402001444" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:none;margin:0 8px;">粤公网安备44011402001444号</a>
   </div>
   <a href="/privacy.html" style="color:#94a3b8;">隐私与安全说明</a> ·
   远程调用端点：<code style="color:#94a3b8;">hongchenlingjing.com/mcp</code>
