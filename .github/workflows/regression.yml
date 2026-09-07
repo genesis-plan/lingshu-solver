@@ -17,4 +17,5 @@ jobs:
       - name: Run regression suite
         run: node test/regression.js
       - name: Run MCP smoke test
-        run: node mcp_smoke.js
+        # 零依赖：本 job 不执行 npm install，故 test/mcp_smoke.js 只使用 Node 内置模块
+        run: node test/mcp_smoke.js
