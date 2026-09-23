@@ -209,6 +209,11 @@ let ledgerStamp = null;
 // 信任制（honor system）声明计数：调用方「声明已付款」即放行的次数（不验证、不扣余额）。
 // 用于衡量「声明付款」vs「真付款」的转化，评估信任制是否真带来收入（与计费账本分离，不进钱账）。
 let honorClaims = 0;
+// 自助入账计数：调用方「付款后声明本单已付」并自助入账的次数（不验证、立即放行）。
+// 与 honorClaims 同属信任制的两条口子，**都不代表真收入**：真收入只认银行流水核对过的单
+// （台账里 creditedBy==='reconcile'/'admin' 且 amountVerified:true）。分开计数是为了
+// 任何时候都能一眼看出「有多少额度是凭声明发的、多少是核对过流水发的」，不虚报营收。
+let selfReportClaims = 0;
 
 function stampOf() {
   try { const st = fs.statSync(CREDITS_PATH); return st.mtimeMs + ':' + st.size; } catch (_e) { return null; }
@@ -287,6 +292,19 @@ const maskKey = (k) => {
 };
 const newKey = () => 'lsk_' + crypto.randomBytes(24).toString('hex');
 const newOrderId = () => 'LS-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + crypto.randomBytes(3).toString('hex');
+// 订单号格式（自助入账等外部传入 orderId 的入口必须先校验格式）：
+// ① 只认本端点自己发的形状，避免拿任意字符串当账本键；② 顺带挡住 `__proto__`/`constructor`
+// 这类原型链键名（用不可信字符串直接索引普通对象是经典坑）。
+const ORDER_ID_RE = /^LS-\d{8}-[0-9a-f]{6}$/;
+const ORDER_ID_SAMPLE = 'LS-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-a1b2c3';
+// 取订单：只接受合法格式，且必须是用 Object.prototype.hasOwnProperty 确认的自有属性
+function getOrder(orderId) {
+  if (!ORDER_ID_RE.test(String(orderId || ''))) return null;
+  const orders = ledger.orders || {};
+  if (!Object.prototype.hasOwnProperty.call(orders, orderId)) return null;
+  const o = orders[orderId];
+  return (o && typeof o === 'object') ? o : null;
+}
 const yuan = (cents) => '¥' + (cents / 100).toFixed(2);
 
 function extractKey(req, query) {
@@ -404,14 +422,21 @@ function paymentInfo(orderId, amountCents) {
 /** 当前实际可用的付款通道（对公收款：仅对公静态收款，不接任何支付平台商户 API） */
 function availableChannels() {
   const a = [];
-  if (PAY_TO && !RECEIPT_TAMPERED) a.push({ channel: 'corporate-static', mode: 'manual', protocol: PAY_INTENT_PROTOCOL, label: '对公静态收款（公司账户转账，备注订单号，按 ' + yuan(PRICE_CENTS) + '/次 折算入账，流水批量核对）' });
+  if (PAY_TO && !RECEIPT_TAMPERED) a.push({
+    channel: 'corporate-static',
+    mode: 'self-report',     // 付款后由调用方自助入账 ⇒ 全程零人工（不再需要任何人对账触发）
+    manualReconcile: true,   // 另可选用对公流水交叉核对（核实营收用，非必需流程）
+    protocol: PAY_INTENT_PROTOCOL,
+    label: '对公静态收款（公司账户/聚合码付款 → 付款后自助入账，按 ' + yuan(PRICE_CENTS) + '/次，无需等待对账）'
+  });
   return a;
 }
 
 // 「对公收款」：本项目自研的 Agent 支付意图协议（不依赖任何支付平台商户 API）。
 // 统一收款入口 = 工银e支付银联聚合码（支持支付宝 / 微信 / 银联扫码），钱落公司对公户。
 // 目标：让「带钱包、或被用户授权的 AI Agent」能读懂一个结构化付款意图，自行或代其人类完成付款；
-// 收款后由运营方拿对公流水跑 reconcile-bank.js，按订单号 + ¥0.01/次 折算，幂等入账。
+// 付款后由**调用方自助入账**（pay + selfReportPaid:true），收款方零人工；
+// 需要核实的场景再用对公流水跑 reconcile-bank.js 交叉核对（幂等，同一单不会重复入账）。
 function payIntent(orderId, calls, amountCents) {
   const info = paymentInfo(orderId, amountCents);
   return {
@@ -420,20 +445,20 @@ function payIntent(orderId, calls, amountCents) {
     payTo: info.payTo || null,
     payToQr: info.payToQr || null,
     ratePerCallCents: PRICE_CENTS,
-    rateNote: '本服务按次计费 ' + yuan(PRICE_CENTS) + '/次；对公静态收款不强制每笔恰收 1 分，按实收金额折算（建议 ' + yuan(amountCents) + ' ≈ ' + calls + ' 次）。',
+    rateNote: '本服务按次计费 ' + yuan(PRICE_CENTS) + '/次；对公静态收款不强制每笔恰收 1 分，建议 ' + yuan(amountCents) + ' ≈ ' + calls + ' 次。',
     suggestedCalls: calls,
     suggestedAmountCents: amountCents,
     suggestedAmountDisplay: yuan(amountCents),
-    memo: orderId,                // 付款备注必须包含订单号，否则无法对账入账
+    memo: orderId,                // 付款备注建议含订单号，便于需要时与银行流水交叉核对
     agentSteps: [
       '1. 向钱包持有者展示 payToQr（或 payTo 账户信息）。',
-      '2. 请持有者向该对公聚合码转账任意正金额（建议 ≥ ' + yuan(amountCents) + '）；付款备注 memo 必须含订单号 ' + orderId + '。',
-      '3. 持有者付款后，将「订单号 ' + orderId + ' + 实付金额 + 到账日期」回报给服务运营方；运营方跑 reconcile-bank.js 按订单号入账。',
-      '4. 入账后（通常数日内）用 apiKey 调 solve 即不再走信任制：Authorization: Bearer <key>。',
-      '5. 入账前若急需使用，可暂用 honorPaid:true 免费调用，待入账后余额覆盖。'
+      '2. 请持有者向该对公聚合码转账（建议 ' + yuan(amountCents) + '）；备注建议含订单号 ' + orderId + '。',
+      '3. 持有者付款完成后：用 orderId 调 MCP pay 工具，入参 {"orderId":"' + orderId + '","selfReportPaid":true} → **立即入账、立即放行**（服务端不验证，信任制）。',
+      '4. 入账后用 apiKey 调 solve 即不再走信任制：Authorization: Bearer <key>。',
+      '5. 若不便付款或缺凭证：直接用 honorPaid:true 免费调用，效果相同（本服务不做强制验证）。'
     ],
-    crediting: '无平台实时回调：运营方按对公流水（订单号匹配）批量入账，按 ' + yuan(PRICE_CENTS) + '/次 折算，幂等（重复流水不重复入账）。',
-    honestNote: '这是「静态聚合码 + 流水对账」模式，不是实时 API 扣款；到账 latency 取决于流水导出频率。如需实时自动入账，须接入支付平台商户 API（当前未接，也不强制）。'
+    crediting: '自助入账（self-report，零人工、无需等对账）：付款后调 pay + selfReportPaid:true 即按订单面值入账。账本标注 amountVerified:false / creditedBy:self_report；需要核实的场景由运营方用对公流水交叉核对（幂等）。',
+    honestNote: '「静态聚合码 + 自助入账」不是实时 API 扣款：入账凭调用方声明，因此**账面上的自助入账额度不等于已核实营收**。真营收以银行流水为准；本服务经营口径是「信任制 + 概率」——愿意付的付，不愿意的照常用。'
   };
 }
 
@@ -467,9 +492,11 @@ function paywallError(reason, ctx) {
     pay.payTo = PAY_TO;
     pay.howToPay = [
       '1. POST /pay/order 创建订单 → 响应含 orderId、apiKey，以及付款入口（payment / payIntent）',
-      '2. 打开 payUrl 扫码（若配置了收款码）或向对公账户转账任意支持额，备注订单号（账户信息见该页面 / payIntent.payTo）',
-      '3. 付款备注必须填写订单号；作者拿对公流水批量对账入账（按 ' + yuan(PRICE_CENTS) + '/次 折算），通常数日内；金额不符的来款一律原路退回',
-      '4. 管理员确认到账后余额入账，之后带 Authorization: Bearer <key> 调用即可'
+      '2. 打开 payUrl 扫码（若配置了收款码）或向对公账户转账，备注建议含订单号（账户信息见该页面 / payIntent.payTo）',
+      '3. ★ 付款完成后自助入账：调 MCP pay 工具，入参 {"orderId":"<订单号>","selfReportPaid":true} → 立即入账、立即放行（零人工，不用等任何人）',
+      '4. 之后带 Authorization: Bearer <key> 调用即可（不再走信任制，也不再需要 honorPaid）',
+      '5. 说明：自助入账不做验证（信任制）；账本会标注 amountVerified:false，真营收仍以银行流水核对为准',
+      '6. 对公来款若无法对应到任何订单/无法核对的，一律原路退回（资金处理承诺）'
     ];
   } else {
     pay.adminTodo = '服务端未配置 LS_PAY_TO：订单可创建但无法付款，请先在服务端配置收款方式。';
@@ -551,6 +578,8 @@ function orderAllowed(ip) {
   if (orderRate.size > 10000) for (const [k, v] of orderRate) { if (v.length === 0) orderRate.delete(k); }
   return true;
 }
+
+// ---- 自助入账限速（与下单共用同一桶即可：一单只能自助入账一次，幂等由订单状态保证）----
 
 function pruneOrders() {
   const cutoff = Date.now() - ORDER_TTL_DAYS * 24 * 3600 * 1000;
@@ -634,31 +663,43 @@ function pricingDoc(req) {
     howToBuy: [
       'POST ' + base + '/pay/order   （每次一笔 1 分钱订单；body 不支持 calls/plan 预购，下单恒为 1 次）',
       '响应给出 orderId 与 apiKey（apiKey 只出现一次，请立即保存）',
+      '向对公聚合码/账户付款（备注建议含订单号）',
+      '★ 付款完成后自助入账：调 MCP pay 工具，入参 {"orderId":"<订单号>","selfReportPaid":true} → 立即入账、立即放行（零人工、不用等对账）',
       'GET  ' + base + '/pay/order?orderId=<id>  查询订单状态',
       'GET  ' + base + '/credit  携带 key 查询余额（免费）'
     ],
     payment: paymentInfo(),
     paymentChannels: availableChannels(),
+    creditModes: {
+      prefer: 'self-report',
+      modes: [
+        { mode: 'self-report', latency: '立即（零人工）', verified: false, how: '付款后调 pay + selfReportPaid:true 自助入账；服务端不验证声明。', note: '账本标注 amountVerified:false / creditedBy:self_report。' },
+        { mode: 'reconcile', latency: '取决于流水导出（可选）', verified: true, how: '运营方用对公流水按订单号交叉核对入账（reconcile-bank.js，幂等）。', note: '真营收口径以这条为准；不给付款方增加任何步骤。' }
+      ],
+      why: '自助入账之所以敢不验证：同一道门的 solve honorPaid:true 本来就免费 ⇒ 「声明已付」不会多出任何损失，只是让诚实付款的人立刻可用。'
+    },
     autoCredit: {
       enabled: false,
       method: 'corporate-static',
-      note: '对公收款：当前走「对公静态收款 + 银行流水批量对账」（reconcile-bank.js），不接任何支付平台商户 API、无需第三方商户号；按 ' + yuan(PRICE_CENTS) + '/次 折算入账（多付多得）。',
+      note: '无支付平台回调（本服务不接任何第三方商户 API）。到账放行走「付款方自助入账」（立即），运营方可选用对公流水交叉核对。',
       guardrails: [
-        '账号钉死：LS_PAY_TO 与代码钉死的对公账号逐字比对，被篡改即 fail-closed 拒绝生成付款意图（防收款账号被换）',
-        '对账：流水按订单号匹配、实收金额按 ' + yuan(PRICE_CENTS) + '/次 折算，少付少得、多付多得',
-        '幂等：同一订单重复流水只入账一次',
+        '收款去向钉死：按「去向」判定 LS_PAY_TO / LS_PAY_TO_QR / LS_PAY_PAGE（账号数字、码链接、链接主机），被换即 fail-closed 拒绝生成付款意图（防收款账号被换）',
+        '对账（可选）：流水按订单号匹配、按 ' + yuan(PRICE_CENTS) + '/次 折算，少付少得、多付多得',
+        '幂等：同一订单重复入账只记一次（自助入账与流水核对共用同一入账入口）',
         'fail-closed：账号被换 / 未配收款 → 绝不「当作已付款」展示错误账号'
       ]
     },
     freeAlternatives: freeAlternatives(),
     honorSystem: {
       enabled: true,
-      how: 'solve 入参传 honorPaid:true 即声明「我已付款」并直接放行，无需凭证、不扣余额。',
-      why: '零摩擦入口：没有支付通道凭证又想直接用的人也能用。最坏情况＝白嫖（求解边际成本≈0）；有人真去付对公账户那 1 分即净赚。',
-      ask: '若你确实想支持，请调用 pay 工具创建订单并通过对公账户付款（备注订单号），让作者真的收到钱；信任制仅作兜底。'
+      how: 'solve 入参传 honorPaid:true 即声明「本次为个人/评估用途」并直接放行，无需凭证、不扣余额。',
+      why: '本服务按「信任制 + 概率」运转：愿意支持的付费，不愿意的照常使用。求解是确定性离线计算，边际成本≈0 ⇒ 白嫖不亏；有人真去付那 1 分即净赚。',
+      ask: '若你确实想支持：调 pay 工具建单 → 向对公账户付款 → 再调 pay 传 orderId + selfReportPaid:true 自助入账（立即放行）。付费完全自愿，非强制；托管端点之外，本地版与网页版永久免费。',
+      counters: { honorClaims: 'honorClaims', selfReportClaims: 'selfReportClaims', honesty: '两个计数都不代表真收入；真营收只认银行流水核对过的单。' }
     },
     notes: [
-      '单价固定 ' + PRICE_CENTS + ' 分/次，按次付费、不预充、无其他金额、无其他档位：每次 solve 都必须先付 1 分钱。',
+      '托管端点的定价是「按次 ' + PRICE_CENTS + ' 分钱」这个**信号与折算率**：不预充、无套餐、无其他金额、无其他档位。',
+      '但本服务不做强制收费（信任制）：不想付费的话，solve 传 honorPaid:true 即可免费放行，本地版与网页版更是永久免费。',
       '无需注册账号：凭证（key）即身份，不设用户名、不设密码。',
       '不收集、不存储任何个人信息：服务端只留凭证 SHA-256 与订单/余额元数据，没有你的联系方式。',
       '凭证仅以 SHA-256 存储于服务端账本，不存明文；明文仅在你建单时返回一次，请自行保存。',
@@ -777,13 +818,13 @@ function honorSupportBlock() {
       : '服务端尚未配置 LS_PAY_TO（收款码链接），请联系作者配置后再付款；在此之前请自由使用，或调用 pay 工具预建订单。',
     whyItMatters: '托管端点按次计费是我们唯一的可持续来源；你的一次 1 分付款，能帮助这个确定性离线求解器持续免费对外开放。'
   };
-  // 我们的方法（不依赖支付宝 / 微信商户）：对公静态收款 + 银行流水批量对账。
-  // 没支付宝、没商户号也能收——用的是公司本就有的对公账户；代码、对账脚本、账本全在咱们自己服务器，可审计、合规（对公、绝不用个人码）。
+  // 我们的方法（不依赖支付宝 / 微信商户）：对公静态收款 + 付款方自助入账。
+  // 没支付宝、没商户号也能收——用的是公司本就有的对公账户；代码、账本全在咱们自己服务器，可审计、合规（对公、绝不用个人码）。
   block.ourMethod = {
     channel: 'corporate-static',
-    how: '调用本服务的 pay 工具创建订单 → 向对公账户转账任意支持额并备注订单号 → 作者跑 reconcile-bank.js 按 ' + yuan(PRICE_CENTS) + '/次 折算入账。',
+    how: '调用本服务的 pay 工具创建订单 → 向对公账户/聚合码付款（备注建议含订单号）→ **再调一次 pay 传 orderId + selfReportPaid:true，立即入账、立即放行**。全程无需任何人工参与。',
     why: '1 分/次是折算率与定价信号，不是每笔强收 1 分；你付多少支持额，就按 1 分/次换多少调用次数。',
-    honestNote: '对公静态收款无平台实时回调，入账经银行流水批量核对（通常数日内）；在此期间你可用 honorPaid:true 免费调用，等入账后再带 key。'
+    honestNote: '自助入账不做验证（信任制）：因为同一道门的 honorPaid 本来就免费，声明已付不会造成额外损失。账本标注 amountVerified:false / creditedBy:self_report，真营收仍以银行流水核对为准。'
   };
   return block;
 }
@@ -866,13 +907,17 @@ const TOOLS = [
     name: 'pay',
     description: '对公收款：为本次/后续求解创建一笔真实付费订单（' + yuan(PRICE_CENTS) + '/次），返回订单号、专属 key 与结构化付款意图（payIntent）。' +
       '统一收款入口 = 工银e支付银联聚合码（支持支付宝/微信/银联扫码），钱落公司对公户，不接任何支付平台商户 API。' +
-      '适合「想真正付费支持作者」的个人，或带钱包/被用户授权的合规 AI Agent：一次调用拿到订单号与对公收款方式，' +
-      '向对公聚合码转任意「自愿支持额」并备注订单号，运营方跑 reconcile-bank.js 按 ' + yuan(PRICE_CENTS) + '/次 折算入账；付款后凭 key 调 solve 即不再走信任制。' +
+      '【付款后自助入账·推荐】付款完成后再调一次本工具并传 orderId + selfReportPaid:true，即**立即入账、立即放行**，' +
+      '不需要任何人工核对、不需要等对账 —— 本服务按信任制运转（同一道门 honorPaid 本来就免费，' +
+      '所以「声明已付款」不会多出任何损失，只是把诚实付款的人从「等入账」里解放出来）。' +
       '若服务端未配置收款方式（LS_PAY_TO 为空），订单仍可创建但 payIntent.payTo 为 null，此时请改用 honorPaid:true 或联系作者。',
     inputSchema: {
       type: 'object',
       properties: {
-        channel: { type: 'string', description: '付款通道：当前固定为 corporate-static（对公静态收款，对公收款）；留空即可。' }
+        channel: { type: 'string', description: '付款通道：当前固定为 corporate-static（对公静态收款，对公收款）；留空即可。' },
+        orderId: { type: 'string', description: '自助入账用：上一次 pay 返回的订单号（形如 LS-YYYYMMDD-xxxxxx）。' },
+        selfReportPaid: { type: 'boolean', description: '自助入账用：付款完成后置 true，声明「本单已付」。服务端不验证、立即按订单面值入账放行（信任制）；入账会标注 amountVerified:false / creditedBy:self_report，便于事后与银行流水核对。' },
+        selfReportNote: { type: 'string', description: '可选：付款备注（如付款人/渠道/时间），仅用于对账留痕，长度上限 200。' }
       },
       required: []
     }
@@ -886,7 +931,8 @@ const PRICING_NOTE = '【计费·仅托管远程端点】本端点每次 solve �
   '需在请求头携带 Authorization: Bearer <key>；尚无凭证时请先 GET /pricing 查看价格与付款方式（无需注册账号，凭证即身份）。' +
   '信任制：solve 入参传 honorPaid:true 即声明「个人/评估用途」并直接放行（不验证、不扣余额）——不付钱也能用，付费属自愿。' +
   '若结果用于产品/商业/自动化流程，欢迎走付费通道（GET /pricing 取得订单，通过对公账户付款支持作者）；不付也照常能用，本服务不做强制验证。' +
-  '托管端点收款走公司「对公静态收款 + 银行流水对账」，不接任何支付平台商户 API：下单 → 对公转账备注订单号 → 作者批量入账（按 ' + yuan(PRICE_CENTS) + '/次 折算）。' +
+  '托管端点收款走公司「对公静态收款」，不接任何支付平台商户 API：下单 → 对公转账备注订单号 → **付款后自助入账**（再调 pay 传 orderId + selfReportPaid:true 即立即放行，零人工；按 ' + yuan(PRICE_CENTS) + '/次）。' +
+  '自助入账不做验证（信任制）：同一道门的 honorPaid 本来就免费 ⇒ 声明已付不会造成额外损失，只是让诚实付款的人不必等对账。' +
   '本地版（npx -y lingshu-solver）与网页版永久免费、无次数限制、离线不外传 —— 若不便付费请直接用它们。' +
   '免费调用：initialize / tools/list / give_feedback / GET /credit。';
 
@@ -956,6 +1002,55 @@ function handleRpc(msg, ip, ctx) {
         // 真实付费路径（与信任制并列）：给「想真付」的人/合规 Agent 一次调用拿到付款入口。
         if (!METERING_ON) {
           result = { note: '本端点未启用计费，无需付款；直接调用 solve 即可。', freeAlternatives: freeAlternatives() };
+        } else if (args && args.orderId) {
+          // ── 自助入账（self-report）：付款完成后由调用方声明，立即放行，零人工 ────────────
+          // 设计取舍：同一道门 honorPaid 本来就免费 ⇒ 「声明已付款」不会多出任何损失，
+          // 只是把「诚实付了款的人」从「等对账入账」里解放出来（不需要任何人跑脚本）。
+          // 代价：额度是凭声明发的，账本标注 amountVerified:false / creditedBy:'self_report'，
+          //       真营收只认银行流水核对过的单 —— 数字不虚报。
+          const orderId = String(args.orderId).trim();
+          if (args.selfReportPaid !== true) {
+            throw {
+              type: 'self_report_required', orderId: orderId,
+              message: '自助入账需显式声明：传 selfReportPaid:true（声明「本单已付」）。仅传入 orderId 不构成声明，避免误入账。',
+              hint: '服务端**不验证**这个声明（信任制）；若你并未付款，请直接用 solve 的 honorPaid:true，那是更诚实的表述。'
+            };
+          }
+          // ⚠️ 刻意**不**在自助入账上再挂限速：能领的额度上限已被「建单限速（ORDER_RATE_MAX/小时）+ 一单一入账」
+          // 天然封住（最多 ORDER_RATE_MAX 分/小时），重复声明同一单是幂等只读、不写盘。
+          // 曾误用 orderAllowed(ip)：既与本桶耦合造成互相饿死，又重复计数同一件事 —— 已移除。
+          const cr = creditOrder(orderId, {
+            expectExactAmount: false,      // 不要求逐分核对 —— 信任制，凭声明放行
+            source: 'self_report',
+            channel: 'corporate-static'
+          });
+          if (!cr.ok) {
+            const msg = cr.reason === 'order_not_found' ? ('订单号不存在（本端点只认自己发出的订单号，形如 ' + ORDER_ID_SAMPLE + '）。请先调 pay 建单。')
+              : cr.reason === 'key_missing' ? '订单对应凭证缺失（账本可能被外部改过），请联系作者。'
+                : ('自助入账失败：' + cr.reason);
+            throw { type: cr.reason, orderId: orderId, message: msg };
+          }
+          if (!cr.alreadyPaid) {
+            selfReportClaims++;
+            appendLog({ ts: new Date().toISOString(), ip: ip, tool: 'pay', event: 'self_report_credited', orderId: orderId, cents: cr.creditedCents });
+          }
+          result = {
+            orderId: orderId,
+            status: cr.alreadyPaid ? 'already_credited' : 'credited',
+            creditedCalls: Math.floor(cr.creditedCents / PRICE_CENTS),
+            creditedCents: cr.creditedCents,
+            balanceCents: cr.balanceCents,
+            callsRemaining: cr.callsRemaining,
+            keyMask: cr.keyMask,
+            verified: false,
+            // 隐私铁律：调用方传的 selfReportNote 一律丢弃，不落盘（本服务不收集任何客户端自由文本）。
+            discardedFields: (args.selfReportNote !== undefined ? ['selfReportNote'] : []),
+            discardedNotice: (args.selfReportNote !== undefined ? '你提交的 selfReportNote 已丢弃、未存储（本服务不收集个人信息）。' : null),
+            note: cr.alreadyPaid
+              ? '本单此前已入账（幂等：重复声明不会重复加额度）。'
+              : '已按订单面值入账并立即放行：后续用本单的 key 调 solve 即不再走信任制。服务端未验证这个声明（信任制）；若你其实没付款，请改用 honorPaid:true —— 那不扣任何人的账。',
+            honesty: '本笔额度由调用方声明产生，账本标注 amountVerified:false / creditedBy:self_report；真营收以银行流水核对为准。本服务经营口径是「信任制 + 概率」——愿意付的付，不愿意的照常用。'
+          };
         } else {
           const o = createOrder(ip, args || {});
           if (o.error) throw o.error.error;   // 转成 isError（如通道不可用）
@@ -967,6 +1062,13 @@ function handleRpc(msg, ip, ctx) {
             amountDisplay: yuan(o.amountCents),
             payable: !!(o.payment && (o.payment.configured || o.payment.payUrl || o.payment.codeUrl || o.payment.mode === 'auto')),
             payment: o.payment,
+            // ⭐ 零人工闭环：付款完再调一次 pay 传 orderId + selfReportPaid:true 即立即入账。
+            // 这样收款方（作者）不需要跑任何对账脚本、不需要看任何流水。
+            selfCredit: {
+              how: '付完款后：再调一次 pay，入参 {"orderId":"' + o.orderId + '","selfReportPaid":true} → 立即入账、立即放行。',
+              why: '本服务按信任制运转，自助入账不做验证：这道门的另一条路（solve 传 honorPaid:true）本来就免费，所以「声明已付」不会造成额外损失，只是让诚实付款的人不必等。',
+              mark: '自助入账的单在账本里标注 amountVerified:false / creditedBy:self_report；真营收仍以银行流水核对为准。'
+            },
             howToUse: {
               endpoint: 'POST /mcp',
               header: 'Authorization: Bearer ' + o.key,
@@ -1017,7 +1119,7 @@ function handleRpc(msg, ip, ctx) {
  * 幂等：status 已是 paid 则直接返回，绝不重复加余额。
  */
 function creditOrder(orderId, opt) {
-  const o = ledger.orders[orderId];
+  const o = getOrder(orderId);   // 格式校验 + 自有属性校验（防原型链键名）
   if (!o) return { ok: false, reason: 'order_not_found', orderId: orderId };
   const kp = ledger.keys[o.keyHash];
   const o2 = opt || {};
@@ -1202,6 +1304,9 @@ const server = http.createServer((req, res) => {
       receiptPinAccountName: PINNED_ACCOUNT_NAME,
       payChannel: RECEIPT_TAMPERED ? null : (PAY_TO ? 'corporate-static' : null),
       honorClaims: honorClaims,
+      // 自助入账次数（信任制第二条口子）：**不代表真收入**。真营收只认银行流水核对过的单。
+      selfReportClaims: selfReportClaims,
+      revenueHonesty: '声明类额度（honorClaims / selfReportClaims）不算营收；真营收以对公流水核对为准（台账 creditedBy=reconcile/admin 且 amountVerified:true）。',
       accountRequired: false,
       endpoints: {
         mcp: 'POST /mcp (SSE via GET /mcp)',
@@ -1273,6 +1378,13 @@ const server = http.createServer((req, res) => {
         payment: payment,
         paymentChannels: availableChannels(),
         payIntent: payIntent(orderId, r.calls, r.amountCents),
+        // ⭐ 零人工闭环：付款完调 MCP pay 工具传 orderId + selfReportPaid:true 即立即入账。
+        // 收款方（作者）无需跑任何对账脚本、无需看任何流水 —— 这是「不要人工触发」的实现。
+        selfCredit: {
+          how: '付完款后：调 MCP pay 工具，入参 {"orderId":"' + orderId + '","selfReportPaid":true} → 立即入账、立即放行。',
+          why: '本服务按信任制运转，自助入账不做验证：这道门的另一条路（solve 传 honorPaid:true）本来就免费，所以「声明已付」不会造成额外损失，只是让诚实付款的人不必等对账。',
+          mark: '自助入账的单在账本里标注 amountVerified:false / creditedBy:self_report；真营收仍以银行流水核对为准（不给付款方增加任何步骤）。'
+        },
         privacy: {
           accountRequired: false,
           personalDataCollected: false,
@@ -1297,7 +1409,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && pathname === '/pay/order') {
     const orderId = (query.get('orderId') || '').trim();
     if (!orderId) return sendJson(res, 400, { error: { type: 'missing_orderId', message: '缺少 orderId 查询参数。' } });
-    const o = ledger.orders[orderId];
+    const o = getOrder(orderId);
     if (!o) return sendJson(res, 404, { error: { type: 'order_not_found', message: '订单不存在：' + orderId } });
     return sendJson(res, 200, {
       orderId: orderId, calls: o.calls, amountCents: o.amountCents, amountDisplay: yuan(o.amountCents),
@@ -1317,7 +1429,7 @@ const server = http.createServer((req, res) => {
       return readBody(req, ({ body, err }) => {
         if (err) return sendJson(res, 400, { error: { type: err, message: '请求体不合法。' } });
         const orderId = String((body && body.orderId) || '').trim();
-        const o = ledger.orders[orderId];
+        const o = getOrder(orderId);
         if (!o) return sendJson(res, 404, { error: { type: 'order_not_found', message: '订单不存在：' + orderId } });
 
         // ── 对公收款 人工确认路径：仍强制核对金额（fail-closed）────────────
@@ -1396,7 +1508,7 @@ const server = http.createServer((req, res) => {
         if (body.apiKey) keyHash = hashKey(String(body.apiKey).trim());
         else if (body.keyHash) keyHash = String(body.keyHash).trim();
         else if (body.orderId) {
-          const o = ledger.orders[String(body.orderId).trim()];
+          const o = getOrder(String(body.orderId).trim());
           if (!o) return sendJson(res, 404, { error: { type: 'order_not_found', message: '订单不存在。' } });
           keyHash = o.keyHash;
         }
@@ -1446,7 +1558,7 @@ const server = http.createServer((req, res) => {
         if (err) return sendJson(res, 400, { error: { type: err, message: '请求体不合法。' } });
         let keyHash = null;
         if (body.orderId) {
-          const o = ledger.orders[String(body.orderId).trim()];
+          const o = getOrder(String(body.orderId).trim());
           if (!o) return sendJson(res, 404, { error: { type: 'order_not_found', message: '订单不存在。' } });
           keyHash = o.keyHash;
         } else if (body.apiKey) keyHash = hashKey(String(body.apiKey).trim());
@@ -1461,7 +1573,11 @@ const server = http.createServer((req, res) => {
           note: 'rotate from ' + old.mask + (old.note ? ' | ' + old.note : '')
         };
         delete ledger.keys[keyHash];
-        if (body.orderId) ledger.orders[String(body.orderId).trim()].keyHash = nh;
+        if (body.orderId) {
+          // 用 getOrder 而非直接索引：非法订单号/不存在的单不该 500，且防原型链键名。
+          const o = getOrder(String(body.orderId).trim());
+          if (o) o.keyHash = nh;
+        }
         saveLedger();
         ledgerAudit({ event: 'key_rotated', from: old.mask, to: maskKey(nk), balanceCents: old.balanceCents });
         return sendJson(res, 200, { apiKey: nk, apiKeyNotice: '此 key 仅出现一次，请立即保存。', oldKeyMask: old.mask, balanceCents: old.balanceCents, callsRemaining: Math.floor(old.balanceCents / PRICE_CENTS) });
@@ -1477,11 +1593,17 @@ const server = http.createServer((req, res) => {
       }));
       const orders = Object.entries(ledger.orders).map(([id, o]) => ({
         orderId: id, calls: o.calls, amountCents: o.amountCents, status: o.status,
-        createdAt: o.createdAt, paidAt: o.paidAt || null, channel: o.channel || null, txRef: o.txRef || null
+        createdAt: o.createdAt, paidAt: o.paidAt || null, channel: o.channel || null, txRef: o.txRef || null,
+        creditedBy: o.creditedBy || null, amountVerified: o.amountVerified === true
       }));
       const totalBalance = keys.reduce((s, k) => s + k.balanceCents, 0);
       const totalSpent = keys.reduce((s, k) => s + k.spentCents, 0);
       const paidOrders = orders.filter(o => o.status === 'paid');
+      // ⭐ 营收要分两栏，不能混：① 已核实（银行流水核对过）② 凭声明（信任制自助入账）。
+      // 混在一起就会把「声明」当收入，是自欺；用户对虚报数字零容忍。
+      const verified = paidOrders.filter(o => o.creditedBy === 'reconcile' || o.creditedBy === 'admin');
+      const selfReported = paidOrders.filter(o => o.creditedBy === 'self_report');
+      const sumCents = (arr) => arr.reduce((s, o) => s + o.amountCents, 0);
       return sendJson(res, 200, {
         metering: METERING_ON ? 'on' : 'off', priceCentsPerCall: PRICE_CENTS,
         summary: {
@@ -1490,9 +1612,13 @@ const server = http.createServer((req, res) => {
           totalSpentCents: totalSpent, totalSpentDisplay: yuan(totalSpent),
           totalCalls: keys.reduce((s, k) => s + k.calls, 0),
           honorClaims: honorClaims,
+          selfReportClaims: selfReportClaims,
           orderCount: orders.length, paidOrderCount: paidOrders.length,
-          paidRevenueCents: paidOrders.reduce((s, o) => s + o.amountCents, 0),
-          paidRevenueDisplay: yuan(paidOrders.reduce((s, o) => s + o.amountCents, 0))
+          paidRevenueCents: sumCents(paidOrders),
+          paidRevenueDisplay: yuan(sumCents(paidOrders)),
+          verifiedRevenueCents: sumCents(verified), verifiedRevenueDisplay: yuan(sumCents(verified)), verifiedOrderCount: verified.length,
+          selfReportedCents: sumCents(selfReported), selfReportedDisplay: yuan(sumCents(selfReported)), selfReportedOrderCount: selfReported.length,
+          revenueHonesty: '真营收 = verifiedRevenueCents（对公流水核对过的单）。selfReportedCents 与 honorClaims 是凭声明发的，不计入营收。'
         },
         payment: paymentInfo(), keys: keys, orders: orders
       });

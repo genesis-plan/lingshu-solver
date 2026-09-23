@@ -111,7 +111,8 @@ async function main() {
       LS_PAY_PAGE: 'https://hongchenlingjing.com/pay/',
       LS_CREDITS_PATH: CREDITS,
       LS_FREE_LOOPBACK: '0',
-      LS_RATE_MAX: '100000'
+      LS_RATE_MAX: '100000',
+      LS_ORDER_RATE_MAX: '100000'   // 本套会建很多单；下单限速另有专项，别让它误伤计费断言
     }),
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -189,9 +190,10 @@ async function main() {
     ok('拒绝响应给出逐步付款指引',
       noKey.payload && noKey.payload.payment && Array.isArray(noKey.payload.payment.howToPay) && noKey.payload.payment.howToPay.length >= 4,
       noKey.payload && noKey.payload.payment && noKey.payload.payment.howToPay);
-    ok('付款指引含「备注必须填订单号」与「原路退回」口径',
+    ok('付款指引含「订单号备注」+「自助入账」+「原路退回」三件事',
       noKey.payload && noKey.payload.payment && Array.isArray(noKey.payload.payment.howToPay) &&
         noKey.payload.payment.howToPay.some(s => /备注.*订单号/.test(s)) &&
+        noKey.payload.payment.howToPay.some(s => /selfReportPaid/.test(s)) &&
         noKey.payload.payment.howToPay.some(s => /原路退回/.test(s)),
       noKey.payload && noKey.payload.payment && noKey.payload.payment.howToPay);
     ok('拒绝响应不含任何凭证明文',
@@ -504,6 +506,66 @@ async function main() {
     //          ②在主测试服务 `child.kill()` **之前**（之后再发请求就是 ECONNREFUSED）。
     section('J 未核对金额的逃逸舱');
     await ESCAPE_HATCH_TEST();
+
+    // ── K. 自助入账（self-report）：付款后由调用方声明即入账 —— 收款方零人工 ──
+    // 设计依据（用户决策）：本服务走「信任制 + 概率」，同一道门的 honorPaid 本来就免费，
+    // 所以「声明已付」不会多出任何损失，只是让诚实付款的人不必等对账 ⇒ 收款方无需跑任何脚本。
+    // 位置同 J：在 F 段总额断言之后、child.kill() 之前（会多建单、多入账）。
+    // ⚠️ 下单一律受 ORDER_RATE_MAX（默认 10/小时）限制；本套是「计费语义」回归、会建很多单，
+    //    故把该上限放宽（限速本身另有专项验证，不在此处混测）。
+    section('K 自助入账（信任制，零人工闭环）');
+    const k0 = await req('POST', '/pay/order', { body: {} });
+    const kOrder = k0.json && k0.json.orderId;
+    const kKey = k0.json && k0.json.apiKey;
+    ok('K 建单成功（供自助入账用）', k0.status === 201 && !!kOrder, k0.status);
+    ok('建单响应直接给出 selfCredit 自助入账指引（闭环写在入口处）',
+      !!(k0.json && k0.json.selfCredit && /selfReportPaid/.test(JSON.stringify(k0.json.selfCredit))), k0.json && k0.json.selfCredit);
+    ok('payIntent 步骤里给出自助入账（不再要求「回报给运营方」）',
+      !!(k0.json && k0.json.payIntent && JSON.stringify(k0.json.payIntent.agentSteps).indexOf('selfReportPaid') >= 0), k0.json && (k0.json.payIntent && k0.json.payIntent.agentSteps));
+
+    const kNoDecl = await mcp('tools/call', { name: 'pay', arguments: { orderId: kOrder } });
+    ok('只传 orderId 不构成「已付」声明 → self_report_required（防误入账）',
+      kNoDecl.payload && kNoDecl.payload.type === 'self_report_required', kNoDecl.payload && kNoDecl.payload.type);
+
+    const kBad = await mcp('tools/call', { name: 'pay', arguments: { orderId: 'LS-20200101-abcdef', selfReportPaid: true } });
+    ok('不存在的订单号 → order_not_found（不是 5xx）', kBad.payload && kBad.payload.type === 'order_not_found', kBad.payload && kBad.payload.type);
+
+    const kEvil = await mcp('tools/call', { name: 'pay', arguments: { orderId: '__proto__', selfReportPaid: true } });
+    ok('原型链键名（__proto__）被拒（非法订单号不进入账本索引）',
+      kEvil.payload && kEvil.payload.type === 'order_not_found', kEvil.payload && kEvil.payload.type);
+
+    const kClaim = await mcp('tools/call', { name: 'pay', arguments: { orderId: kOrder, selfReportPaid: true, selfReportNote: '这是我不该被存储的备注' } });
+    ok('★ 自助入账成功：status=credited 且 verified=false（诚实标注未验证）',
+      kClaim.payload && kClaim.payload.status === 'credited' && kClaim.payload.verified === false, kClaim.payload && { status: kClaim.payload.status, verified: kClaim.payload.verified });
+    ok('自助入账按订单面值入账（1 次 / 1 分，声明不能造次数）',
+      kClaim.payload && kClaim.payload.creditedCalls === 1 && kClaim.payload.creditedCents === 1, kClaim.payload && { c: kClaim.payload.creditedCalls, cents: kClaim.payload.creditedCents });
+    ok('隐私铁律：selfReportNote 被丢弃、不落盘',
+      !!(kClaim.payload && Array.isArray(kClaim.payload.discardedFields) && kClaim.payload.discardedFields.indexOf('selfReportNote') >= 0), kClaim.payload && kClaim.payload.discardedFields);
+
+    const kCred = await req('GET', '/credit', { headers: { Authorization: 'Bearer ' + kKey } });
+    ok('入账后余额 = 1 分', kCred.json && kCred.json.balanceCents === 1, kCred.json && kCred.json.balanceCents);
+    const kSolve = await mcp('tools/call', { name: 'solve', arguments: { equations: ['x^2=4'] } }, kKey);
+    ok('★ 自助入账的 key 立即可用（全程无人工审核）', kSolve.payload && kSolve.payload.solutionCount >= 1, kSolve.payload && kSolve.payload.solutionCount);
+    ok('走计费（带 key）时不再标注信任制 support 块', !(kSolve.payload && kSolve.payload.support), kSolve.payload && kSolve.payload.support);
+
+    const kAgain = await mcp('tools/call', { name: 'pay', arguments: { orderId: kOrder, selfReportPaid: true } });
+    ok('重复自助入账幂等（already_credited，不再加额度）',
+      kAgain.payload && kAgain.payload.status === 'already_credited' && kAgain.payload.callsRemaining === 0,
+      kAgain.payload && { status: kAgain.payload.status, remaining: kAgain.payload.callsRemaining });
+
+    const lgK = await req('GET', '/admin/ledger', { headers: { 'X-Admin-Token': ADMIN_TOKEN } });
+    const kRec = lgK.json && lgK.json.orders.find(o => o.orderId === kOrder);
+    ok('台账标注该单 creditedBy=self_report / amountVerified=false（事后可查）',
+      !!(kRec && kRec.creditedBy === 'self_report' && kRec.amountVerified === false), kRec);
+    ok('★ 台账把「凭声明的额度」与「已核实营收」分栏计数（不虚报营收）',
+      !!(lgK.json && lgK.json.summary.selfReportedCents === 1 && lgK.json.summary.selfReportedOrderCount === 1 &&
+        lgK.json.summary.verifiedRevenueCents >= 1 &&
+        lgK.json.summary.paidRevenueCents === lgK.json.summary.verifiedRevenueCents + lgK.json.summary.selfReportedCents &&
+        typeof lgK.json.summary.revenueHonesty === 'string'),
+      lgK.json && lgK.json.summary);
+    const h2 = await req('GET', '/health');
+    ok('health 暴露 selfReportClaims（与 honorClaims 分开计数）',
+      !!(h2.json && h2.json.selfReportClaims >= 1 && typeof h2.json.honorClaims === 'number'), h2.json && { sr: h2.json.selfReportClaims, h: h2.json.honorClaims });
 
     child.kill();
 

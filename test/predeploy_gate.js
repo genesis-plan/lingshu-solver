@@ -159,6 +159,25 @@ async function main() {
     const withKey = await req('GET', '/credit', { headers: { Authorization: 'Bearer ' + (o.json && o.json.apiKey) } });
     ok('带凭证查询余额 → 200，且尚未到账（余额 0、剩余 0 次）',
       withKey.status === 200 && withKey.json && withKey.json.balanceCents === 0, withKey.json && { status: withKey.status, balanceCents: withKey.json && withKey.json.balanceCents });
+
+    section('A5 ★ 零人工闭环：付款后自助入账（作者无需触发任何东西）');
+    ok('建单响应即给出自助入账指引 selfCredit（闭环写在撞墙处）',
+      !!(o.json && o.json.selfCredit && /selfReportPaid/.test(JSON.stringify(o.json.selfCredit))), o.json && o.json.selfCredit);
+    ok('pricing 首选入账方式 = self-report（零人工）',
+      !!(pr.json && pr.json.creditModes && pr.json.creditModes.prefer === 'self-report'), pr.json && pr.json.creditModes);
+    ok('pricing 明说真营收以流水核对为准（不自欺）',
+      !!(pr.json && pr.json.creditModes && /流水|核对/.test(JSON.stringify(pr.json.creditModes))), pr.json && pr.json.creditModes);
+    const claim = await mcp(P1, 'tools/call', { name: 'pay', arguments: { orderId: o.json.orderId, selfReportPaid: true } });
+    ok('★ 自助入账成功（credited / verified:false）',
+      !!(claim.payload && claim.payload.status === 'credited' && claim.payload.verified === false),
+      claim.payload && { status: claim.payload.status, verified: claim.payload.verified });
+    const cred2 = await req('GET', '/credit', { headers: { Authorization: 'Bearer ' + o.json.apiKey } });
+    ok('★ 入账后余额立即到账（无需任何人审核）', !!(cred2.json && cred2.json.balanceCents === 1), cred2.json && cred2.json.balanceCents);
+    const solvePaid = await mcp(P1, 'tools/call', { name: 'solve', arguments: { equations: ['x^2=4'] } }, o.json.apiKey);
+    ok('★ 入账后的 key 立即能求解', !!(solvePaid.payload && solvePaid.payload.solutionCount >= 1), solvePaid.payload && solvePaid.payload.solutionCount);
+    const h3 = await req('GET', '/health');
+    ok('health 分栏计数：honorClaims 与 selfReportClaims 各自独立',
+      !!(h3.json && typeof h3.json.honorClaims === 'number' && h3.json.selfReportClaims >= 1), h3.json && { honor: h3.json.honorClaims, self: h3.json.selfReportClaims });
   } finally {
     a.kill('SIGKILL');
   }
