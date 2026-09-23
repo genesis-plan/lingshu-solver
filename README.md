@@ -109,7 +109,52 @@ node test/regression.js   # 跑回归测试（28 用例）
 PORT=3000 node http-mcp-server.js
 ```
 
-### 2. 在 MCP 客户端（Claude Desktop / Cursor / Cline / VS Code 等）配置
+### 2. 计费（**仅限「托管远程端点」**）
+
+**本地 stdio（npx / clone）与网页版永久免费、无次数限制、离线不外传，且以后也不会收费。**
+只有**我们自托管的远程 HTTP 端点**按次收费 —— 买的是「免安装、常驻、公网可直连、带账单台账」这份运维，不是数学能力。
+
+| 项 | 值 |
+|---|---|
+| 单价 | **¥0.01 / 次**（1 分钱一次 `solve` 调用） |
+| 计费时机 | **仅在成功产出求解结果时扣费** |
+| 不扣费 | 输入不合法、方程无法解析（响应里 `diagnostics.inputError` 非空）、内部错误、余额不足 |
+| 免费工具 | `initialize` / `tools/list` / `give_feedback` / 余额查询 / 价格查询 |
+| 凭证 | 请求头 `Authorization: Bearer <key>`（亦支持 `x-api-key` 或 `?key=<key>`） |
+| 注册账号 | **不需要**。凭证即身份（不设用户名、不设密码、不收邮箱手机号） |
+| 个人信息 | **不收集、不存储**。服务端只留凭证的 SHA-256 与订单/余额元数据；你提交的联系方式与自由文本一律被丢弃 |
+| 结算 | 预付包：100 次 ¥1.00 / 1000 次 ¥10.00 / 10000 次 ¥100.00 —— **不设折扣**，不用批量优惠掩盖真实单价 |
+| 传输安全 | 接入请用 `https://<域名>/mcp`：Bearer 凭证走明文 HTTP 会在公网裸奔 |
+
+托管端点自带价格与下单接口：
+```bash
+curl  http://<托管端点>/pricing                                   # 价格表（无需凭证）
+curl -X POST http://<托管端点>/pay/order \
+      -H 'Content-Type: application/json' -d '{"calls":1000}'     # 下单，响应给出 orderId 与 apiKey
+curl  http://<托管端点>/credit -H 'Authorization: Bearer <key>'   # 查余额（免费）
+```
+
+> **自托管者不受此计费约束。** `http-mcp-server.js` 的计费默认**关闭**（`LS_METERING=off`），
+> 只有显式 `LS_METERING=on` 才启用 —— clone 出去自己跑，全免费，不会被我们收钱。
+> 相关环境变量：`LS_METERING` / `LS_PRICE_CENTS`（默认 1 分）/ `LS_ADMIN_TOKEN`（管理端点凭证，
+> **未设置时管理端点整体返回 503**，fail-closed，不存在「无凭证即可加钱」的口子）/
+> `LS_ADMIN_LOOPBACK_ONLY`（默认开：管理端点只接受本机回环，运维走 SSH 隧道，管理令牌绝不经公网）/
+> `LS_REQUIRE_TLS`（默认关；置 on 后携带凭证的调用必须是 HTTPS，否则拒绝并提示改用 HTTPS）/
+> `LS_PAY_TO`（收款方式，未配置时订单会明确标注「不可付款」）。
+>
+> **到账可以全自动，不需要人工确认。** 配好支付平台后，下单返回平台收银台链接，
+> 用户付款由平台**异步回调**触发「验签 → 逐分对账 → 自动入账」，全程无人工：
+> `LS_NOTIFY_BASE`（公网回调基址，必填）/
+> `LS_ALIPAY_APPID`、`LS_ALIPAY_PRIVATE_KEY`、`LS_ALIPAY_PUBLIC_KEY`、`LS_ALIPAY_SELLER_ID`（支付宝电脑网站支付）/
+> `LS_WECHAT_MCHID`、`LS_WECHAT_APPID`、`LS_WECHAT_SERIAL`、`LS_WECHAT_PRIVATE_KEY`、`LS_WECHAT_APIV3_KEY`、`LS_WECHAT_PUBLIC_KEY`（微信 Native）。
+> 回调端点：`POST /pay/notify/alipay`（或 GET，回纯文本 `success`）、`POST /pay/notify/wechat`；同步跳回 `/pay/return/alipay` 只作展示、**不作为入账依据**。
+> 未配任何平台时自动通道不启用，行为与从前一致（静态收款码 + 人工确认），不会给出假的「已自动」承诺。
+> 四条护栏：回调必须通过平台公钥验签；实收金额须与订单金额**逐分相等**（少付多领不入账并留痕）；
+> 重复回调幂等只入账一次；密钥未配齐则回调直接拒绝（fail-closed）。
+>
+> 凭证在服务端只存 **SHA-256**（不存明文）；每次扣费写入只增审计流水 `credits.json.ledger.jsonl`。
+
+### 3. 在 MCP 客户端（Claude Desktop / Cursor / Cline / VS Code 等）配置
 
 **推荐 · 本地 stdio 零安装（npm 已发布，现在即可用）：**
 ```json

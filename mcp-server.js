@@ -96,6 +96,9 @@ function shapeResult(r) {
   const diagnostics = {
     solverVersion: meta.solverVersion || null,
     truncated: !!(r.truncated || meta.truncated),
+    // 解析失败原因（如 NO_EQUATION）。新增：让调用方能区分「输入不可解析」与「已证明无解」，
+    // 并让托管端点的计费层把「解析失败」判为非计费情形（不收「我解析不了」的钱）。
+    inputError: r.error || null,
     terminatedBy: meta.terminatedBy || null,
     provenCount: (typeof r.provenCount === 'number') ? r.provenCount : null,
     completeness: detF(r.completeness)

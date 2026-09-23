@@ -12,6 +12,9 @@
 !solver-core.js
 !mcp-server.js
 !http-mcp-server.js
+!reconcile-bank.js
+!test_our_method.js
+!lingpay-agent-example.js
 !verify_core.js
 !privacy.html
 !manifest.json
@@ -25,3 +28,11 @@
 !.github/
 !.github/**
 !.nojekyll
+
+# 计费账本：绝不允许进仓库（含余额、订单、凭证哈希）
+credits.json
+credits.json.*
+credits.json.ledger.jsonl
+calls.log
+feedback.log
+server.out
