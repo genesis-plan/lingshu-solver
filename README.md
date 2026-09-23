@@ -31,9 +31,25 @@ Krawczyk 算子做解认证，并尽力穷尽多解。
 
 ### 如果你是 AI 用户（Claude / Cursor / Cline 等）
 
-**方式 A · 远程托管（备案中，暂未公开）**
-我们已部署常驻公网服务，**但 `hongchenlingjing.com` 域名 ICP 备案尚未通过**——按合规要求，备案期间该域名端点暂不对外开放。备案批下并切 HTTPS 后，此处将提供 `https://hongchenlingjing.com/mcp` 端点（开机自启、崩溃自动拉起）。
-> 当前想零安装调用，请直接用下方「方式 B · 本地 stdio（npx）」，已发布 npm，现在即可用。
+**方式 A · 远程托管（已上线，开箱即用）**
+
+常驻公网服务已开放，**HTTPS 端点：`https://hongchenlingjing.com/mcp`**（开机自启、崩溃自动拉起，任何支持 Streamable HTTP 的 MCP 客户端可直接连）。
+
+```json
+{
+  "mcpServers": {
+    "lingshu-solver": {
+      "type": "http",
+      "url": "https://hongchenlingjing.com/mcp"
+    }
+  }
+}
+```
+
+> **不付钱也能用。** 这个端点按次计费（**固定 ¥0.01 / 次**），但走「**信任制**」：`solve` 入参加
+> `"honorPaid": true`（声明本次为个人/评估用途）即**免费放行，不验证、不扣余额**。
+> 不想付费请直接用方式 B / 网页版（永久免费、不限次）；愿意支持就走
+> [付款页](https://hongchenlingjing.com/pay/)（对公账户，**付款后自助入账，立即生效**，无需任何人审核）。
 
 **方式 B · 本地 stdio（需本机 Node）**
 ```json
@@ -100,7 +116,7 @@ node test/regression.js   # 跑回归测试（28 用例）
 
 | 形态 | 端点 / 命令 | 适用 |
 |---|---|---|
-| **远程 HTTP（备案中，暂未公开）** | `hongchenlingjing.com` 域名 ICP 备案尚未通过，端点暂停开放；备案批下后启用 `https://hongchenlingjing.com/mcp` | 任何支持 Streamable HTTP 的 MCP 客户端（待备案后） |
+| **远程 HTTP（已上线）** | `https://hongchenlingjing.com/mcp`（常驻、HTTPS、崩溃自动拉起） | 任何支持 Streamable HTTP 的 MCP 客户端，零安装 |
 | 本地 stdio（npx） | `npx -y lingshu-solver` | 本机已装 Node，npm 已发布，直接可用 |
 | 本地 stdio（clone） | `node mcp-server.js` | 开发者 / 离线自托管 |
 
@@ -116,23 +132,30 @@ PORT=3000 node http-mcp-server.js
 
 | 项 | 值 |
 |---|---|
-| 单价 | **¥0.01 / 次**（1 分钱一次 `solve` 调用） |
+| 单价 | **固定 ¥0.01 / 次**（每次 `solve` 1 分钱）—— **不预充、无套餐、无其他档位、不设折扣** |
 | 计费时机 | **仅在成功产出求解结果时扣费** |
 | 不扣费 | 输入不合法、方程无法解析（响应里 `diagnostics.inputError` 非空）、内部错误、余额不足 |
+| **免费路径** | `solve` 传 `"honorPaid": true` → **免费放行**（不验证、不扣余额）。本服务按**信任制**运转：愿意支持的付费，不愿意的照常使用 |
 | 免费工具 | `initialize` / `tools/list` / `give_feedback` / 余额查询 / 价格查询 |
 | 凭证 | 请求头 `Authorization: Bearer <key>`（亦支持 `x-api-key` 或 `?key=<key>`） |
 | 注册账号 | **不需要**。凭证即身份（不设用户名、不设密码、不收邮箱手机号） |
 | 个人信息 | **不收集、不存储**。服务端只留凭证的 SHA-256 与订单/余额元数据；你提交的联系方式与自由文本一律被丢弃 |
-| 结算 | 预付包：100 次 ¥1.00 / 1000 次 ¥10.00 / 10000 次 ¥100.00 —— **不设折扣**，不用批量优惠掩盖真实单价 |
-| 传输安全 | 接入请用 `https://<域名>/mcp`：Bearer 凭证走明文 HTTP 会在公网裸奔 |
+| 入账 | **付款后自助入账**：调 MCP `pay` 工具传 `{"orderId":"<订单号>","selfReportPaid":true}` → 立即入账、立即放行。**无需等待任何人工审核** |
+| 传输安全 | 接入请用 `https://hongchenlingjing.com/mcp`：Bearer 凭证走明文 HTTP 会在公网裸奔 |
 
-托管端点自带价格与下单接口：
+托管端点自带价格与下单接口（**域名为 `hongchenlingjing.com`**）：
 ```bash
-curl  http://<托管端点>/pricing                                   # 价格表（无需凭证）
-curl -X POST http://<托管端点>/pay/order \
-      -H 'Content-Type: application/json' -d '{"calls":1000}'     # 下单，响应给出 orderId 与 apiKey
-curl  http://<托管端点>/credit -H 'Authorization: Bearer <key>'   # 查余额（免费）
+curl  https://hongchenlingjing.com/pricing                                 # 价格表（无需凭证）
+curl -X POST https://hongchenlingjing.com/pay/order \
+      -H 'Content-Type: application/json' -d '{}'                          # 下单（每次恒为 1 次 = 1 分），响应给出 orderId 与 apiKey
+curl  https://hongchenlingjing.com/credit -H 'Authorization: Bearer <key>'  # 查余额（免费）
 ```
+人工付款入口（对公账户 + 聚合码，**付款后自助入账，立即生效**）：<https://hongchenlingjing.com/pay/>
+
+**我们自己怎么核对营收**（诚实分栏，不把「凭声明的额度」当收入）：
+`/admin/ledger` 同时给出 `verifiedRevenueCents`（对公流水核对过的**真营收**）与 `selfReportedCents`
+（凭付款方声明的额度）；`/health` 给出 `selfReportClaims` 与 `honorClaims` 两个独立计数。
+**声明类额度不计入营收** —— 这一步是为了不虚报。
 
 > **自托管者不受此计费约束。** `http-mcp-server.js` 的计费默认**关闭**（`LS_METERING=off`），
 > 只有显式 `LS_METERING=on` 才启用 —— clone 出去自己跑，全免费，不会被我们收钱。
@@ -142,13 +165,16 @@ curl  http://<托管端点>/credit -H 'Authorization: Bearer <key>'   # 查余�
 > `LS_REQUIRE_TLS`（默认关；置 on 后携带凭证的调用必须是 HTTPS，否则拒绝并提示改用 HTTPS）/
 > `LS_PAY_TO`（收款方式，未配置时订单会明确标注「不可付款」）。
 >
-> **到账走「对公收款」——对公静态收款 + 银行流水对账，不接任何支付平台商户 API。**
+> **到账走「对公收款」——对公静态收款 + 付款方自助入账，不接任何支付平台商户 API。**
 > 下单返回结构化付款意图（`payIntent` 块：订单号、对公码、备注、Agent 可机读步骤）；付款人向公司对公账户
-> （`LS_PAY_TO`，运行时与代码内钉死的广州市红尘灵境数字科技有限公司·工行户 `3602026809201658423` 比对）转账
-> 任意「自愿支持额」并备注订单号；作者拿对公流水跑 `reconcile-bank.js` 按 ¥0.01/次 折算入账（多付多得、幂等）。
-> **收款账号防替换护栏**：`LS_PAY_TO` 被篡改即 fail-closed 拒绝生成付款意图（防收款账号被换）；
-> 工银聚合码非银联官方址则告警。无实时回调，到账 latency 取决于流水导出频率（通常数日内），
-> 期间可用 `honorPaid:true` 免费调用。
+> （`LS_PAY_TO`，运行时与代码内钉死的广州市红尘灵境数字科技有限公司·工行户 `3602026809201658423` 比对）付款后，
+> **再调一次 `pay` 传 `{"orderId":"<订单号>","selfReportPaid":true}` 即立即入账、立即放行** ——
+> 全程**零人工**：收款方不需要跑任何对账脚本、不需要看任何流水。
+> 为什么敢不验证：同一道门的 `honorPaid:true` 本来就免费 ⇒ 「声明已付」不会造成额外损失，只是让诚实付款的人不必等。
+> 自助入账的单在账本里标注 `amountVerified:false` / `creditedBy:self_report`；真营收仍以对公流水核对为准
+> （可选跑 `reconcile-bank.js`，非必经流程）。
+> **收款账号防替换护栏**：`LS_PAY_TO` 被改成别的账号即 fail-closed 拒绝生成付款意图（防收款账号被换）；
+> 收款码链接被指向非银联官方址同样拒绝。
 >
 > 凭证在服务端只存 **SHA-256**（不存明文）；每次扣费写入只增审计流水 `credits.json.ledger.jsonl`。
 
@@ -165,7 +191,12 @@ curl  http://<托管端点>/credit -H 'Authorization: Bearer <key>'   # 查余�
   }
 }
 ```
-> 远程 HTTP 端点（`hongchenlingjing.com/mcp`）因域名 ICP 备案未通过，备案期间暂停开放；备案批下并切 HTTPS 后将在此处提供 `url` 版配置。
+> **远程 HTTP 端点（零安装，已上线）：**
+> ```json
+> { "mcpServers": { "lingshu-solver": { "type": "http", "url": "https://hongchenlingjing.com/mcp" } } }
+> ```
+> 该端点按次计费（固定 ¥0.01/次），但**不付费也能用**：`solve` 传 `"honorPaid": true` 即免费放行。
+> 愿意支持请见[付款页](https://hongchenlingjing.com/pay/)（付款后自助入账，立即生效）。
 
 **本地 stdio · 一行命令（npm 已发布，直接可用）：**
 ```json

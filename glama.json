@@ -1,14 +1,14 @@
 {
   "$schema": "https://glama.ai/mcp/schema/manifest.json",
   "name": "Lingshu Solver",
-  "description": "灵数求解器 — 确定性（非大模型）实数方程组求解 MCP 工具，≤6 变量。区间算术 + 仿射算术 + Krawczyk 构造性认证；每个已验证解数学保真，全局穷尽为尽力而为并诚实标记 truncated。支持三角函数/指数对数/竖排粘贴，零依赖、离线、无数据上传。安装即用最新稳定版：npx -y lingshu-solver。",
+  "description": "灵数求解器 — 确定性（非大模型）实数方程组求解 MCP 工具，≤6 变量。区间算术 + 仿射算术 + Krawczyk 构造性认证；每个已验证解数学保真，全局穷尽为尽力而为并诚实标记 truncated。支持三角函数/指数对数/竖排粘贴，零依赖、离线、无数据上传。本地 stdio 零安装即用：npx -y lingshu-solver。另有常驻托管端点 https://hongchenlingjing.com/mcp（按次 ¥0.01/次，且支持 honorPaid 免费放行——不付费也能用）。",
   "homepage": "https://genesis-plan.github.io/lingshu-solver/",
   "repository": {
     "type": "git",
     "url": "https://github.com/genesis-plan/lingshu-solver"
   },
   "license": "SEE LICENSE IN LICENSE",
-  "version": "1.0.4",
+  "version": "1.0.9",
   "mcpServers": {
     "lingshu-solver": {
       "type": "stdio",
