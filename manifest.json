@@ -1,7 +1,7 @@
 {
   "name": "灵数求解器",
   "short_name": "灵数求解器",
-  "description": "高维代数方程组求解工具 — 支持导数/积分/ODE/极限，输出确定性解",
+  "description": "确定性实数方程组求解器 — ≤6 变量，区间收缩 + Krawczyk 认证，离线计算、输出可验证",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#0B1120",

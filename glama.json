@@ -8,7 +8,7 @@
     "url": "https://github.com/genesis-plan/lingshu-solver"
   },
   "license": "SEE LICENSE IN LICENSE",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "mcpServers": {
     "lingshu-solver": {
       "type": "stdio",

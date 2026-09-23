@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "name": "io.github.genesis-plan/lingshu-solver",
+  "description": "确定性实数方程组求解器（MCP）。≤6 变量、≤64 方程，区间收缩 + Krawczyk 认证，离线零依赖、零数据外传，诚实标记 truncated 解；不调用任何大模型，输出可验证。托管端点为 open-core：需密钥按次计费，网页版与 npx 本地版永久免费。",
+  "version": "1.0.10",
+  "repository": {
+    "url": "https://github.com/genesis-plan/lingshu-solver"
+  },
+  "homepage": "https://genesis-plan.github.io/lingshu-solver/",
+  "license": "SEE LICENSE IN LICENSE",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "transport": "streamable-http",
+      "url": "https://hongchenlingjing.com/mcp"
+    }
+  ],
+  "packages": [
+    {
+      "name": "npm:lingshu-solver",
+      "registry": "npm"
+    }
+  ]
+}

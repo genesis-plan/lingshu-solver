@@ -402,19 +402,20 @@ function paymentInfo(orderId, amountCents) {
     rateNote: '本服务按次计费 ' + yuan(PRICE_CENTS) + '/次。对公静态收款不强制每笔恰收 1 分（银行也不支持 1 分转账），' +
       '实际可付任意「自愿支持额」，我们将按 ' + yuan(PRICE_CENTS) + '/次 折算调用次数入账（收到 ' + yuan(500) + ' 即入账 500 次）。',
     instructions: [
-      '1. POST /pay/order 创建订单，响应给出订单号（形如 LS-YYYYMMDD-xxxxxx）与专属 key（key 只出现这一次，请立即保存）',
-      '2. 向对公账户（payTo / payToQr）转账任意支持额，务必在付款备注中填写订单号',
-      '3. 作者拿对公流水跑 reconcile-bank.js，按「订单号 + 金额」批量入账（按 ' + yuan(PRICE_CENTS) + '/次 折算），通常数日内到账；期间可先用 honorPaid:true 免费调用',
-      '4. 之后每次调用带上 Authorization: Bearer <key> 即可'
+      '1. POST /pay/order 创建订单，响应给出订单号（形如 LS-YYYYMMDD-xxxxxx）、专属 key（key 只出现这一次，请立即保存）与 payUrl',
+      '2. 打开 payUrl 让付款人扫码（微信 / 支付宝 / 银联均可），或向对公账户转账；付款备注**建议**填写订单号（不填也能付款与入账，只是无法自动对应到订单）',
+      '3. ★ 付款完成后**自助入账、立即生效、零人工**：调 MCP pay 工具，入参 {"orderId":"<订单号>","selfReportPaid":true} → 按订单面值入账（' + yuan(PRICE_CENTS) + '/次），**不需要等任何人确认、不需要发邮件**',
+      '4. 之后每次调用带上 Authorization: Bearer <key> 即可',
+      '5. 不想付款也行：任一 solve 传 honorPaid:true 即免费放行 —— 本服务不做强制收费'
     ]
   };
-  // 带订单号的直达付款链接：只有付款页拿到有效订单号才会展示收款码
+  // 带订单号的直达付款链接：付款页打开即展示收款码（未带订单号也照样出码，带订单号只是为了能自动对应）
   if (PAY_PAGE && orderId) {
     info.payUrl = PAY_PAGE +
       (PAY_PAGE.indexOf('?') >= 0 ? '&' : '?') +
       'order=' + encodeURIComponent(orderId) +
       (amountCents > 0 ? '&amount=' + amountCents : '');
-    info.payUrlNotice = '打开此链接按提示付款；付款备注必须填写订单号 ' + orderId + '。';
+    info.payUrlNotice = '打开此链接即可扫码付款。付款备注建议填写订单号 ' + orderId + '（不填也能入账，只是无法自动对应）。';
   }
   return info;
 }
@@ -442,6 +443,7 @@ function payIntent(orderId, calls, amountCents) {
   return {
     protocol: PAY_INTENT_PROTOCOL,
     orderId: orderId,
+    payUrl: info.payUrl || null,        // 带订单号的付款页：Agent 优先把这个给付款人（打开即出收款码）
     payTo: info.payTo || null,
     payToQr: info.payToQr || null,
     ratePerCallCents: PRICE_CENTS,
@@ -451,9 +453,9 @@ function payIntent(orderId, calls, amountCents) {
     suggestedAmountDisplay: yuan(amountCents),
     memo: orderId,                // 付款备注建议含订单号，便于需要时与银行流水交叉核对
     agentSteps: [
-      '1. 向钱包持有者展示 payToQr（或 payTo 账户信息）。',
-      '2. 请持有者向该对公聚合码转账（建议 ' + yuan(amountCents) + '）；备注建议含订单号 ' + orderId + '。',
-      '3. 持有者付款完成后：用 orderId 调 MCP pay 工具，入参 {"orderId":"' + orderId + '","selfReportPaid":true} → **立即入账、立即放行**（服务端不验证，信任制）。',
+      '1. 把 payUrl（若存在）展示给付款人 —— 那是带订单号的付款页，打开即显示收款码；无 payUrl 时展示 payTo 账户信息。',
+      '2. 请付款人扫码或转账（本单面值 ' + yuan(amountCents) + '）；备注建议含订单号 ' + orderId + '（不填也能入账，只是无法自动对应）。',
+      '3. 付款完成后：用 orderId 调 MCP pay 工具，入参 {"orderId":"' + orderId + '","selfReportPaid":true} → **立即入账、立即放行**（服务端不验证，信任制）。不需要等任何人、不需要发邮件。',
       '4. 入账后用 apiKey 调 solve 即不再走信任制：Authorization: Bearer <key>。',
       '5. 若不便付款或缺凭证：直接用 honorPaid:true 免费调用，效果相同（本服务不做强制验证）。'
     ],
@@ -496,7 +498,7 @@ function paywallError(reason, ctx) {
       '3. ★ 付款完成后自助入账：调 MCP pay 工具，入参 {"orderId":"<订单号>","selfReportPaid":true} → 立即入账、立即放行（零人工，不用等任何人）',
       '4. 之后带 Authorization: Bearer <key> 调用即可（不再走信任制，也不再需要 honorPaid）',
       '5. 说明：自助入账不做验证（信任制）；账本会标注 amountVerified:false，真营收仍以银行流水核对为准',
-      '6. 对公来款若无法对应到任何订单/无法核对的，一律原路退回（资金处理承诺）'
+      '6. 对公来款若无法对应到任何订单：不会被自动折算成额度；需要核对 / 开票 / 退回，请邮件联系（联系方式见 paymentPage）'
     ];
   } else {
     pay.adminTodo = '服务端未配置 LS_PAY_TO：订单可创建但无法付款，请先在服务端配置收款方式。';

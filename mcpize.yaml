@@ -1,0 +1,28 @@
+# mcpize.yaml — 灵数求解器 MCPize 部署配置
+# 上架路径：GitHub Deploy（MCPize 从 genesis-plan/lingshu-solver 拉取、构建、托管）
+# 重要：本服务按次计费默认 OFF（LS_METERING 不设置即 off）。
+#   ⇒ MCPize 托管的是"无收费实例"，由 MCPize 的 Stripe 层统一计费（80% 给创作者）。
+#   切勿在 secrets 里开 LS_METERING=on，否则会与 MCPize 计费双重收费。
+version: 1
+name: lingshu-solver
+description: |
+  确定性实数方程组求解器（MCP）。民用级：≤6 变量、≤64 方程，区间收缩 + Krawczyk 认证，
+  离线零依赖、零数据外传，诚实标记 truncated 解。不调用任何大模型，输出可验证。
+
+runtime: typescript
+entry: http-mcp-server.js
+
+# 零依赖 Node 服务，无需转译；install 仅生成空 node_modules，command 为占位无操作
+build:
+  install: npm ci
+  command: node -e "console.log('lingshu-solver: zero-dependency, no build step')"
+
+startCommand:
+  type: http
+  command: node http-mcp-server.js
+
+# 探活：服务根路径 / 与 /health 均返回 200 元信息
+health_check: /health
+
+# 说明：MCPize 通过统一网关代理并计数，创作者侧无需写任何计费逻辑。
+# 价格档位在 MCPize Dashboard 配置（free / pro / enterprise），不在本文件。

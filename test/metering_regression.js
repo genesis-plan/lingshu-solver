@@ -190,12 +190,19 @@ async function main() {
     ok('拒绝响应给出逐步付款指引',
       noKey.payload && noKey.payload.payment && Array.isArray(noKey.payload.payment.howToPay) && noKey.payload.payment.howToPay.length >= 4,
       noKey.payload && noKey.payload.payment && noKey.payload.payment.howToPay);
-    ok('付款指引含「订单号备注」+「自助入账」+「原路退回」三件事',
+    ok('付款指引含「订单号备注」+「自助入账」+「无法对应到订单」的处置说明',
       noKey.payload && noKey.payload.payment && Array.isArray(noKey.payload.payment.howToPay) &&
         noKey.payload.payment.howToPay.some(s => /备注.*订单号/.test(s)) &&
         noKey.payload.payment.howToPay.some(s => /selfReportPaid/.test(s)) &&
-        noKey.payload.payment.howToPay.some(s => /原路退回/.test(s)),
+        noKey.payload.payment.howToPay.some(s => /无法对应到任何订单/.test(s)),
       noKey.payload && noKey.payload.payment && noKey.payload.payment.howToPay);
+    // 回归锁（2026-09-23 修）：付款方必经路径上不得再出现「等人工」旧口径 ——
+    // 曾出现过「务必邮件告知以便确认到账」「作者跑 reconcile-bank.js，通常数日内到账」，
+    // 会把诚实付款方劝退（等他以为要等好几天）。
+    ok('★ 付款路径不再出现「发邮件确认到账 / 数日内到账 / 备注务必填写」旧口径', (() => {
+      const flat = JSON.stringify((noKey.payload && noKey.payload.payment) || {});
+      return !/数日内到账/.test(flat) && !/邮件.{0,6}确认到账/.test(flat) && !/务必在付款备注/.test(flat);
+    })(), noKey.payload && noKey.payload.payment && noKey.payload.payment.instructions);
     ok('拒绝响应不含任何凭证明文',
       noKey.payload && !/lsk_[0-9a-f]{20,}/.test(JSON.stringify(noKey.payload)));
 
@@ -227,8 +234,12 @@ async function main() {
       ord.json && ord.json.payment && ord.json.payment.payUrl);
     ok('直达链接的金额即为订单金额（不多不少）',
       ord.json && ord.json.payment && /(?:[?&])amount=1(?:&|$)/.test(String(ord.json.payment.payUrl)));
-    ok('付款链接附「备注必须填订单号」提示',
-      ord.json && ord.json.payment && String(ord.json.payment.payUrlNotice || '').indexOf(orderId) >= 0);
+    ok('付款链接附「备注建议填订单号」提示（不再是「必须」）',
+      ord.json && ord.json.payment &&
+        String(ord.json.payment.payUrlNotice || '').indexOf(orderId) >= 0 &&
+        /建议/.test(String(ord.json.payment.payUrlNotice)) &&
+        !/必须/.test(String(ord.json.payment.payUrlNotice)),
+      ord.json && ord.json.payment && ord.json.payment.payUrlNotice);
     ok('付款链接不泄露凭证（不含 apiKey）',
       ord.json && ord.json.payment && String(ord.json.payment.payUrl || '').indexOf(String(ord.json.apiKey)) < 0);
 
@@ -522,6 +533,12 @@ async function main() {
       !!(k0.json && k0.json.selfCredit && /selfReportPaid/.test(JSON.stringify(k0.json.selfCredit))), k0.json && k0.json.selfCredit);
     ok('payIntent 步骤里给出自助入账（不再要求「回报给运营方」）',
       !!(k0.json && k0.json.payIntent && JSON.stringify(k0.json.payIntent.agentSteps).indexOf('selfReportPaid') >= 0), k0.json && (k0.json.payIntent && k0.json.payIntent.agentSteps));
+    // 2026-09-23 修：Agent 原来只被告知「展示 payToQr」，而 payToQr 恒为 null ⇒ 拿不到付款入口。
+    // 现在 payIntent 直接带 payUrl，且第一步就指向它。
+    ok('★ payIntent 带 payUrl（带订单号的付款页）且首步即指向它',
+      !!(k0.json && k0.json.payIntent && /order=LS-/.test(String(k0.json.payIntent.payUrl)) &&
+        String((k0.json.payIntent.agentSteps || [])[0] || '').indexOf('payUrl') >= 0),
+      k0.json && k0.json.payIntent && { payUrl: k0.json.payIntent.payUrl, step0: (k0.json.payIntent.agentSteps || [])[0] });
 
     const kNoDecl = await mcp('tools/call', { name: 'pay', arguments: { orderId: kOrder } });
     ok('只传 orderId 不构成「已付」声明 → self_report_required（防误入账）',
