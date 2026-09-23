@@ -119,28 +119,67 @@ const PAY_PAGE = (process.env.LS_PAY_PAGE || '').trim();
 // 配置后，订单 / 付款响应会附上可扫码的对公收款码，付款人直接扫码转账并备注订单号。
 // 这正是「我们的方法」：不接支付宝 / 微信 / 工行商户 API，收款入口 = 公司已有的对公账户。
 const PAY_TO_QR = (process.env.LS_PAY_TO_QR || '').trim();
-// 「灵付 LingPay」：本项目自研的 Agent 支付协议标识（不依赖任何支付平台商户 API）。
+// 「对公收款」：本项目自研的 Agent 支付协议标识（不依赖任何支付平台商户 API）。
 // 统一收款入口 = 工银e支付银联聚合码（公司账户，支持支付宝 / 微信 / 银联扫码）。
-const LINGPAY_PROTOCOL = 'LingPay/1.0 (corporate-static)';
+const PAY_INTENT_PROTOCOL = 'lingshu-corporate/1.0';
 
 // ============================================================================
-// 安全护栏：收款账号防替换（fail-closed）
+// 安全护栏：收款去向防替换（fail-closed）
 // ----------------------------------------------------------------------------
-// 把「合法对公收款标识」钉死在代码里（与凭据库 credentials.md 一致）。运行时若
-// 环境变量 LS_PAY_TO / LS_PAY_TO_QR 被篡改为别的账号 / 码，端点**拒绝生成任何
-// 付款意图**（fail-closed）—— 而不是把错误账号展示给用户去付。这样攻击者即便改了
-// 配置文件也收不到钱，最多让收款暂时不可用（「不能收就算了」的安全取舍）。
-// 钉死值来自凭据库（2026-09-22 接通的公司对公户与工银e支付银联聚合码解码链接）。
+// 把「合法收款去向」钉死在代码里（与凭据库 credentials.md 一致）。运行时若
+// LS_PAY_TO / LS_PAY_TO_QR / LS_PAY_PAGE 被改成**别的账号 / 别的收款码 / 别的付款页**，
+// 端点**拒绝生成任何付款意图**（fail-closed）——而不是把错误账号展示给用户去付。
+// 攻击者即便改了配置文件也收不到钱，最多让收款暂时不可用（「不能收就算了」的安全取舍）。
+//
+// 判定按「去向」而非「整串文字相等」：LS_PAY_TO 是给人看的自由文本（含说明、付款流程、
+// 付款页链接），要求整串相等会把线上正常配置误判为篡改。三类判定，任一命中即 fail-closed：
+//   ① 账号数字段：文本里出现的 16~19 位连续数字，必须是钉死对公账号；
+//   ② 收款码地址：LS_PAY_TO_QR 必须等于钉死的银联官方聚合码链接（扫的码决定钱去哪）；
+//   ③ 链接主机：文本里的 URL 主机必须是我们自己的域；银联址必须逐字节等于钉死链接
+//      （同域下换商户号 = 换收款人，同样拦）。
+// ============================================================================
 const PINNED_ACCOUNT = '3602026809201658423';                 // 广州市红尘灵境数字科技有限公司 对公基本存款账户
 const PINNED_ACCOUNT_NAME = '广州市红尘灵境数字科技有限公司';
-// 工银e支付银联聚合码解码链接（qr.95516.com 是银联官方码址，逐字节已回解验证）。
-// 生产当前主要靠账户号转账（码为可选）；仅当 LS_PAY_TO_QR 也设了才比对前缀。
-const PINNED_QR_PREFIX = 'https://qr.95516.com/';
-// 运行时校验：env 给的收款标识必须与钉死的完全一致
-const RECEIPT_TAMPERED = !!PAY_TO && PAY_TO !== PINNED_ACCOUNT;          // 账号被换 → 硬失败（fail-closed）
-const RECEIPT_QR_WARN = !!PAY_TO_QR && !PAY_TO_QR.startsWith(PINNED_QR_PREFIX); // 码被换到非银联官方址 → 告警（不硬拦，避免误伤 COS 镜像）
+const PINNED_QR_URL = 'https://qr.95516.com/01020001/wcqr?f=ICBCqr&X=1&T=3&P=13&I=e03d925776684b4d&N=b4cbb142eeafe2bddce7a7878c57f5ca&L=09253a28e43998a37f27ab44fba914bf945dc63f02a5239d';
+const TRUSTED_HOSTS = ['hongchenlingjing.com', 'www.hongchenlingjing.com', 'qr.95516.com'];
+function hostOfUrl(u) {
+  try { return new URL(String(u)).hostname.toLowerCase(); } catch (_e) { return null; }
+}
+function urlsIn(s) {
+  try {
+    const m = String(s == null ? '' : s).match(/https?:\/\/[^\s，。；、）)】"']+/g) || [];
+    return m.map(function (u) { return u.replace(/[.,;:!?、）)】]+$/, ''); });
+  } catch (_e) { return []; }
+}
+function accountRunsIn(s) {
+  try { return String(s == null ? '' : s).match(/\d{16,19}/g) || []; } catch (_e) { return []; }
+}
+// 逐项体检：返回问题清单（空数组 = 未发现篡改）
+function guardProblems() {
+  const out = [];
+  [['LS_PAY_TO', PAY_TO], ['LS_PAY_TO_QR', PAY_TO_QR]].forEach(function (kv) {
+    accountRunsIn(kv[1]).forEach(function (n) {
+      if (n !== PINNED_ACCOUNT) out.push(kv[0] + ' 含非钉死账号 ' + n.slice(0, 4) + '****' + n.slice(-4) + '（应为 ' + PINNED_ACCOUNT.slice(0, 4) + '****' + PINNED_ACCOUNT.slice(-4) + '）');
+    });
+  });
+  if (PAY_TO_QR && PAY_TO_QR !== PINNED_QR_URL) {
+    out.push('LS_PAY_TO_QR 与钉死聚合码链接不一致（钱可能进第三方）：' + (hostOfUrl(PAY_TO_QR) || '无法识别'));
+  }
+  [['LS_PAY_TO', PAY_TO], ['LS_PAY_PAGE', PAY_PAGE]].forEach(function (kv) {
+    urlsIn(kv[1]).forEach(function (u) {
+      const h = hostOfUrl(u);
+      if (!h) { out.push(kv[0] + ' 含无法解析的链接：' + u.slice(0, 40)); return; }
+      if (h === 'qr.95516.com') { if (u !== PINNED_QR_URL) out.push(kv[0] + ' 含非钉死的银联码链接（商户号被换）'); return; }
+      if (TRUSTED_HOSTS.indexOf(h) < 0) out.push(kv[0] + ' 含非可信链接主机：' + h);
+    });
+  });
+  return out;
+}
+const GUARD_PROBLEMS = guardProblems();
+const RECEIPT_TAMPERED = GUARD_PROBLEMS.length > 0;  // 收款去向被换 → 硬失败（fail-closed）
+const RECEIPT_QR_WARN = false;                       // 码址问题已并入上面的硬判定
 function receiptPinHash() {
-  return crypto.createHash('sha256').update(PINNED_ACCOUNT + '|' + PINNED_ACCOUNT_NAME + '|' + PINNED_QR_PREFIX, 'utf8').digest('hex');
+  return crypto.createHash('sha256').update(PINNED_ACCOUNT + '|' + PINNED_ACCOUNT_NAME + '|' + PINNED_QR_URL, 'utf8').digest('hex');
 }
 const RECEIPT_PIN_HASH = receiptPinHash(); // 启动期可见的钉死指纹，便于运维肉眼确认未被篡改
 const CREDITS_PATH = path.resolve(process.env.LS_CREDITS_PATH || path.join(__dirname, 'credits.json'));
@@ -159,7 +198,7 @@ const ADMIN_LOOPBACK_ONLY = String(process.env.LS_ADMIN_LOOPBACK_ONLY || '1') !=
 // 订单创建限速：默认 10 单/小时/IP（防刷单表；与 /mcp 的 120次/分 独立）
 const ORDER_WINDOW_MS = 60 * 60 * 1000;
 const ORDER_RATE_MAX = parseInt(process.env.LS_ORDER_RATE_MAX || '10', 10);
-// 按次计费：固定 1 分钱/次（¥0.01/call）。灵付 LingPay：下单 = 1 次 = 1 分钱的付费凭证，
+// 按次计费：固定 1 分钱/次（¥0.01/call）。对公收款：下单 = 1 次 = 1 分钱的付费凭证，
 // 不预充、无套餐、无其他金额；付款人向对公聚合码付任意正金额，按实收折算 N' = 实收/¥0.01 次入账（多付多得）。
 const PER_CALL_CENTS = PRICE_CENTS; // 恒为 1
 const ORDER_TTL_DAYS = 365;
@@ -310,13 +349,14 @@ function freeAlternatives() {
 }
 
 function paymentInfo(orderId, amountCents) {
-  // 安全护栏：账号被篡改 → fail-closed，绝不向用户展示错误收款账号
+  // 安全护栏：收款去向被篡改 → fail-closed，绝不向用户展示错误收款账号
   if (RECEIPT_TAMPERED) {
     return {
       channel: PAY_CHANNEL,
       configured: false,
       tampered: true,
-      securityAlert: '收款账号与钉死值不符（疑似被篡改），已 fail-closed：不再生成任何付款意图，避免向用户展示错误账号。请检查 LS_PAY_TO 配置。',
+      securityAlert: '收款去向与钉死值不符（疑似被篡改），已 fail-closed：不再生成任何付款意图，避免向用户展示错误账号。请检查 LS_PAY_TO / LS_PAY_TO_QR / LS_PAY_PAGE 配置。',
+      problems: GUARD_PROBLEMS,
       pinnedAccount: PINNED_ACCOUNT,
       pinnedAccountName: PINNED_ACCOUNT_NAME
     };
@@ -329,16 +369,16 @@ function paymentInfo(orderId, amountCents) {
       adminTodo: '在服务端设置 LS_PAY_TO（收款码链接或收款账号说明）与 LS_PAY_CHANNEL，然后重启服务。'
     };
   }
-  // 对公静态收款（灵付 LingPay）：不接任何支付平台商户 API，收款入口 = 公司已有的对公账户。
+  // 对公静态收款（对公收款）：不接任何支付平台商户 API，收款入口 = 公司已有的对公账户。
   // 单价 1 分/次是「折算率 / 定价信号」：实际收款为「自愿支持额」（任何正金额都收），按 ¥0.01/次折算调用次数入账。
   const info = {
     channel: PAY_CHANNEL,
     method: 'corporate-static',
-    protocol: LINGPAY_PROTOCOL,
+    protocol: PAY_INTENT_PROTOCOL,
     configured: true,
     payTo: PAY_TO,
     payToName: PINNED_ACCOUNT_NAME,
-    payToQr: (PAY_TO_QR && PAY_TO_QR.startsWith(PINNED_QR_PREFIX)) ? PAY_TO_QR : (PAY_TO_QR || null),
+    payToQr: PAY_TO_QR || null,        // 已由上方护栏保证：非钉死码址一律 fail-closed，走到这里必是可信码
     receiptVerified: true,           // 账号已与钉死值比对一致，客户端可据此信任
     qrTampered: RECEIPT_QR_WARN || undefined,
     rateNote: '本服务按次计费 ' + yuan(PRICE_CENTS) + '/次。对公静态收款不强制每笔恰收 1 分（银行也不支持 1 分转账），' +
@@ -361,21 +401,21 @@ function paymentInfo(orderId, amountCents) {
   return info;
 }
 
-/** 当前实际可用的付款通道（灵付 LingPay：仅对公静态收款，不接任何支付平台商户 API） */
+/** 当前实际可用的付款通道（对公收款：仅对公静态收款，不接任何支付平台商户 API） */
 function availableChannels() {
   const a = [];
-  if (PAY_TO && !RECEIPT_TAMPERED) a.push({ channel: 'corporate-static', mode: 'manual', protocol: LINGPAY_PROTOCOL, label: '对公静态收款（公司账户转账，备注订单号，按 ' + yuan(PRICE_CENTS) + '/次 折算入账，流水批量核对）' });
+  if (PAY_TO && !RECEIPT_TAMPERED) a.push({ channel: 'corporate-static', mode: 'manual', protocol: PAY_INTENT_PROTOCOL, label: '对公静态收款（公司账户转账，备注订单号，按 ' + yuan(PRICE_CENTS) + '/次 折算入账，流水批量核对）' });
   return a;
 }
 
-// 「灵付 LingPay」：本项目自研的 Agent 支付意图协议（不依赖任何支付平台商户 API）。
+// 「对公收款」：本项目自研的 Agent 支付意图协议（不依赖任何支付平台商户 API）。
 // 统一收款入口 = 工银e支付银联聚合码（支持支付宝 / 微信 / 银联扫码），钱落公司对公户。
 // 目标：让「带钱包、或被用户授权的 AI Agent」能读懂一个结构化付款意图，自行或代其人类完成付款；
 // 收款后由运营方拿对公流水跑 reconcile-bank.js，按订单号 + ¥0.01/次 折算，幂等入账。
-function lingpayIntent(orderId, calls, amountCents) {
+function payIntent(orderId, calls, amountCents) {
   const info = paymentInfo(orderId, amountCents);
   return {
-    protocol: LINGPAY_PROTOCOL,
+    protocol: PAY_INTENT_PROTOCOL,
     orderId: orderId,
     payTo: info.payTo || null,
     payToQr: info.payToQr || null,
@@ -398,7 +438,7 @@ function lingpayIntent(orderId, calls, amountCents) {
 }
 
 /**
- * 组装付款信息（灵付 LingPay）。
+ * 组装付款信息（对公收款）。
  * 只有「对公静态收款」一种通道，不接任何支付平台商户 API——无回调、无异步、无平台依赖。
  * 保留回调式签名（cb）仅为兼容 createOrder 的调用点；内部直接同步返回 paymentInfo。
  */
@@ -426,8 +466,8 @@ function paywallError(reason, ctx) {
     if (PAY_PAGE) pay.paymentPage = PAY_PAGE;
     pay.payTo = PAY_TO;
     pay.howToPay = [
-      '1. POST /pay/order 创建订单 → 响应含 orderId、apiKey，以及付款入口（payment / lingpay）',
-      '2. 打开 payUrl 扫码（若配置了收款码）或向对公账户转账任意支持额，备注订单号（账户信息见该页面 / lingpay.payTo）',
+      '1. POST /pay/order 创建订单 → 响应含 orderId、apiKey，以及付款入口（payment / payIntent）',
+      '2. 打开 payUrl 扫码（若配置了收款码）或向对公账户转账任意支持额，备注订单号（账户信息见该页面 / payIntent.payTo）',
       '3. 付款备注必须填写订单号；作者拿对公流水批量对账入账（按 ' + yuan(PRICE_CENTS) + '/次 折算），通常数日内；金额不符的来款一律原路退回',
       '4. 管理员确认到账后余额入账，之后带 Authorization: Bearer <key> 调用即可'
     ];
@@ -595,7 +635,7 @@ function pricingDoc(req) {
     autoCredit: {
       enabled: false,
       method: 'corporate-static',
-      note: '灵付 LingPay：当前走「对公静态收款 + 银行流水批量对账」（reconcile-bank.js），不接任何支付平台商户 API、无需第三方商户号；按 ' + yuan(PRICE_CENTS) + '/次 折算入账（多付多得）。',
+      note: '对公收款：当前走「对公静态收款 + 银行流水批量对账」（reconcile-bank.js），不接任何支付平台商户 API、无需第三方商户号；按 ' + yuan(PRICE_CENTS) + '/次 折算入账（多付多得）。',
       guardrails: [
         '账号钉死：LS_PAY_TO 与代码钉死的对公账号逐字比对，被篡改即 fail-closed 拒绝生成付款意图（防收款账号被换）',
         '对账：流水按订单号匹配、实收金额按 ' + yuan(PRICE_CENTS) + '/次 折算，少付少得、多付多得',
@@ -817,15 +857,15 @@ const TOOLS = [
   },
   {
     name: 'pay',
-    description: '灵付 LingPay：为本次/后续求解创建一笔真实付费订单（' + yuan(PRICE_CENTS) + '/次），返回订单号、专属 key 与结构化付款意图（lingpay）。' +
+    description: '对公收款：为本次/后续求解创建一笔真实付费订单（' + yuan(PRICE_CENTS) + '/次），返回订单号、专属 key 与结构化付款意图（payIntent）。' +
       '统一收款入口 = 工银e支付银联聚合码（支持支付宝/微信/银联扫码），钱落公司对公户，不接任何支付平台商户 API。' +
       '适合「想真正付费支持作者」的个人，或带钱包/被用户授权的合规 AI Agent：一次调用拿到订单号与对公收款方式，' +
       '向对公聚合码转任意「自愿支持额」并备注订单号，运营方跑 reconcile-bank.js 按 ' + yuan(PRICE_CENTS) + '/次 折算入账；付款后凭 key 调 solve 即不再走信任制。' +
-      '若服务端未配置收款方式（LS_PAY_TO 为空），订单仍可创建但 lingpay.payTo 为 null，此时请改用 honorPaid:true 或联系作者。',
+      '若服务端未配置收款方式（LS_PAY_TO 为空），订单仍可创建但 payIntent.payTo 为 null，此时请改用 honorPaid:true 或联系作者。',
     inputSchema: {
       type: 'object',
       properties: {
-        channel: { type: 'string', description: '付款通道：当前固定为 corporate-static（对公静态收款，灵付 LingPay）；留空即可。' }
+        channel: { type: 'string', description: '付款通道：当前固定为 corporate-static（对公静态收款，对公收款）；留空即可。' }
       },
       required: []
     }
@@ -926,7 +966,7 @@ function handleRpc(msg, ip, ctx) {
               note: '付款后凭此 key 调用 solve 即不再走信任制（也不需 honorPaid）。'
             },
             note: '这是一笔真实付费订单（' + yuan(PRICE_CENTS) + '/次，共 ' + o.calls + ' 次）。若 payment 为 null 或 payable=false（服务端未配收款方式），请改用 honorPaid:true 或联系作者。',
-            lingpay: lingpayIntent(o.orderId, o.calls, o.amountCents)
+            payIntent: payIntent(o.orderId, o.calls, o.amountCents)
           };
         }
       } else {
@@ -1043,7 +1083,7 @@ function creditOrder(orderId, opt) {
 // ---- 建单逻辑（被 /pay/order 路由与 MCP `pay` 工具共用，零分叉）----
 // 返回 { orderId, key, calls, amountCents, payment, discarded } 或 { error:{status,error} }
 function createOrder(ip, body) {
-  // 灵付 LingPay：按次计费 ¥0.01/次，下单 = 1 次 = 1 分钱。
+  // 对公收款：按次计费 ¥0.01/次，下单 = 1 次 = 1 分钱。
   // 不预充、无套餐、无其他金额：每次 pay 只卖「1 次调用」的凭证（calls 恒为 1）。
   // 「多付多得」由对账按实收金额折算实现：付款人向对公聚合码付任意正金额，
   // reconcile-bank.js 按 ¥0.01/次 折算 N' = 实收/¥0.01 次入账，与本次下单次数无关。
@@ -1083,7 +1123,7 @@ function createOrder(ip, body) {
   }
   ledgerAudit({ event: 'order_created', orderId: orderId, key: maskKey(key), calls: calls, amountCents: amountCents, ip: ip });
   appendLog({ ts: nowIso, ip: ip, event: 'order_created', orderId: orderId, calls: calls, amountCents: amountCents });
-  // 灵付 LingPay：统一收款入口 = 对公静态聚合码（不接任何支付平台商户 API）
+  // 对公收款：统一收款入口 = 对公静态聚合码（不接任何支付平台商户 API）
   const payment = paymentInfo(orderId, amountCents);
   if (payment.error) return { error: { status: 400, error: payment.error } };
   return { orderId, key, calls, amountCents, payment, discarded };
@@ -1144,7 +1184,7 @@ const server = http.createServer((req, res) => {
       metering: METERING_ON ? 'on' : 'off',
       priceCentsPerCall: METERING_ON ? PRICE_CENTS : 0,
       requireTls: REQUIRE_TLS ? 'on' : 'off',
-      // 到账是否已自动化：灵付 LingPay 走对账批量入账（false = 非实时 API 自动入账）
+      // 到账是否已自动化：对公收款 走对账批量入账（false = 非实时 API 自动入账）
       autoCredit: false,
       receiptVerified: !RECEIPT_TAMPERED,
       receiptTampered: RECEIPT_TAMPERED || undefined,
@@ -1219,7 +1259,7 @@ const server = http.createServer((req, res) => {
         payable: !!(payment && (payment.configured || payment.payUrl || payment.codeUrl || payment.mode === 'auto')),
         payment: payment,
         paymentChannels: availableChannels(),
-        lingpay: lingpayIntent(orderId, r.calls, r.amountCents),
+        payIntent: payIntent(orderId, r.calls, r.amountCents),
         privacy: {
           accountRequired: false,
           personalDataCollected: false,
@@ -1250,7 +1290,7 @@ const server = http.createServer((req, res) => {
       orderId: orderId, calls: o.calls, amountCents: o.amountCents, amountDisplay: yuan(o.amountCents),
       status: o.status, createdAt: o.createdAt, paidAt: o.paidAt || null,
       payment: paymentInfo(orderId, o.amountCents),
-      lingpay: lingpayIntent(orderId, o.calls, o.amountCents)
+      payIntent: payIntent(orderId, o.calls, o.amountCents)
     });
   }
 
@@ -1267,7 +1307,7 @@ const server = http.createServer((req, res) => {
         const o = ledger.orders[orderId];
         if (!o) return sendJson(res, 404, { error: { type: 'order_not_found', message: '订单不存在：' + orderId } });
 
-        // ── 灵付 LingPay 人工确认路径：仍强制核对金额（fail-closed）────────────
+        // ── 对公收款 人工确认路径：仍强制核对金额（fail-closed）────────────
         // 本端点用于：① 走对公静态收款码/转账的老通道，作者拿流水按订单号折算入账；
         // ② 金额不符/订单丢失时的兜底人工处置。正常到账由作者跑 reconcile-bank.js 批量入账。
         const received = (body && body.receivedCents !== undefined) ? body.receivedCents : undefined;
@@ -1280,7 +1320,7 @@ const server = http.createServer((req, res) => {
               expectedCents: o.amountCents,
               expectedDisplay: yuan(o.amountCents),
               whyItMatters: '付款链接里的 amount 参数是客户端可改的；不核对金额 = 1 分钱的转账可以领走整单额度。',
-              alternative: '灵付 LingPay：走「对公静态收款 + 银行流水对账」——付款后由作者按订单号批量折算入账（按 ' + yuan(PRICE_CENTS) + '/次），无需平台回调。',
+              alternative: '对公收款：走「对公静态收款 + 银行流水对账」——付款后由作者按订单号批量折算入账（按 ' + yuan(PRICE_CENTS) + '/次），无需平台回调。',
               orPass: 'acknowledgeUnverified:true（表示你已自行核对，风险自担）'
             }
           });
@@ -1559,11 +1599,11 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`  tls     : ${REQUIRE_TLS ? 'REQUIRED for credentialed calls' : 'not enforced (凭证可走明文，迁移期)'}`);
   console.log(`  account : not required (key = account); collects no personal data`);
   console.log(`  pricing : GET  http://localhost:${PORT}/pricing`);
-  console.log(`  pay     : 灵付 LingPay（corporate-static，对公静态收款 + 流水对账，不接任何支付平台商户 API）`);
+  console.log(`  pay     : 对公收款（corporate-static，对公静态收款 + 流水对账，不接任何支付平台商户 API）`);
   console.log(`  admin   : ${ADMIN_TOKEN ? 'enabled' : 'DISABLED (未设 LS_ADMIN_TOKEN)'}${ADMIN_LOOPBACK_ONLY ? ' [loopback-only]' : ' [reachable remotely]'} | payTo: ${PAY_TO ? 'configured' : 'NOT configured (未设 LS_PAY_TO)'}`);
-  console.log(`  receipt : pinned=${PINNED_ACCOUNT}  tamper=${RECEIPT_TAMPERED ? 'YES ⚠ 账号被篡改，已 fail-closed 拒绝收款' : 'OK (verified)'}${RECEIPT_QR_WARN ? '  [qr warn: LS_PAY_TO_QR 非银联官方址]' : ''}`);
+  console.log(`  receipt : pinned=${PINNED_ACCOUNT}  tamper=${RECEIPT_TAMPERED ? 'YES ⚠ 收款去向被篡改，已 fail-closed 拒绝收款' : 'OK (verified)'}${RECEIPT_TAMPERED ? '  problems=' + GUARD_PROBLEMS.join(' | ') : ''}`);
   if (RECEIPT_TAMPERED) {
-    console.warn('[SECURITY] 收款账号与钉死值不符，已 fail-closed：不再生成任何付款意图。请立即检查 LS_PAY_TO 配置是否被篡改。');
+    console.warn('[SECURITY] 收款去向与钉死值不符，已 fail-closed：不再生成任何付款意图。问题：' + GUARD_PROBLEMS.join(' | '));
   }
   if (METERING_ON && !PAY_TO) {
     console.warn('[warn] 计费已开但未配置 LS_PAY_TO：订单可创建却无法付款。');

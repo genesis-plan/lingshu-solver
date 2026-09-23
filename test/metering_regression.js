@@ -108,7 +108,7 @@ async function main() {
       LS_PRICE_CENTS: '1',
       LS_ADMIN_TOKEN: ADMIN_TOKEN,
       LS_PAY_TO: '3602026809201658423',
-      LS_PAY_PAGE: 'https://example.com/pay/',
+      LS_PAY_PAGE: 'https://hongchenlingjing.com/pay/',
       LS_CREDITS_PATH: CREDITS,
       LS_FREE_LOOPBACK: '0',
       LS_RATE_MAX: '100000'
@@ -146,7 +146,7 @@ async function main() {
     ok('tools/list 免凭证可用', tl.status === 200 && tl.json && tl.json.result && Array.isArray(tl.json.result.tools), tl.status);
     const solveTool = tl.json && tl.json.result.tools.find(t => t.name === 'solve');
     ok('solve 工具描述已带计费说明', !!solveTool && /计费/.test(solveTool.description) && /1 分钱/.test(solveTool.description));
-    ok('工具名清单 = solve/give_feedback/pay（灵付 LingPay 新增 pay 工具）',
+    ok('工具名清单 = solve/give_feedback/pay（对公收款 新增 pay 工具）',
       tl.json && tl.json.result.tools.map(t => t.name).sort().join(',') === 'give_feedback,pay,solve',
       tl.json && tl.json.result.tools.map(t => t.name));
 
@@ -169,7 +169,7 @@ async function main() {
       noKey.payload && noKey.payload.payment && noKey.payload.payment.paymentConfigured === true,
       noKey.payload && noKey.payload.payment);
     ok('拒绝响应直达付款页',
-      noKey.payload && noKey.payload.payment && noKey.payload.payment.paymentPage === 'https://example.com/pay/',
+      noKey.payload && noKey.payload.payment && noKey.payload.payment.paymentPage === 'https://hongchenlingjing.com/pay/',
       noKey.payload && noKey.payload.payment && noKey.payload.payment.paymentPage);
     ok('拒绝响应给出逐步付款指引',
       noKey.payload && noKey.payload.payment && Array.isArray(noKey.payload.payment.howToPay) && noKey.payload.payment.howToPay.length >= 4,
@@ -206,7 +206,7 @@ async function main() {
     ok('订单响应含收款方式（已配置）', ord.json && ord.json.payment && ord.json.payment.configured === true, ord.json && ord.json.payment);
     ok('订单响应给出「带订单号+金额」的直达付款链接',
       ord.json && ord.json.payment && ord.json.payment.payUrl ===
-        'https://example.com/pay/?order=' + orderId + '&amount=1',
+        'https://hongchenlingjing.com/pay/?order=' + orderId + '&amount=1',
       ord.json && ord.json.payment && ord.json.payment.payUrl);
     ok('直达链接的金额即为订单金额（不多不少）',
       ord.json && ord.json.payment && /(?:[?&])amount=1(?:&|$)/.test(String(ord.json.payment.payUrl)));
@@ -244,7 +244,7 @@ async function main() {
     ok('余额 0 的拒绝响应回传 balanceCents=0 与剩余次数 0',
       zero.payload && zero.payload.balanceCents === 0 && zero.payload.callsRemaining === 0, zero.payload && { b: zero.payload.balanceCents, r: zero.payload.callsRemaining });
     ok('余额不足时也直达付款页（不必再问「去哪付」）',
-      zero.payload && zero.payload.payment && zero.payload.payment.paymentPage === 'https://example.com/pay/' &&
+      zero.payload && zero.payload.payment && zero.payload.payment.paymentPage === 'https://hongchenlingjing.com/pay/' &&
       Array.isArray(zero.payload.payment.howToPay) && zero.payload.payment.howToPay.length >= 4,
       zero.payload && zero.payload.payment);
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * test_our_method.js — 灵付 LingPay（对公静态收款 + 银行流水对账 + 收款账号防替换护栏）冒烟测试
+ * test_our_method.js — 对公收款（对公静态收款 + 银行流水对账 + 收款账号防替换护栏）冒烟测试
  * 启动托管端点（metering=on，对公收款配真实钉死账号），逐项断言后退出。
  */
 'use strict';
@@ -94,14 +94,14 @@ function spawnServer(port, payTo, payToQr) {
   ok('payment.receiptVerified=true', o.json && o.json.payment && o.json.payment.receiptVerified === true);
   ok('payment.rateNote 说明折算', o.json && o.json.payment && /折算/.test(o.json.payment.rateNote || ''));
 
-  // 2b. 灵付 LingPay：开单响应含结构化付款意图
-  ok('lingpay 意图存在', o.json && !!o.json.lingpay, o.json && o.json.lingpay);
-  ok('lingpay.protocol=LingPay/1.0 (corporate-static)', o.json && o.json.lingpay && o.json.lingpay.protocol === 'LingPay/1.0 (corporate-static)', o.json && o.json.lingpay && o.json.lingpay.protocol);
-  ok('lingpay.memo=订单号', o.json && o.json.lingpay && o.json.lingpay.memo === orderId, o.json && o.json.lingpay);
-  ok('lingpay.payToQr=银联官方码址', o.json && o.json.lingpay && o.json.lingpay.payToQr === REAL_QR);
-  ok('lingpay.agentSteps 为数组', o.json && o.json.lingpay && Array.isArray(o.json.lingpay.agentSteps) && o.json.lingpay.agentSteps.length >= 3);
-  ok('lingpay.suggestedCalls 默认 1（固定单价、不预充）', o.json && o.json.lingpay && o.json.lingpay.suggestedCalls === 1, o.json && o.json.lingpay);
-  ok('lingpay.suggestedAmountDisplay=¥0.01', o.json && o.json.lingpay && o.json.lingpay.suggestedAmountDisplay === '¥0.01', o.json && o.json.lingpay);
+  // 2b. 对公收款：开单响应含结构化付款意图
+  ok('payIntent 意图存在', o.json && !!o.json.payIntent, o.json && o.json.payIntent);
+  ok('payIntent.protocol=lingshu-corporate/1.0', o.json && o.json.payIntent && o.json.payIntent.protocol === 'lingshu-corporate/1.0', o.json && o.json.payIntent && o.json.payIntent.protocol);
+  ok('payIntent.memo=订单号', o.json && o.json.payIntent && o.json.payIntent.memo === orderId, o.json && o.json.payIntent);
+  ok('payIntent.payToQr=银联官方码址', o.json && o.json.payIntent && o.json.payIntent.payToQr === REAL_QR);
+  ok('payIntent.agentSteps 为数组', o.json && o.json.payIntent && Array.isArray(o.json.payIntent.agentSteps) && o.json.payIntent.agentSteps.length >= 3);
+  ok('payIntent.suggestedCalls 默认 1（固定单价、不预充）', o.json && o.json.payIntent && o.json.payIntent.suggestedCalls === 1, o.json && o.json.payIntent);
+  ok('payIntent.suggestedAmountDisplay=¥0.01', o.json && o.json.payIntent && o.json.payIntent.suggestedAmountDisplay === '¥0.01', o.json && o.json.payIntent);
 
   // 2c. 定价铁律：固定 1 分/次、不预充 —— 任何 prebuy（calls≠1）一律拒
   const o50 = await req(PORT, 'POST', '/pay/order', { calls: 50 });
@@ -133,11 +133,11 @@ function spawnServer(port, payTo, payToQr) {
   const cr2 = await req(PORT, 'GET', '/credit?key=' + apiKey);
   ok('幂等后余额仍=500', cr2.json && cr2.json.balanceCents === 500, cr2.json);
 
-  // 7. MCP `pay` 工具返回 lingpay 意图（固定 1 次）
+  // 7. MCP `pay` 工具返回 payIntent 意图（固定 1 次）
   const mp = await mcp(PORT, 'pay', {});
   ok('MCP pay 返回 orderId', mp && /^LS-/.test(mp.orderId || ''), mp);
-  ok('MCP pay 返回 lingpay 意图', mp && mp.lingpay && mp.lingpay.protocol === 'LingPay/1.0 (corporate-static)', mp && mp.lingpay);
-  ok('MCP pay lingpay.suggestedCalls=1（固定单价）', mp && mp.lingpay && mp.lingpay.suggestedCalls === 1, mp && mp.lingpay);
+  ok('MCP pay 返回 payIntent 意图', mp && mp.payIntent && mp.payIntent.protocol === 'lingshu-corporate/1.0', mp && mp.payIntent);
+  ok('MCP pay payIntent.suggestedCalls=1（固定单价）', mp && mp.payIntent && mp.payIntent.suggestedCalls === 1, mp && mp.payIntent);
 
   // 8. reconcile-bank.js 解析单测（注入 confirm，干跑）
   const { parseStatement } = require(RECON);
