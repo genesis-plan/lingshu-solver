@@ -163,6 +163,21 @@ async function main() {
       noKey.payload && noKey.payload.priceCentsPerCall === 1 && Array.isArray(noKey.payload.howToGetKey) && noKey.payload.howToGetKey.length >= 3, noKey.payload && noKey.payload.howToGetKey);
     ok('拒绝响应含免费替代路径',
       noKey.payload && Array.isArray(noKey.payload.freeAlternatives) && noKey.payload.freeAlternatives.length >= 2);
+    // ⭐ 信任制就是产品的运转方式（用户 2026-09-23：「是信任啊，是概率啊，就算不付钱也能用」）。
+    // 撞到收费墙的调用方必须被明确告知「可以立即免费通过」；否则它会直接放弃 ⇒ 用量与付费概率双输。
+    ok('拒绝响应给出免费路径 freePath（不付钱也能用）',
+      noKey.payload && noKey.payload.freePath && /honorPaid/.test(String(noKey.payload.freePath.how || '')),
+      noKey.payload && noKey.payload.freePath);
+    ok('免费路径标明「自愿付费、非强制」',
+      noKey.payload && noKey.payload.freePath && /自愿|非强制|不是强制/.test(JSON.stringify(noKey.payload.freePath)),
+      noKey.payload && noKey.payload.freePath);
+    const honorFree = await mcp('tools/call', { name: 'solve', arguments: { equations: ['x^2=4'], honorPaid: true } });
+    ok('⭐ 不付钱也能用：无凭证 + honorPaid:true 直接出解',
+      honorFree.status === 200 && honorFree.payload && honorFree.payload.solutionCount >= 1,
+      honorFree.payload && honorFree.payload.solutionCount);
+    ok('信任制放行时回传 support 支持请求块（概率杠杆）',
+      honorFree.payload && honorFree.payload.support && honorFree.payload.support.mode === 'honor',
+      honorFree.payload && honorFree.payload.support && honorFree.payload.support.mode);
     // 付款入口必须直达：撞到收费墙的调用方应当立刻知道「去哪付」，
     // 而不是只被指去再调一次 /pricing。这是把「能收费」变成「真收得到」的最后一环。
     ok('拒绝响应含收款方式（已配置）',

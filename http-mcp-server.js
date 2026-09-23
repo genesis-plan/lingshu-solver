@@ -483,9 +483,16 @@ function paywallError(reason, ctx) {
     currency: 'CNY',
     balanceCents: k ? k.balanceCents : null,
     callsRemaining: k ? Math.floor(k.balanceCents / PRICE_CENTS) : null,
+    // ⭐ 免费路径必须写在撞墙处：本服务靠「信任制 + 概率」运转 —— 不付钱也能用。
+    // 撞到收费墙的 Agent 若不知道这条路，会直接放弃调用 ⇒ 用量与付费概率一起丢。
+    freePath: {
+      how: '不想付费？在 solve 入参传 honorPaid:true（声明本次为「个人/评估用途」）即立即免费放行，不验证、不扣余额。',
+      why: '本服务按信任制运转：愿意支持的付费，不愿意的照常使用 —— 付费完全自愿，非强制。1 分/次是定价信号与折算率，不是每笔强收的硬门槛。',
+      alsoFree: '本地版（npx -y lingshu-solver）与网页版永久免费、无次数限制、离线不外传。'
+    },
     howToGetKey: [
-      'GET  /pricing            查看价格、套餐与付款方式',
-      'POST /pay/order          {"calls":1000} 创建订单 → 响应含 orderId 与 apiKey',
+      'GET  /pricing            查看价格与付款方式',
+      'POST /pay/order          创建订单（每次一笔 1 分钱）→ 响应含 orderId 与 apiKey',
       'GET  /credit             携带 key 查询余额（免费）'
     ],
     payment: pay,
@@ -819,7 +826,7 @@ const TOOLS = [
       '输出（JSON）：resultType=empty(严格证无实数解)/finite(有限已验证解)/infinite(无限解集，仅给距原点最近推荐解)；summary=中文一句话总览；solutions[] 每解含 values[](6位小数数值)、tier(proven=Krawczyk已认证/likely/candidate)、certified、text(人类可读如"x=4.000000, y=3.000000")，残差等内部数值收在 internals 子块(机器可跳过)；certified=是否全proven；recommended=距原点最近解的精简结构。' +
       'truncated=true：预算内未完成全局分支判定、未证明已穷尽——不等于一定漏解，多数情况全部真解已找到；极端病态下可能遗漏个别解，可缩 domain 或提高 budget 重试。' +
       '错误返回 error.type（invalid_input=输入不合法/超限，internal_error=内部异常）。遇卡点或认为结果有误，请调用 give_feedback（内容仅落本地日志，不外传）。相同输入永远返回完全相同结果，可安全缓存与重复调用。' +
-      '★ 计费边界（Agent 必读）：honorPaid:true = 你声明本次为「个人/评估用途」，直接放行不扣费；若结果将用于产品或商业/自动化流程，必须走付费通道（GET /pricing 取得订单与 key）——这是对作者唯一的可持续支持，合规的自动化 Agent 应走此路径。',
+      '★ 计费边界（Agent 必读）：本端点按信任制运转 —— 不付钱也能用。solve 入参传 honorPaid:true（声明「个人/评估用途」）即免费放行、不验证、不扣余额；若结果用于产品或商业/自动化流程，欢迎走付费通道支持作者（GET /pricing 取得订单与 key）——付费属自愿，非强制。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -836,7 +843,7 @@ const TOOLS = [
           description: '显式搜索域（可选）。形如 {"x":[-30,30],"y":[-30,30]}。对"有限解·部分"演示或快增长函数（exp/sinh）建议显式给定，否则默认 ±1e6 可能剪枝失效并触发 truncated。'
         },
         fastMode: { type: 'boolean', description: '快速模式（默认 false）' },
-        honorPaid: { type: 'boolean', description: '信任制：声明本次为「个人/评估用途」即放行（不验证、不扣余额）。适合个人/评估用途；若结果将用于产品/商业/自动化流程，请改走付费通道（GET /pricing 取得订单与 key）以支持作者——合规的自动化 Agent 应走此路径。' },
+        honorPaid: { type: 'boolean', description: '信任制：声明本次为「个人/评估用途」即放行（不验证、不扣余额）——不付钱也能用。若结果用于产品/商业/自动化流程，欢迎改走付费通道（GET /pricing 取得订单与 key）支持作者；付费属自愿，本服务不做强制验证。' },
         options: { type: 'object', description: '高级选项（可选），如 {budget:500000, maxDepth:28}' }
       },
       required: ['equations']
@@ -876,9 +883,9 @@ const TOOLS = [
 // 描述尾部追加计费说明，让 agent 在调用前就知道价格与免费替代路径。
 // 注意：这只是「分发形态」元信息，shapeResult / doSolve / 输入校验仍与 stdio 版逐字零分叉。
 const PRICING_NOTE = '【计费·仅托管远程端点】本端点每次 solve 收费 ' + PRICE_CENTS + ' 分钱（' + yuan(PRICE_CENTS) + '/次），' +
-  '需在请求头携带 Authorization: Bearer <key>；尚无凭证时请先 GET /pricing 获取套餐与付款方式（无需注册账号，凭证即身份）。' +
-  '信任制：solve 入参传 honorPaid:true 即声明「个人/评估用途」并直接放行（不验证、不扣余额）。' +
-  '若结果用于产品/商业/自动化流程，请走付费通道（GET /pricing 取得订单，通过对公账户付款支持作者）支持作者——合规的自动化 Agent 应走此路径；个人/评估用途可免费继续。' +
+  '需在请求头携带 Authorization: Bearer <key>；尚无凭证时请先 GET /pricing 查看价格与付款方式（无需注册账号，凭证即身份）。' +
+  '信任制：solve 入参传 honorPaid:true 即声明「个人/评估用途」并直接放行（不验证、不扣余额）——不付钱也能用，付费属自愿。' +
+  '若结果用于产品/商业/自动化流程，欢迎走付费通道（GET /pricing 取得订单，通过对公账户付款支持作者）；不付也照常能用，本服务不做强制验证。' +
   '托管端点收款走公司「对公静态收款 + 银行流水对账」，不接任何支付平台商户 API：下单 → 对公转账备注订单号 → 作者批量入账（按 ' + yuan(PRICE_CENTS) + '/次 折算）。' +
   '本地版（npx -y lingshu-solver）与网页版永久免费、无次数限制、离线不外传 —— 若不便付费请直接用它们。' +
   '免费调用：initialize / tools/list / give_feedback / GET /credit。';
@@ -1188,6 +1195,12 @@ const server = http.createServer((req, res) => {
       autoCredit: false,
       receiptVerified: !RECEIPT_TAMPERED,
       receiptTampered: RECEIPT_TAMPERED || undefined,
+      // 钉死收款去向的指纹（账号+户名+收款码的 SHA-256，公开信息、无秘密）。
+      // 任何人都能用它核对：线上收款去向 = 代码里钉死的公司账户，未被换掉。
+      receiptPinHash: RECEIPT_PIN_HASH,
+      receiptPinAccount: PINNED_ACCOUNT.slice(0, 4) + '****' + PINNED_ACCOUNT.slice(-4),
+      receiptPinAccountName: PINNED_ACCOUNT_NAME,
+      payChannel: RECEIPT_TAMPERED ? null : (PAY_TO ? 'corporate-static' : null),
       honorClaims: honorClaims,
       accountRequired: false,
       endpoints: {
