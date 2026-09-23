@@ -100,15 +100,14 @@ function spawnServer(port, payTo, payToQr) {
   ok('lingpay.memo=订单号', o.json && o.json.lingpay && o.json.lingpay.memo === orderId, o.json && o.json.lingpay);
   ok('lingpay.payToQr=银联官方码址', o.json && o.json.lingpay && o.json.lingpay.payToQr === REAL_QR);
   ok('lingpay.agentSteps 为数组', o.json && o.json.lingpay && Array.isArray(o.json.lingpay.agentSteps) && o.json.lingpay.agentSteps.length >= 3);
-  ok('lingpay.suggestedCalls 默认 100', o.json && o.json.lingpay && o.json.lingpay.suggestedCalls === 100, o.json && o.json.lingpay);
-  ok('lingpay.suggestedAmountDisplay=¥1.00', o.json && o.json.lingpay && o.json.lingpay.suggestedAmountDisplay === '¥1.00', o.json && o.json.lingpay);
+  ok('lingpay.suggestedCalls 默认 1（固定单价、不预充）', o.json && o.json.lingpay && o.json.lingpay.suggestedCalls === 1, o.json && o.json.lingpay);
+  ok('lingpay.suggestedAmountDisplay=¥0.01', o.json && o.json.lingpay && o.json.lingpay.suggestedAmountDisplay === '¥0.01', o.json && o.json.lingpay);
 
-  // 2c. calls 预购：传 calls=50 → 建议额 ¥0.50
+  // 2c. 定价铁律：固定 1 分/次、不预充 —— 任何 prebuy（calls≠1）一律拒
   const o50 = await req(PORT, 'POST', '/pay/order', { calls: 50 });
-  ok('calls=50 开单成功', o50.status === 201 && !!o50.json, o50.status);
-  ok('calls=50 → amountCents=50', o50.json && o50.json.amountCents === 50, o50.json);
-  ok('calls=50 → lingpay.suggestedCalls=50', o50.json && o50.json.lingpay && o50.json.lingpay.suggestedCalls === 50, o50.json && o50.json.lingpay);
-  ok('calls=50 → suggestedAmountDisplay=¥0.50', o50.json && o50.json.lingpay && o50.json.lingpay.suggestedAmountDisplay === '¥0.50', o50.json && o50.json.lingpay);
+  ok('calls=50 被拒 400 fixed_price（不预充）', o50.status === 400 && o50.json && o50.json.error && o50.json.error.type === 'fixed_price', o50.status);
+  const o0 = await req(PORT, 'POST', '/pay/order', { calls: 0 });
+  ok('calls=0 被拒 400 fixed_price', o0.status === 400 && o0.json && o0.json.error && o0.json.error.type === 'fixed_price', o0.status);
 
   // 3. 信任制：无 key 也能 solve
   const hs = await mcp(PORT, 'solve', { equations: ['x^2=4'], honorPaid: true });
@@ -134,11 +133,11 @@ function spawnServer(port, payTo, payToQr) {
   const cr2 = await req(PORT, 'GET', '/credit?key=' + apiKey);
   ok('幂等后余额仍=500', cr2.json && cr2.json.balanceCents === 500, cr2.json);
 
-  // 7. MCP `pay` 工具返回 lingpay 意图
-  const mp = await mcp(PORT, 'pay', { calls: 20 });
+  // 7. MCP `pay` 工具返回 lingpay 意图（固定 1 次）
+  const mp = await mcp(PORT, 'pay', {});
   ok('MCP pay 返回 orderId', mp && /^LS-/.test(mp.orderId || ''), mp);
   ok('MCP pay 返回 lingpay 意图', mp && mp.lingpay && mp.lingpay.protocol === 'LingPay/1.0 (corporate-static)', mp && mp.lingpay);
-  ok('MCP pay lingpay.suggestedCalls=20', mp && mp.lingpay && mp.lingpay.suggestedCalls === 20, mp && mp.lingpay);
+  ok('MCP pay lingpay.suggestedCalls=1（固定单价）', mp && mp.lingpay && mp.lingpay.suggestedCalls === 1, mp && mp.lingpay);
 
   // 8. reconcile-bank.js 解析单测（注入 confirm，干跑）
   const { parseStatement } = require(RECON);

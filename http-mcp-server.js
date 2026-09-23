@@ -159,11 +159,9 @@ const ADMIN_LOOPBACK_ONLY = String(process.env.LS_ADMIN_LOOPBACK_ONLY || '1') !=
 // 订单创建限速：默认 10 单/小时/IP（防刷单表；与 /mcp 的 120次/分 独立）
 const ORDER_WINDOW_MS = 60 * 60 * 1000;
 const ORDER_RATE_MAX = parseInt(process.env.LS_ORDER_RATE_MAX || '10', 10);
-// 按次计费：固定 1 分钱/次（¥0.01/call）。灵付 LingPay 模式下，下单 = 预购 N 次调用，
-// 建议额 = N × ¥0.01；付款人向对公聚合码付任意正金额，按实收折算 N' = 实收/¥0.01 次入账。
+// 按次计费：固定 1 分钱/次（¥0.01/call）。灵付 LingPay：下单 = 1 次 = 1 分钱的付费凭证，
+// 不预充、无套餐、无其他金额；付款人向对公聚合码付任意正金额，按实收折算 N' = 实收/¥0.01 次入账（多付多得）。
 const PER_CALL_CENTS = PRICE_CENTS; // 恒为 1
-const DEFAULT_ORDER_CALLS = 100;    // 默认预购 100 次（建议 ¥1.00）；可传 calls 调整
-const MAX_ORDER_CALLS = 1000000;    // 单次订单上限 100 万次（建议 ¥10000），防刷单
 const ORDER_TTL_DAYS = 365;
 
 let ledger = { version: 1, priceCents: PRICE_CENTS, createdAt: new Date().toISOString(), keys: {}, orders: {} };
@@ -428,7 +426,7 @@ function paywallError(reason, ctx) {
     if (PAY_PAGE) pay.paymentPage = PAY_PAGE;
     pay.payTo = PAY_TO;
     pay.howToPay = [
-      '1. POST /pay/order {"calls":1000} 创建订单 → 响应含 orderId、apiKey，以及付款入口（payment / lingpay）',
+      '1. POST /pay/order 创建订单 → 响应含 orderId、apiKey，以及付款入口（payment / lingpay）',
       '2. 打开 payUrl 扫码（若配置了收款码）或向对公账户转账任意支持额，备注订单号（账户信息见该页面 / lingpay.payTo）',
       '3. 付款备注必须填写订单号；作者拿对公流水批量对账入账（按 ' + yuan(PRICE_CENTS) + '/次 折算），通常数日内；金额不符的来款一律原路退回',
       '4. 管理员确认到账后余额入账，之后带 Authorization: Bearer <key> 调用即可'
@@ -587,7 +585,7 @@ function pricingDoc(req) {
     freeTools: ['initialize', 'tools/list', 'give_feedback', 'GET /credit', 'GET /pricing'],
     auth: 'Authorization: Bearer <key>（亦支持 x-api-key 或 ?key=<key>）',
     howToBuy: [
-      'POST ' + base + '/pay/order   （预购 N 次：body 可传 {"calls":N}，缺省 ' + DEFAULT_ORDER_CALLS + '；不支持套餐/plan）',
+      'POST ' + base + '/pay/order   （每次一笔 1 分钱订单；body 不支持 calls/plan 预购，下单恒为 1 次）',
       '响应给出 orderId 与 apiKey（apiKey 只出现一次，请立即保存）',
       'GET  ' + base + '/pay/order?orderId=<id>  查询订单状态',
       'GET  ' + base + '/credit  携带 key 查询余额（免费）'
@@ -827,8 +825,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        channel: { type: 'string', description: '付款通道：当前固定为 corporate-static（对公静态收款，灵付 LingPay）；留空即可。' },
-        calls: { type: 'number', description: '预购调用次数（默认 ' + DEFAULT_ORDER_CALLS + '，上限 ' + MAX_ORDER_CALLS + '）。建议额 = calls × ' + yuan(PRICE_CENTS) + '；实际付多少按实收折算次数。' }
+        channel: { type: 'string', description: '付款通道：当前固定为 corporate-static（对公静态收款，灵付 LingPay）；留空即可。' }
       },
       required: []
     }
@@ -1046,16 +1043,18 @@ function creditOrder(orderId, opt) {
 // ---- 建单逻辑（被 /pay/order 路由与 MCP `pay` 工具共用，零分叉）----
 // 返回 { orderId, key, calls, amountCents, payment, discarded } 或 { error:{status,error} }
 function createOrder(ip, body) {
-  // 灵付 LingPay：按次计费 ¥0.01/次；下单即预购 N 次（建议额 N×¥0.01）。
-  // 付款人可付任意正金额，reconcile-bank.js 按实收折算 N'=实收/¥0.01 次入账（多付多得、少付少得）。
+  // 灵付 LingPay：按次计费 ¥0.01/次，下单 = 1 次 = 1 分钱。
+  // 不预充、无套餐、无其他金额：每次 pay 只卖「1 次调用」的凭证（calls 恒为 1）。
+  // 「多付多得」由对账按实收金额折算实现：付款人向对公聚合码付任意正金额，
+  // reconcile-bank.js 按 ¥0.01/次 折算 N' = 实收/¥0.01 次入账，与本次下单次数无关。
   if (body && body.plan !== undefined) {
-    return { error: { status: 400, error: { type: 'no_bundles', message: '本服务按次付费（¥0.01/次），不支持套餐/订阅；下单即预购 N 次调用，传 calls=N 即可（缺省 ' + DEFAULT_ORDER_CALLS + '）。' } } };
+    return { error: { status: 400, error: { type: 'no_bundles', message: '本服务按次付费（' + yuan(PRICE_CENTS) + '/次），不卖套餐/订阅；每次 pay 即 1 次（1 分钱），无需传 plan。' } } };
   }
-  let calls = Number((body && body.calls));
-  if (!Number.isFinite(calls) || calls < 1) calls = DEFAULT_ORDER_CALLS;
-  calls = Math.floor(calls);
-  if (calls > MAX_ORDER_CALLS) calls = MAX_ORDER_CALLS;
-  const amountCents = calls * PRICE_CENTS;
+  if (body && body.calls !== undefined) {
+    return { error: { status: 400, error: { type: 'fixed_price', message: '本服务单价固定为 ' + yuan(PRICE_CENTS) + '/次，不预充、无套餐、无其他金额；每次下单即为 1 次（1 分钱），无需传 calls。' } } };
+  }
+  const calls = 1;
+  const amountCents = calls * PRICE_CENTS; // 恒为 1 分
   const orderId = newOrderId();
   const key = newKey();
   const keyHash = hashKey(key);

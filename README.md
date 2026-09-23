@@ -142,15 +142,13 @@ curl  http://<托管端点>/credit -H 'Authorization: Bearer <key>'   # 查余�
 > `LS_REQUIRE_TLS`（默认关；置 on 后携带凭证的调用必须是 HTTPS，否则拒绝并提示改用 HTTPS）/
 > `LS_PAY_TO`（收款方式，未配置时订单会明确标注「不可付款」）。
 >
-> **到账可以全自动，不需要人工确认。** 配好支付平台后，下单返回平台收银台链接，
-> 用户付款由平台**异步回调**触发「验签 → 逐分对账 → 自动入账」，全程无人工：
-> `LS_NOTIFY_BASE`（公网回调基址，必填）/
-> `LS_ALIPAY_APPID`、`LS_ALIPAY_PRIVATE_KEY`、`LS_ALIPAY_PUBLIC_KEY`、`LS_ALIPAY_SELLER_ID`（支付宝电脑网站支付）/
-> `LS_WECHAT_MCHID`、`LS_WECHAT_APPID`、`LS_WECHAT_SERIAL`、`LS_WECHAT_PRIVATE_KEY`、`LS_WECHAT_APIV3_KEY`、`LS_WECHAT_PUBLIC_KEY`（微信 Native）。
-> 回调端点：`POST /pay/notify/alipay`（或 GET，回纯文本 `success`）、`POST /pay/notify/wechat`；同步跳回 `/pay/return/alipay` 只作展示、**不作为入账依据**。
-> 未配任何平台时自动通道不启用，行为与从前一致（静态收款码 + 人工确认），不会给出假的「已自动」承诺。
-> 四条护栏：回调必须通过平台公钥验签；实收金额须与订单金额**逐分相等**（少付多领不入账并留痕）；
-> 重复回调幂等只入账一次；密钥未配齐则回调直接拒绝（fail-closed）。
+> **到账走「灵付 LingPay」——对公静态收款 + 银行流水对账，不接任何支付平台商户 API。**
+> 下单返回结构化付款意图（`lingpay` 块：订单号、对公码、备注、Agent 可机读步骤）；付款人向公司对公账户
+> （`LS_PAY_TO`，运行时与代码内钉死的广州市红尘灵境数字科技有限公司·工行户 `3602026809201658423` 比对）转账
+> 任意「自愿支持额」并备注订单号；作者拿对公流水跑 `reconcile-bank.js` 按 ¥0.01/次 折算入账（多付多得、幂等）。
+> **收款账号防替换护栏**：`LS_PAY_TO` 被篡改即 fail-closed 拒绝生成付款意图（防收款账号被换）；
+> 工银聚合码非银联官方址则告警。无实时回调，到账 latency 取决于流水导出频率（通常数日内），
+> 期间可用 `honorPaid:true` 免费调用。
 >
 > 凭证在服务端只存 **SHA-256**（不存明文）；每次扣费写入只增审计流水 `credits.json.ledger.jsonl`。
 

@@ -107,9 +107,8 @@ async function main() {
       LS_METERING: 'on',
       LS_PRICE_CENTS: '1',
       LS_ADMIN_TOKEN: ADMIN_TOKEN,
-      LS_PAY_TO: '微信收款码见 /pricing（测试占位）',
+      LS_PAY_TO: '3602026809201658423',
       LS_PAY_PAGE: 'https://example.com/pay/',
-      LS_PAY_CHANNEL: 'wechat',
       LS_CREDITS_PATH: CREDITS,
       LS_FREE_LOOPBACK: '0',
       LS_RATE_MAX: '100000'
@@ -147,8 +146,8 @@ async function main() {
     ok('tools/list 免凭证可用', tl.status === 200 && tl.json && tl.json.result && Array.isArray(tl.json.result.tools), tl.status);
     const solveTool = tl.json && tl.json.result.tools.find(t => t.name === 'solve');
     ok('solve 工具描述已带计费说明', !!solveTool && /计费/.test(solveTool.description) && /1 分钱/.test(solveTool.description));
-    ok('工具名清单未增删（仍为 solve/give_feedback）',
-      tl.json && tl.json.result.tools.map(t => t.name).sort().join(',') === 'give_feedback,solve',
+    ok('工具名清单 = solve/give_feedback/pay（灵付 LingPay 新增 pay 工具）',
+      tl.json && tl.json.result.tools.map(t => t.name).sort().join(',') === 'give_feedback,pay,solve',
       tl.json && tl.json.result.tools.map(t => t.name));
 
     const fb = await mcp('tools/call', { name: 'give_feedback', arguments: { message: '回归测试反馈' } });
@@ -468,7 +467,7 @@ async function main() {
       lastUsedAt: null, calls: 0, spentCents: 0, disabled: false, note: '运维手工注入的标记'
     };
     fs.writeFileSync(CREDITS, JSON.stringify(snapM, null, 2), { mode: 0o600 });
-    const ordM = await req('POST', '/pay/order', { body: { calls: 1 } });
+    const ordM = await req('POST', '/pay/order', { body: {} });
     ok('外部编辑后建单仍成功（不因指纹变化而拒绝服务）', ordM.status === 201, ordM.status);
     const afterM = JSON.parse(fs.readFileSync(CREDITS, 'utf8'));
     ok('🔒 运维手工注入的记录在服务写盘后仍在（没被内存副本静默覆盖）',

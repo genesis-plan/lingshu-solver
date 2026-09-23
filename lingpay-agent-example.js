@@ -104,9 +104,9 @@ class LingPayAgent {
 
   const agent = new LingPayAgent('http://127.0.0.1:' + PORT);
 
-  // ① Agent 代人类请求 100 次调用（建议额 ¥1.00）
-  console.log('\n[1] Agent 请求付款意图（calls=100）');
-  const order = await agent.requestPayment(100);
+  // ① Agent 代人类请求一笔订单（固定 1 次 = 1 分，不预购）
+  console.log('\n[1] Agent 请求付款意图（固定 1 次 = 1 分）');
+  const order = await agent.requestPayment();
   console.log('    orderId :', order.orderId);
   console.log('    apiKey  :', order.apiKey.slice(0, 8) + '…（仅出现一次）');
   console.log('    lingpay.protocol :', order.lingpay && order.lingpay.protocol);
