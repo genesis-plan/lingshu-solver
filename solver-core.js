@@ -43,8 +43,7 @@ function resolveHtmlPath() {
   }
   const candidates = [
     path.resolve(__dirname, 'index.html'),
-    path.resolve(__dirname, '..', 'index.html'),
-    'C:/Users/Administrator/Desktop/灵数求解器/index.html'
+    path.resolve(__dirname, '..', 'index.html')
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
