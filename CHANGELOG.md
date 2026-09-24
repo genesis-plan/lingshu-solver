@@ -21,6 +21,7 @@
 - **清理 · 删除死代码**：`RECEIPT_QR_WARN`（恒 `false`）、`PER_CALL_CENTS`（无引用）、`buildPayment()`（无调用点）；`payable` 判定去掉永假的 `codeUrl` / `mode==='auto'` 分支；`readBody` 请求体上限由硬编码 `64KB` 统一为 `MAX_BODY_BYTES`（256KB）。
 - **清理 · `solver-core.js` 移除开发机硬编码路径**：候选 `index.html` 中的 `C:/Users/Administrator/Desktop/灵数求解器/index.html` 已删。
 - **修正 · 仓库内 `SERVER_VERSION` 落后**：仓库 `http-mcp-server.js` 的 `SERVER_VERSION` 仍为 `1.0.8`（落后于已发布 1.0.10 与线上），本次同步为 `1.0.10`，与 `SOLVER_VERSION`（`lingshu-solver/1.0.10-auditable`）及 `/health` 一致。
+- **修正 · 网页版 `index.html` 版本号落后、且线上有两个不同副本**：`https://hongchenlingjing.com/` 首页实际由 `/var/www/lingshu/index.html` 提供，其 `SOLVER_VERSION` 仍为 `1.0.8-auditable`（页脚为新版收款入口）；而 MCP 服务读的 `/opt/lingshu/index.html` 为 `1.0.10`（页脚仍是旧的短版）。两文件内容仅差版本号与页脚两处。现统一为**同一文件**（md5 `875fd4287223c2197dc06f736303f3bb`，618559 字节）：版本号 `lingshu-solver/1.0.10-auditable`、保留新版页脚（含隐私链接、`/pay/` 入口与「不付费照常用」说明），并同时部署到 `/var/www/lingshu/` 与 `/opt/lingshu/`；本仓库同步为该文件。
 - **注**：本版**不改求解核心**；线上生产已部署并实测通过（`/health` 报 `1.0.10`；5 场景端到端全 PASS）。
 
 ## 1.0.10（npm 发版，2026-09-23）
