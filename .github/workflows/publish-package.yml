@@ -5,6 +5,9 @@ name: Publish to GitHub Packages
 #    本工作流只负责 GitHub Packages 这一路，包名带作用域 `@genesis-plan/lingshu-solver`。
 # ⚠️ 新包在 GitHub 上默认 private，只能到包设置页（Danger Zone → Change visibility）
 #    手动改成 public（REST API 没有改可见性的端点）。改过一次即可。
+# ⚠️ 即便公开，从 GitHub Packages 安装 npm 包仍需 GitHub 令牌 ⇒ 它只是 GitHub 原生/内网
+#    补充渠道，面向公众的零门槛分发仍走 npmjs。
+# ⚠️ 幂等预检只能用「整包元数据」端点；取单个版本的子路径在 GitHub Packages 恒返回 405。
 
 on:
   release:
@@ -39,12 +42,20 @@ jobs:
         run: |
           V=$(node -p "require('./package.json').version")
           echo "version=$V" >> "$GITHUB_OUTPUT"
-          if curl -sf -H "Authorization: Bearer $NODE_AUTH_TOKEN" \
-               "https://npm.pkg.github.com/@genesis-plan%2Flingshu-solver/$V" > /dev/null; then
+          # ⚠️ 只能用「整包元数据」端点。取单个版本的子路径
+          #    （/@genesis-plan%2Flingshu-solver/$V）在 GitHub Packages 上恒返回 405，
+          #    用它做预检会永远判「不存在」，把幂等判断全推给 409 兜底。
+          CODE=$(curl -s -o /tmp/packument.json -w "%{http_code}" \
+            -H "Authorization: Bearer $NODE_AUTH_TOKEN" \
+            -H "Accept: application/json" \
+            "https://npm.pkg.github.com/@genesis-plan%2Flingshu-solver")
+          echo "包元数据端点 HTTP $CODE"
+          if [ "$CODE" = "200" ] && node -e 'const fs=require("fs");let j={};try{j=JSON.parse(fs.readFileSync("/tmp/packument.json","utf8"))}catch(e){};process.exit(j.versions&&Object.prototype.hasOwnProperty.call(j.versions,process.argv[1])?0:1)' "$V"; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "GitHub Packages 上已有 $V，将跳过发布。"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
+            [ "$CODE" = "200" ] || echo "包元数据读不到（HTTP $CODE），改由发布步骤的 409 兜底判定。"
           fi
 
       - name: 改为 GitHub Packages 作用域名（不改仓库里的 package.json）
@@ -54,6 +65,7 @@ jobs:
           node -p "'将发布: '+require('./package.json').name+'@'+require('./package.json').version"
 
       - name: npm publish（GitHub Packages，幂等）
+        id: pub
         if: steps.pre.outputs.exists == 'false'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -63,11 +75,13 @@ jobs:
           code=${PIPESTATUS[0]}
           set -e
           if [ "$code" -eq 0 ]; then
+            echo "result=published" >> "$GITHUB_OUTPUT"
             echo "已发布到 GitHub Packages。"
             exit 0
           fi
           # 兜底：预检可能因权限读不到包元数据，而实际版本已存在 ⇒ 409 视为幂等成功
           if grep -qEi "409|cannot publish over|previously published versions" /tmp/pub.log; then
+            echo "result=already_exists" >> "$GITHUB_OUTPUT"
             echo "该版本已存在于 GitHub Packages，按幂等处理（跳过）。"
             exit 0
           fi
@@ -75,9 +89,13 @@ jobs:
 
       - name: 汇总
         run: |
+          V="${{ steps.pre.outputs.version }}"
+          URL="https://github.com/genesis-plan/lingshu-solver/pkgs/npm/lingshu-solver"
           if [ "${{ steps.pre.outputs.exists }}" = "true" ]; then
-            echo "### 跳过：GitHub Packages 上已存在 v${{ steps.pre.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "### 跳过：GitHub Packages 上已存在 v$V（预检命中，未重新发布）" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.pub.outputs.result }}" = "published" ]; then
+            echo "### 已发布：@genesis-plan/lingshu-solver@$V → $URL" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "### 已发布：@genesis-plan/lingshu-solver@${{ steps.pre.outputs.version }} → https://github.com/genesis-plan/lingshu-solver/pkgs/npm/lingshu-solver" >> "$GITHUB_STEP_SUMMARY"
+            echo "### 未新增版本：GitHub Packages 上已存在 v$V（409 兜底判定）→ $URL" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "npmjs 主渠道不受影响：https://www.npmjs.com/package/lingshu-solver" >> "$GITHUB_STEP_SUMMARY"
