@@ -1,0 +1,69 @@
+name: Publish to GitHub Packages
+
+# 把 npm 包同时发布到 GitHub Packages（GitHub 原生渠道）。
+# ⚠️ npmjs.com 仍是主渠道（`npx -y lingshu-solver`，无需令牌）；
+#    本工作流只负责 GitHub Packages 这一路，包名带作用域 `@genesis-plan/lingshu-solver`。
+# ⚠️ 新包在 GitHub 上默认 private，只能到包设置页（Danger Zone → Change visibility）
+#    手动改成 public（REST API 没有改可见性的端点）。改过一次即可。
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+          scope: '@genesis-plan'
+
+      - name: 发布前先跑常驻考卷与 MCP 冒烟
+        run: |
+          node test/regression.js
+          node test/mcp_smoke.js
+
+      - name: 预检——该版本是否已在此渠道存在（幂等，避免 409 让 CI 变红）
+        id: pre
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if curl -sf -H "Authorization: Bearer $NODE_AUTH_TOKEN" \
+               "https://npm.pkg.github.com/@genesis-plan%2Flingshu-solver/$V" > /dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "GitHub Packages 上已有 $V，将跳过发布。"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 改为 GitHub Packages 作用域名（不改仓库里的 package.json）
+        if: steps.pre.outputs.exists == 'false'
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.name='@genesis-plan/lingshu-solver';p.publishConfig={registry:'https://npm.pkg.github.com'};fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+          node -p "'将发布: '+require('./package.json').name+'@'+require('./package.json').version"
+
+      - name: npm publish（GitHub Packages）
+        if: steps.pre.outputs.exists == 'false'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
+
+      - name: 汇总
+        run: |
+          if [ "${{ steps.pre.outputs.exists }}" = "true" ]; then
+            echo "### 跳过：GitHub Packages 上已存在 v${{ steps.pre.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### 已发布：@genesis-plan/lingshu-solver@${{ steps.pre.outputs.version }} → https://github.com/genesis-plan/lingshu-solver/pkgs/npm/lingshu-solver" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "npmjs 主渠道不受影响：https://www.npmjs.com/package/lingshu-solver" >> "$GITHUB_STEP_SUMMARY"
