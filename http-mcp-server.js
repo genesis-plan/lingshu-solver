@@ -19,7 +19,7 @@
  *   - 开关：LS_METERING=on 才启用（默认 off —— 自建部署者不被强行收费，
  *           开源工具保持诚实；我们自己的托管端点用 systemd Environment 打开）
  *   - 单价：LS_PRICE_CENTS，默认 1（分）
- *   - 凭证：Authorization: Bearer <key>，或 ?key=<key>（x-api-key 亦可）
+ *   - 凭证：Authorization: Bearer <key>（或 x-api-key 请求头）
  *   - 账本：credits.json（0600，原子写）+ credits.json.ledger.jsonl（只增审计流水）
  *   - 只在「成功返回结果」时扣费：输入不合法 / 内部异常 / 余额不足 一律不扣
  *   - 免计费：initialize / tools/list / give_feedback / GET /credit / GET /pricing；
@@ -47,7 +47,7 @@ const solverCore = require('./solver-core');
 const { solve } = solverCore;
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.8';
+const SERVER_VERSION = '1.0.10';
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源，与 stdio 版一致）----
@@ -177,7 +177,6 @@ function guardProblems() {
 }
 const GUARD_PROBLEMS = guardProblems();
 const RECEIPT_TAMPERED = GUARD_PROBLEMS.length > 0;  // 收款去向被换 → 硬失败（fail-closed）
-const RECEIPT_QR_WARN = false;                       // 码址问题已并入上面的硬判定
 function receiptPinHash() {
   return crypto.createHash('sha256').update(PINNED_ACCOUNT + '|' + PINNED_ACCOUNT_NAME + '|' + PINNED_QR_URL, 'utf8').digest('hex');
 }
@@ -200,7 +199,6 @@ const ORDER_WINDOW_MS = 60 * 60 * 1000;
 const ORDER_RATE_MAX = parseInt(process.env.LS_ORDER_RATE_MAX || '10', 10);
 // 按次计费：固定 1 分钱/次（¥0.01/call）。对公收款：下单 = 1 次 = 1 分钱的付费凭证，
 // 不预充、无套餐、无其他金额；付款人向对公聚合码付任意正金额，按实收折算 N' = 实收/¥0.01 次入账（多付多得）。
-const PER_CALL_CENTS = PRICE_CENTS; // 恒为 1
 const ORDER_TTL_DAYS = 365;
 
 let ledger = { version: 1, priceCents: PRICE_CENTS, createdAt: new Date().toISOString(), keys: {}, orders: {} };
@@ -313,8 +311,7 @@ function extractKey(req, query) {
   if (m) return m[1].trim();
   const xa = (req.headers['x-api-key'] || '').toString().trim();
   if (xa) return xa;
-  const q = query ? (query.get('key') || '').trim() : '';
-  if (q) return q;
+  // 凭证不再走 URL 查询串：?key= 会被反代写进访问日志（泄露即可盗刷余额）
   return null;
 }
 
@@ -398,7 +395,6 @@ function paymentInfo(orderId, amountCents) {
     payToName: PINNED_ACCOUNT_NAME,
     payToQr: PAY_TO_QR || null,        // 已由上方护栏保证：非钉死码址一律 fail-closed，走到这里必是可信码
     receiptVerified: true,           // 账号已与钉死值比对一致，客户端可据此信任
-    qrTampered: RECEIPT_QR_WARN || undefined,
     rateNote: '本服务按次计费 ' + yuan(PRICE_CENTS) + '/次。对公静态收款不强制每笔恰收 1 分（银行也不支持 1 分转账），' +
       '实际可付任意「自愿支持额」，我们将按 ' + yuan(PRICE_CENTS) + '/次 折算调用次数入账（收到 ' + yuan(500) + ' 即入账 500 次）。',
     instructions: [
@@ -464,15 +460,6 @@ function payIntent(orderId, calls, amountCents) {
   };
 }
 
-/**
- * 组装付款信息（对公收款）。
- * 只有「对公静态收款」一种通道，不接任何支付平台商户 API——无回调、无异步、无平台依赖。
- * 保留回调式签名（cb）仅为兼容 createOrder 的调用点；内部直接同步返回 paymentInfo。
- */
-function buildPayment(req, pref, orderId, amountCents, calls, cb) {
-  return cb({ payment: paymentInfo(orderId, amountCents) });
-}
-
 function paywallError(reason, ctx) {
   const k = (ctx && ctx.keyHash) ? ledger.keys[ctx.keyHash] : null;
   const msgMap = {
@@ -484,7 +471,7 @@ function paywallError(reason, ctx) {
   };
   const extra = (reason === 'insecure_transport')
     ? { secureEndpointHint: '请把客户端里的端点从 http://... 换成 https://<你的域名>/mcp（X-Forwarded-Proto 必须是 https）。' }
-    : { authHeader: 'Authorization: Bearer <key>（亦支持 x-api-key 或 ?key=<key>）' };
+    : { authHeader: 'Authorization: Bearer <key>（亦支持 x-api-key 请求头）' };
 
   // 付款入口必须直达：调用方撞到「余额不足」时，不应还得再问一次「那我去哪付」。
   // 只列已配置的收款方式；未配置就明说，绝不给出死链。
@@ -625,7 +612,7 @@ function readBody(req, cb) {
   req.on('data', (c) => {
     n += c.length;
     // 超限必须立刻回调，否则 req.destroy() 后 'end' 不再触发 → 响应永不返回（客户端挂死）
-    if (n > 64 * 1024) { try { req.destroy(); } catch (_e) {} return finish({ err: 'body_too_large' }); }
+    if (n > MAX_BODY_BYTES) { try { req.destroy(); } catch (_e) {} return finish({ err: 'body_too_large' }); }
     raw += c;
   });
   req.on('end', () => {
@@ -661,7 +648,7 @@ function pricingDoc(req) {
     },
     model: '按次付费：每次 solve 固定收费 ' + PRICE_CENTS + ' 分钱（' + yuan(PRICE_CENTS) + '），不预充、无其他金额、无其他档位。',
     freeTools: ['initialize', 'tools/list', 'give_feedback', 'GET /credit', 'GET /pricing'],
-    auth: 'Authorization: Bearer <key>（亦支持 x-api-key 或 ?key=<key>）',
+    auth: 'Authorization: Bearer <key>（亦支持 x-api-key 请求头）',
     howToBuy: [
       'POST ' + base + '/pay/order   （每次一笔 1 分钱订单；body 不支持 calls/plan 预购，下单恒为 1 次）',
       '响应给出 orderId 与 apiKey（apiKey 只出现一次，请立即保存）',
@@ -670,6 +657,12 @@ function pricingDoc(req) {
       'GET  ' + base + '/pay/order?orderId=<id>  查询订单状态',
       'GET  ' + base + '/credit  携带 key 查询余额（免费）'
     ],
+    legal: {
+      positioning: '本服务定性为「软件授权 / 技术服务」的计算工具，非经营性互联网信息服务。',
+      privacy: 'https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/privacy.html',
+      terms: 'https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/terms.html',
+      pricing: 'https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/pricing.html'
+    },
     payment: paymentInfo(),
     paymentChannels: availableChannels(),
     creditModes: {
@@ -1062,7 +1055,7 @@ function handleRpc(msg, ip, ctx) {
             apiKeyNotice: '此 key 仅在本响应出现一次，请立即保存；付款后凭它调用 solve 即不再走信任制。',
             amountCents: o.amountCents,
             amountDisplay: yuan(o.amountCents),
-            payable: !!(o.payment && (o.payment.configured || o.payment.payUrl || o.payment.codeUrl || o.payment.mode === 'auto')),
+            payable: !!(o.payment && (o.payment.configured || o.payment.payUrl)),
             payment: o.payment,
             // ⭐ 零人工闭环：付款完再调一次 pay 传 orderId + selfReportPaid:true 即立即入账。
             // 这样收款方（作者）不需要跑任何对账脚本、不需要看任何流水。
@@ -1332,7 +1325,7 @@ const server = http.createServer((req, res) => {
       return sendJson(res, 200, { metering: 'off', note: '本端点未启用计费，调用免费。', freeAlternatives: freeAlternatives() });
     }
     if (!ctx.key) {
-      return sendJson(res, 401, { error: { type: 'missing_key', message: '缺少凭证：请带 Authorization: Bearer <key> 或 ?key=<key>。', howToGetKey: paywallError('missing_key', ctx).howToGetKey } });
+      return sendJson(res, 401, { error: { type: 'missing_key', message: '缺少凭证：请带 Authorization: Bearer <key> 请求头。', howToGetKey: paywallError('missing_key', ctx).howToGetKey } });
     }
     const k = ledger.keys[ctx.keyHash];
     if (!k) {
@@ -1376,7 +1369,7 @@ const server = http.createServer((req, res) => {
         amountDisplay: yuan(r.amountCents),
         priceCentsPerCall: PRICE_CENTS,
         status: 'pending',
-        payable: !!(payment && (payment.configured || payment.payUrl || payment.codeUrl || payment.mode === 'auto')),
+        payable: !!(payment && (payment.configured || payment.payUrl)),
         payment: payment,
         paymentChannels: availableChannels(),
         payIntent: payIntent(orderId, r.calls, r.amountCents),
