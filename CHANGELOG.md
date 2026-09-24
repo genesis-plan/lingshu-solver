@@ -13,6 +13,16 @@
 > 另：npm 同时提示正在限制「绕过 2FA 的 token 直接发布（direct publishing）」，
 > 长期可改用 **Trusted Publishing（GitHub Actions + OIDC）** 免除这类不确定性。
 
+## 未发布（待发版，2026-09-24）
+本次为**代码清理 + 安全加固 + 合规定性**，不改求解核心。
+- **安全 · 凭证不再接受 URL 查询串（`?key=`）**：原支持 `Authorization: Bearer`、`x-api-key` 与 `?key=` 三种取凭证方式。但**反向代理的 access log 默认记录完整 request line（含查询串）** ⇒ 用 `?key=` 调用会把凭证明文写进日志，日志一旦被读取 / 归档即等于余额可被盗刷。现**只接受请求头**（`Bearer` / `x-api-key`），`?key=` 不再识别；相关文档与错误提示文案同步更新（4 处）。
+- **合规 · `/pricing` 明示定性与合规入口**：新增 `legal` 字段，明示「本服务定性为**软件授权 / 技术服务**的计算工具，非经营性互联网信息服务」，并附隐私政策 / 服务条款 / 授权定价三页链接。
+- **清理 · 删除孤儿模块 `payment-gateways.js`**：承载第三方支付平台（支付宝 / 微信）商户 API、私钥签名与异步回调验签的文件，在收款改为「对公静态收款 + 付款方自助入账」后已无任何代码 `require`（systemd 亦不加载）。保留它既属死代码，也与「不接任何支付平台商户 API」的对外定性冲突 ⇒ 删除。**注意：若回滚到旧备份 `http-mcp-server.js.bak-2026-09-23T0938`（内含 `require('./payment-gateways.js')`）将缺模块。**
+- **清理 · 删除死代码**：`RECEIPT_QR_WARN`（恒 `false`）、`PER_CALL_CENTS`（无引用）、`buildPayment()`（无调用点）；`payable` 判定去掉永假的 `codeUrl` / `mode==='auto'` 分支；`readBody` 请求体上限由硬编码 `64KB` 统一为 `MAX_BODY_BYTES`（256KB）。
+- **清理 · `solver-core.js` 移除开发机硬编码路径**：候选 `index.html` 中的 `C:/Users/Administrator/Desktop/灵数求解器/index.html` 已删。
+- **修正 · 仓库内 `SERVER_VERSION` 落后**：仓库 `http-mcp-server.js` 的 `SERVER_VERSION` 仍为 `1.0.8`（落后于已发布 1.0.10 与线上），本次同步为 `1.0.10`，与 `SOLVER_VERSION`（`lingshu-solver/1.0.10-auditable`）及 `/health` 一致。
+- **注**：本版**不改求解核心**；线上生产已部署并实测通过（`/health` 报 `1.0.10`；5 场景端到端全 PASS）。
+
 ## 1.0.10（npm 发版，2026-09-23）
 本版**不改求解核心**，只修「钱能不能收到、付款方会不会被劝退」这条链路上的四处断点。
 - **修 · 付款页不再「必须有订单号才出收款码」（#收款可达性）**：付款页脚本原为 `if (!valid) return;` —— 不带有效订单号打开 `https://hongchenlingjing.com/pay/` 时**完全不显示收款码**，只显示「请通过你的订单链接进入本页」。而首页页脚、README 给出的入口恰恰是不带订单号的那个地址 ⇒ **唯一的真人付款入口是死路**。该限制的设计初衷是「降低收款码被滥用风险」，但实测 `https://hongchenlingjing.com/pay/qr.png` **无 Referer 也返回 200** ⇒ 攻击者照样能直接取码，防护对攻击者无效、只挡住了真心想付钱的人。现改为：**任何情况下都出示收款码**；未带订单号时给出提示条，如实说明差别（无法自动对应成调用额度），并引导想要自动开通额度的人先建单。
