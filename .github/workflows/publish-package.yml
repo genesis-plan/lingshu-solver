@@ -53,11 +53,25 @@ jobs:
           node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.name='@genesis-plan/lingshu-solver';p.publishConfig={registry:'https://npm.pkg.github.com'};fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
           node -p "'将发布: '+require('./package.json').name+'@'+require('./package.json').version"
 
-      - name: npm publish（GitHub Packages）
+      - name: npm publish（GitHub Packages，幂等）
         if: steps.pre.outputs.exists == 'false'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm publish
+        run: |
+          set +e
+          npm publish 2>&1 | tee /tmp/pub.log
+          code=${PIPESTATUS[0]}
+          set -e
+          if [ "$code" -eq 0 ]; then
+            echo "已发布到 GitHub Packages。"
+            exit 0
+          fi
+          # 兜底：预检可能因权限读不到包元数据，而实际版本已存在 ⇒ 409 视为幂等成功
+          if grep -qEi "409|cannot publish over|previously published versions" /tmp/pub.log; then
+            echo "该版本已存在于 GitHub Packages，按幂等处理（跳过）。"
+            exit 0
+          fi
+          exit "$code"
 
       - name: 汇总
         run: |
