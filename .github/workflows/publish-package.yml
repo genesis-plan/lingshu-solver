@@ -5,6 +5,9 @@ name: Publish to GitHub Packages
 #    本工作流只负责 GitHub Packages 这一路，包名带作用域 `@genesis-plan/lingshu-solver`。
 # ⚠️ 新包在 GitHub 上默认 private，只能到包设置页（Danger Zone → Change visibility）
 #    手动改成 public（REST API 没有改可见性的端点）。改过一次即可。
+# ⚠️ 包要出现在**本仓库的 Packages 区**，需要到包页面点一次 "Connect repository"
+#    （同样没有 API）。package.json 的 repository 字段只让包页面显示"仓库来源"，不等于关联；
+#    可用 GraphQL `repository{packages{totalCount}}` 判定是否已关联（0 = 未关联）。
 # ⚠️ 即便公开，从 GitHub Packages 安装 npm 包仍需 GitHub 令牌 ⇒ 它只是 GitHub 原生/内网
 #    补充渠道，面向公众的零门槛分发仍走 npmjs。
 # ⚠️ 幂等预检只能用「整包元数据」端点；取单个版本的子路径在 GitHub Packages 恒返回 405。
