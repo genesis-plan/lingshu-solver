@@ -2709,6 +2709,57 @@ function gaussianSolve(A, b) {
     return { solution: x, rank: rank };
 }
 
+// 秩感知矩形高斯消元（过定/欠定线性系统通用）：sound 判定一致性与解数
+// 返回 { consistent, unique, solution }；consistent=false 表示无公共实解（已严格证明）；
+// unique=false 表示欠定（无穷多解），solution 为一组特解（自由变量取 0）。
+function gaussianSolveRect(A, b) {
+    const m = A.length;
+    if (m === 0) return null;
+    const n = A[0].length;
+    const EPS = 1e-9;
+    // 构造增广矩阵 [A | b]
+    const aug = A.map((row, i) => row.slice().concat([b[i]]));
+    let rank = 0;
+    const pivCol = [];
+    for (let col = 0; col < n; col++) {
+        // 部分选主元（在已确定秩以下的行中找最大绝对值）
+        let sel = -1, maxVal = EPS;
+        for (let r = rank; r < m; r++) {
+            if (Math.abs(aug[r][col]) > maxVal) { maxVal = Math.abs(aug[r][col]); sel = r; }
+        }
+        if (sel === -1) continue;            // 本列在余下行全为 0，跳过
+        if (sel !== rank) { const t = aug[rank]; aug[rank] = aug[sel]; aug[sel] = t; }
+        const pv = aug[rank][col];
+        // 消去其他所有行（含上方），使本列仅 pivot 行非零 → 直达行最简形
+        for (let r = 0; r < m; r++) {
+            if (r === rank) continue;
+            const f = aug[r][col] / pv;
+            if (Math.abs(f) < EPS) continue;
+            for (let c = col; c <= n; c++) aug[r][c] -= f * aug[rank][c];
+        }
+        pivCol.push(col);
+        rank++;
+    }
+    // 一致性：存在"A 全零但 b 非零"的行 → 不相容（无公共实解）
+    for (let r = 0; r < m; r++) {
+        let allZero = true;
+        for (let c = 0; c < n; c++) { if (Math.abs(aug[r][c]) > EPS) { allZero = false; break; } }
+        if (allZero && Math.abs(aug[r][n]) > 1e-7) return { consistent: false };
+    }
+    // 构造特解（自由变量取 0）
+    const x = new Array(n).fill(0);
+    for (let r = 0; r < rank; r++) {
+        const pc = pivCol[r];
+        const coeff = aug[r][pc];
+        if (Math.abs(coeff) < EPS) continue;
+        x[pc] = aug[r][n] / coeff;
+    }
+    if (rank < n) {
+        return { consistent: true, unique: false, solution: x };   // 欠定：无穷多解
+    }
+    return { consistent: true, unique: true, solution: x };        // 满列秩：唯一解
+}
+
 function extractVarCoefficient(node, varName) {
     if (!hasVariable(node, [varName])) {
         return { coeff: { type: 'num', value: 0 }, rest: node };
@@ -4689,7 +4740,13 @@ function suan7(state) {
             // 跳过已从前提取过值的方程，避免浮点噪声误判
             if (unknownVars.length === 0) {
                 if (!resolvedEqs[ei]) {
-                    var val = evalAST(eq, known);
+                    // 用网格精度求值：known 经前向传播/二分可能带 ~1e-10 浮点噪声，
+                    // 若直接用 1e-12 阈值会把这个噪声误判为"矛盾"（unsound，丢真解）。
+                    // 网格精度与求解器输出精度一致，是 sound 的判定基准：真矛盾残差在
+                    // 网格尺度下仍远大于 0，数值噪声在网格下归零。
+                    var _knownGrid = {};
+                    for (var _kk in known) _knownGrid[_kk] = roundToGrid(known[_kk]);
+                    var val = evalAST(eq, _knownGrid);
                     if (isFinite(val) && Math.abs(val) > 1e-12) {
                         state.done = true;
                         var msg = "前向传播检测到矛盾：代入已知值后方程不成立（残差=" + val.toExponential(2) + "）";
@@ -5285,7 +5342,9 @@ function suan16(state) {
 // suan17: 线性方程组高斯消元 → 全线性系统直接求解
 function suan17(state) {
     if (!state.eqFeatures.allLinear) return;
-    if (state.equations.length !== state.varNames.length) return;
+    // 放开过定(m>n)与欠定(m<n)的"全线性"统一处理；仅当方程数 < 变量数 时此处不强行处理
+    // （交其他路径），以最小化改动面并保留既有欠定逻辑。
+    if (state.equations.length < state.varNames.length) return;
 
     var A = [], b = [];
     for (var ei = 0; ei < state.equations.length; ei++) {
@@ -5294,8 +5353,44 @@ function suan17(state) {
         b.push(-lc.constant);
     }
 
-    var result = gaussianSolve(A, b);
+    var result = (state.equations.length === state.varNames.length)
+        ? gaussianSolve(A, b)                  // 方阵：原 sound 路径
+        : gaussianSolveRect(A, b);             // 过定：秩感知判定（sound）
     if (!result) return;
+
+    // 过定且不相容 → sound 地报"无实数解"（绝非"漏解"）
+    if (result.consistent === false) {
+        state.done = true;
+        state.result = {
+            solutions: [], error: "NO_SOLUTION", provenEmpty: true,
+            message: "过定线性方程组不相容：经高斯消元 + 秩判定严格确认无实数公共解",
+            executionPath: "高斯消元(秩判定)",
+            timeMs: performance.now() - state.startTime,
+            confidence: "high", varNames: state.varNames,
+            resultType: 1, resultTypeName: "空结果", resultTypeDesc: "过定系统秩判定无实解"
+        };
+        return;
+    }
+    // 欠定(秩 < 变量数，尽管 m>=n 但方程线性相关) → 无穷多解，给一组特解
+    if (result.unique === false) {
+        var pSol = {};
+        state.varNames.forEach(function(v, i) { pSol[v] = roundToGrid(result.solution[i]); });
+        var pVals = state.varNames.map(function(v) { return pSol[v]; });
+        var pVars = {};
+        state.varNames.forEach(function(v, i) { pVars[v] = pSol[v]; });
+        var pRes = state.equations.map(function(eq) { return Math.abs(evalAST(eq, pVars)); });
+        var pMax = Math.max.apply(null, pRes);
+        state.done = true;
+        state.result = {
+            solutions: [{ values: pVals, residual: pMax }],
+            message: "线性方程组无穷多解（秩 < 变量数，方程线性相关）：给出一组特解（自由变量取 0），任意线性组合均满足",
+            executionPath: "高斯消元(秩判定)",
+            timeMs: performance.now() - state.startTime,
+            confidence: "high", varNames: state.varNames,
+            resultType: 3, resultTypeName: "无限解集(推荐解)", resultTypeDesc: "欠定线性系统，无穷多实解"
+        };
+        return;
+    }
 
     var solution = {};
     state.varNames.forEach(function(v, i) { solution[v] = roundToGrid(result.solution[i]); });
@@ -11097,7 +11192,7 @@ function _runTail(state) {
 
 // —— 可审计结构化溯源（切片A）：每个结果附带完整证据链元数据 ——
 // 设计目标：Agent / 上层系统拿到的不只是裸数字，而是"为什么是这个解"的可读证据链。
-var SOLVER_VERSION = "lingshu-solver/1.0.10-auditable";
+var SOLVER_VERSION = "lingshu-solver/1.0.11-auditable";
 
 // Movability 完整读取（切片B）：每变量携带 status + width，供 Agent 读懂"为何是这个解"
 function _movabilityFull(state) {
