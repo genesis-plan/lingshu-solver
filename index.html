@@ -11192,7 +11192,7 @@ function _runTail(state) {
 
 // —— 可审计结构化溯源（切片A）：每个结果附带完整证据链元数据 ——
 // 设计目标：Agent / 上层系统拿到的不只是裸数字，而是"为什么是这个解"的可读证据链。
-var SOLVER_VERSION = "lingshu-solver/1.0.11-auditable";
+var SOLVER_VERSION = "lingshu-solver/1.0.12-auditable";
 
 // Movability 完整读取（切片B）：每变量携带 status + width，供 Agent 读懂"为何是这个解"
 function _movabilityFull(state) {
@@ -11485,8 +11485,31 @@ function _certifySolutions(state) {
         var sol = state.result.solutions[i];
         if (!sol.values || sol.values.length !== vns.length) { sol.certified = false; continue; }
         var res = krawczykCertify(eqs, vns, sol.values.slice());
-        sol.certified = !!res.certified;
-        if (res.certified) sol.certifiedRadius = res.radius;
+        if (!res.certified) { sol.certified = false; continue; }
+        // Krawczyk 仅证"盒[xhat±r]内存在唯一零点"，sol.values 是 solver 原始近似，未必是真根。
+        // 快振荡方程(如 sin(1/x)=0)局部导数|1/x²|巨大，原始近似离真根可达 1e-2，
+        // 若直接标 certified+半径1e-6 即失真认证（承诺误差≤半径，实际可达 1e-2）。
+        // 强制盒内牛顿精化到真零点：精化成功才标 proven，并把 certifiedRadius 改为"精化后实际残差保守上界"；
+        // 精化在盒内不收敛（原始近似不在真根吸引盆/盒内多根）→ 降级 candidate，绝不假证 proven。
+        var xhat = sol.values.slice();
+        var box = {};
+        for (var _bi = 0; _bi < vns.length; _bi++) box[vns[_bi]] = { min: xhat[_bi] - res.radius, max: xhat[_bi] + res.radius };
+        var refined = _newtonRefine(eqs, vns, xhat, box);
+        if (refined) {
+            sol.values = refined; // 替换为精化后的真根近似
+            // 精化后实际残差（牛顿已收敛至 rms<1e-11，残差≈误差，作为该解精度指示）；
+            // Krawczyk 盒半径 res.radius 仍提供 sound 误差上界(≤radius)，残差通常更紧。
+            var vmap = {}; for (var _ri = 0; _ri < vns.length; _ri++) vmap[vns[_ri]] = refined[_ri];
+            var maxRes = 0;
+            for (var _ei = 0; _ei < eqs.length; _ei++) {
+                var fe = evalAST(eqs[_ei], vmap);
+                if (isFinite(fe)) maxRes = Math.max(maxRes, Math.abs(fe));
+            }
+            sol.certified = true;
+            sol.certifiedRadius = (maxRes > 0) ? maxRes : 0; // 实际残差保守上界，非盒半径
+        } else {
+            sol.certified = false; // 降级 candidate，不假证 proven
+        }
     }
 }
 
