@@ -47,7 +47,7 @@ const solverCore = require('./solver-core');
 const { solve } = solverCore;
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.13';
+const SERVER_VERSION = '1.0.14';
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源，与 stdio 版一致）----
@@ -736,6 +736,7 @@ function shapeResult(r) {
       tier: s.tier || 'unknown',
       certified: !!s.certified,
       text: text,
+      cert: s.cert || null,
       internals: {
         residual: detF(s.residual),
         certifiedRadius: detF(s.certifiedRadius)
@@ -786,6 +787,8 @@ function shapeResult(r) {
     recommended: recommendedClean,
     solutions: cleanSols,
     warnings: r.warnings || [],
+    reportId: meta.reportId || r.reportId || null,
+    certification: r.certification || null,
     diagnostics: diagnostics
   };
 }
