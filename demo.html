@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>灵数求解器 · 实时认证演示</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#171d26; --panel2:#1d2530; --line:#2a3340;
+    --txt:#e6edf3; --dim:#9aa7b4; --accent:#3fb950; --bad:#f85149; --warn:#d29922;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6}
+  .wrap{max-width:880px;margin:0 auto;padding:32px 20px 64px}
+  h1{font-size:26px;margin:0 0 4px}
+  .tag{color:var(--accent);font-weight:600;font-size:15px}
+  .sub{color:var(--dim);margin:6px 0 24px;font-size:14px}
+  .prob{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:18px 0}
+  .prob .eq{font-family:var(--mono);font-size:22px;color:#fff;letter-spacing:.5px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
+  .card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600}
+  .b-warn{background:rgba(210,153,34,.15);color:var(--warn);border:1px solid rgba(210,153,34,.4)}
+  .b-ok{background:rgba(63,185,80,.15);color:var(--accent);border:1px solid rgba(63,185,80,.4)}
+  .b-illus{background:rgba(154,167,180,.12);color:var(--dim);border:1px solid var(--line)}
+  .roots{font-family:var(--mono);font-size:20px;margin:8px 0;color:#fff}
+  .meta{font-size:13px;color:var(--dim);margin:4px 0}
+  .stamp{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;padding:3px 10px;border-radius:6px}
+  .s-bad{background:rgba(248,81,73,.15);color:var(--bad)}
+  .s-ok{background:rgba(63,185,80,.15);color:var(--accent)}
+  button{background:var(--accent);color:#06210d;border:0;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer;margin-top:6px}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .raw{margin-top:12px;background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);font-size:11px;color:var(--dim);max-height:160px;overflow:auto;white-space:pre-wrap;display:none}
+  .note{font-size:12.5px;color:var(--dim);margin-top:6px}
+  .verify-row{display:flex;gap:8px;align-items:center;margin:10px 0}
+  input{background:#0b0f14;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 10px;font-family:var(--mono);width:120px}
+  .install{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-top:22px}
+  .install code{display:block;background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);font-size:12.5px;color:#9adcff;white-space:pre;margin:8px 0;overflow:auto}
+  a{color:#58a6ff;text-decoration:none}
+  .foot{color:var(--dim);font-size:12px;margin-top:28px;text-align:center}
+  .pulse{animation:p 1.2s infinite}@keyframes p{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>灵数求解器 · 实时认证演示</h1>
+  <div class="tag">给 AI Agent 的、不会算错数的数学工具</div>
+  <div class="sub">下面所有「灵数」结果都来自生产端点 <code style="color:#9adcff">https://hongchenlingjing.com/mcp</code> 的实时调用，可断网复算、可回代验证。</div>
+
+  <div class="prob">
+    <div class="meta">考题：求下面方程的<u>全部实根</u></div>
+    <div class="eq">x³ − 2x² − 5x + 6 = 0</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>🤖 普通 LLM / 浮点估算 <span class="badge b-illus">示意</span></h3>
+      <div class="roots" style="color:var(--dim)">x ≈ 1.0，x ≈ −2.0，x ≈ 3.0</div>
+      <div class="meta">返回的是「近似」，且无法证明「这就是全部根」。</div>
+      <div class="stamp s-bad">✗ 无法构造性认证</div>
+      <div class="note">遇到近重根 / 病态系数（如 Wilkinson 多项式），估算器会自信地给出<b style="color:var(--bad)">错误的「精确」根</b>。LLM 还会用流畅语言把近似说成确定。</div>
+    </div>
+
+    <div class="card">
+      <h3>🔬 灵数 · 生产端点实时认证 <span class="badge b-ok">LIVE</span></h3>
+      <div id="liveRoots" class="roots">—</div>
+      <div id="liveMeta" class="meta">点击按钮调用真实端点</div>
+      <div id="liveStamp" class="stamp s-ok" style="display:none">✓ 构造性认证（Krawczyk）</div>
+      <button id="runBtn" onclick="runLive()">▶ 实时调用生产端点</button>
+      <div class="raw" id="raw1"></div>
+    </div>
+  </div>
+
+  <div class="prob" style="margin-top:22px">
+    <div class="meta">再问：<b style="color:#fff">2.1</b> 是不是这道题的根？（「看起来很近」算不算对？）</div>
+    <div class="verify-row">
+      <input id="cand" value="2.1" />
+      <button onclick="runVerify()">▶ 实时 verify</button>
+    </div>
+    <div id="vfOut" class="meta">—</div>
+    <div class="raw" id="raw2"></div>
+    <div class="note">认证求根会精确回答「2.1 不是根，离最近的认证根 3 还差 0.9」——而不是用「差不多」糊弄过去。</div>
+  </div>
+
+  <div class="install">
+    <h3 style="margin:0 0 6px">AI Agent 一行接入</h3>
+    <code>{ "mcpServers": { "lingshu-solver": { "command": "npx", "args": ["-y", "lingshu-solver"] } } }</code>
+    <code>{ "mcpServers": { "lingshu-solver": { "type": "http", "url": "https://hongchenlingjing.com/mcp" } } }</code>
+    <div class="meta">本地 stdio 永久免费、离线、不限次；远程托管端点固定 ¥0.01/次，传 <code style="color:#9adcff">honorPaid:true</code> 即免费放行（信任制，不拦人）。</div>
+    <div class="meta">工具：<code style="color:#9adcff">solve</code>（通用方程组）· <code style="color:#9adcff">poly_roots</code>（多项式实根，带认证）· <code style="color:#9adcff">verify</code>（候选根认证）· <code style="color:#9adcff">give_feedback</code> · <code style="color:#9adcff">pay</code></div>
+  </div>
+
+  <div class="foot">灵数求解器 v1.0.15 · 确定性 / 非 LLM / 零数据外传 · <a href="https://github.com/genesis-plan/lingshu-solver">GitHub</a> · <a href="https://www.npmjs.com/package/lingshu-solver">npm</a></div>
+</div>
+
+<script>
+const BASE = "https://hongchenlingjing.com/mcp";
+const H = { "Content-Type":"application/json", "Accept":"application/json, text/event-stream" };
+async function mcp(method, params, sid){
+  const headers = { ...H }; if (sid) headers["Mcp-Session-Id"] = sid;
+  const r = await fetch(BASE, { method:"POST", headers, body: JSON.stringify({ jsonrpc:"2.0", id:Math.floor(Math.random()*1e6), method, params }) });
+  const newSid = r.headers.get("mcp-session-id") || sid;
+  const txt = await r.text();
+  let msg; try { msg = JSON.parse(txt); } catch(e){ msg = { raw: txt.slice(0,300) }; }
+  return { sid:newSid, msg };
+}
+async function session(){
+  const i = await mcp("initialize", { protocolVersion:"2024-11-05", capabilities:{}, clientInfo:{ name:"demo", version:"1.0" } });
+  await fetch(BASE, { method:"POST", headers:{ ...H, "Mcp-Session-Id":i.sid }, body: JSON.stringify({ jsonrpc:"2.0", method:"notifications/initialized" }) });
+  return i.sid;
+}
+function parse(text){ try { return JSON.parse(text); } catch(e){ return null; } }
+
+async function runLive(){
+  const btn = document.getElementById("runBtn"); btn.disabled = true; btn.textContent = "调用中…";
+  try{
+    const sid = await session();
+    const pr = await mcp("tools/call", { name:"poly_roots", arguments:{ coefficients:[1,-2,-5,6], honorPaid:true } }, sid);
+    const data = parse(pr.msg?.result?.content?.[0]?.text);
+    document.getElementById("raw1").style.display="block";
+    document.getElementById("raw1").textContent = JSON.stringify(data, null, 2);
+    if(data){
+      const roots = (data.solutions||[]).map(s=>s.values?.[0]).join("， ");
+      document.getElementById("liveRoots").textContent = "x = " + roots;
+      document.getElementById("liveRoots").style.color = "#fff";
+      document.getElementById("liveMeta").textContent = `解数 ${data.solutionCount} · certified=${data.certified} · 来自生产端点`;
+      document.getElementById("liveStamp").style.display = "inline-block";
+    } else {
+      document.getElementById("liveRoots").textContent = "解析失败";
+      document.getElementById("liveMeta").textContent = JSON.stringify(pr.msg).slice(0,200);
+    }
+  }catch(e){
+    document.getElementById("liveRoots").textContent = "调用失败";
+    document.getElementById("liveMeta").textContent = e.message + "（可能浏览器拦截跨域，请用页面已部署的公开地址打开）";
+  }
+  btn.disabled = false; btn.textContent = "▶ 重新调用";
+}
+
+async function runVerify(){
+  const c = parseFloat(document.getElementById("cand").value);
+  const out = document.getElementById("vfOut"); out.textContent = "调用中…";
+  try{
+    const sid = await session();
+    const vf = await mcp("tools/call", { name:"verify", arguments:{ equation:"x^3 - 2*x^2 - 5*x + 6 = 0", candidate:c, honorPaid:true } }, sid);
+    const data = parse(vf.msg?.result?.content?.[0]?.text);
+    document.getElementById("raw2").style.display="block";
+    document.getElementById("raw2").textContent = JSON.stringify(data, null, 2);
+    if(data){
+      const near = data.nearestCertifiedRoot?.values ?? data.certifiedRoot?.values ?? "—";
+      out.innerHTML = `verdict = <b style="color:#fff">${data.verdict}</b> · 最近认证根 = ${JSON.stringify(near)}`;
+    } else out.textContent = JSON.stringify(vf.msg).slice(0,200);
+  }catch(e){ out.textContent = "调用失败：" + e.message; }
+}
+</script>
+</body>
+</html>

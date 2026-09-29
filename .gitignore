@@ -21,6 +21,11 @@
 !mcpize.yaml
 !server.json
 !registry-server.json
+# 市场可发现性资产（公开演示 / agent 发现 / 接入示例）：必须进仓库，否则 GitHub/npm/Glama 缺件
+!demo.html
+!llms.txt
+!examples/
+!examples/**
 !test/
 !test/**
 !docs/

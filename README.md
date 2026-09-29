@@ -12,6 +12,8 @@
 
 **它给两种对象用**：普通用户（网页打开即用）与 AI Agent（标准 MCP 工具，一行接入）。
 
+🔬 **实时演示（生产端点实跑）**：<https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/demo.html> —— 浏览器里直接调真实 MCP 端点，看 `poly_roots` 返回带认证的实根、`verify` 判定候选根。这就是「LLM 会算错、灵数能认证」的 30 秒证据。
+
 | | 说明 |
 |---|---|
 | **是** | 确定性（非大模型）的实数方程组**数值**求解引擎；代数方程与常见超越函数（`sin/cos/tan/log/exp/sqrt/abs`）均可 |
