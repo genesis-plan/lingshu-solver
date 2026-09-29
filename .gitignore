@@ -18,6 +18,18 @@
 !sw.js
 !icon-192.png
 !icon-512.png
+!native-bridge.js
+!ios-app/
+!ios-app/**
+# 生成物（不入库）
+www/
+ios-app/ios/
+# 本地签名私钥/证书（绝不可入库）
+ios-app/*.csr
+ios-app/*.key
+ios-app/*.p12
+ios-app/*.cer
+ios-app/*.pem
 !glama.json
 !smithery.yaml
 # MCP 市场 / 收录登记文件（曾被白名单漏掉 ⇒ 登记通道实际是断的；2026-09-23 补入）

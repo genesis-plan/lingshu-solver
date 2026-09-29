@@ -1,0 +1,18 @@
+{
+  "name": "lingshu-ios-app",
+  "version": "1.0.15",
+  "private": true,
+  "scripts": {
+    "copy": "node copy-www.js",
+    "sync": "npm run copy && npx cap sync ios",
+    "build": "npm run sync && npx cap build ios --release"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/ios": "^6.1.0",
+    "@capacitor/share": "^6.1.0",
+    "@capacitor/biometric-auth": "^6.1.0",
+    "@capacitor/app": "^6.1.0"
+  }
+}
