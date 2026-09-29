@@ -1,5 +1,7 @@
 # 灵数求解器 · Lingshu Solver
 
+**品类（Category）**：认证实根计算 · Certified Real-Root Computation
+
 [![License](https://img.shields.io/badge/license-非商业免费%20%2F%20商业须书面授权-blue)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP%20%2B%20stdio-blue)](https://modelcontextprotocol.io)
 [![Deterministic](https://img.shields.io/badge/core-deterministic%20%2F%20non--LLM-green)](docs/03-设计思想.md)

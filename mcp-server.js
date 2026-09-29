@@ -19,7 +19,7 @@ const path = require('path');
 const { solve } = require('./solver-core');
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.14';
+const SERVER_VERSION = '1.0.15';
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源）----
 const MAX_TOTAL_CHARS = 100 * 1024;   // 单次请求方程文本总长上限 100KB
@@ -150,6 +150,85 @@ function doSolve(args) {
   return shapeResult(r);
 }
 
+// ---- 新工具：poly_roots / verify（agent 时代适配，薄封装 solve，不碰内核）----
+function buildPolyEquation(coeffs) {
+  const n = coeffs.length - 1;
+  let s = '';
+  for (let i = 0; i < coeffs.length; i++) {
+    const c = coeffs[i]; const deg = n - i;
+    if (c === 0 && deg !== 0) continue;
+    const abs = Math.abs(c);
+    const sign = (s === '' ? (c < 0 ? '-' : '') : (c < 0 ? ' - ' : ' + '));
+    const term = deg === 0 ? '' + abs : deg === 1 ? abs + '*x' : abs + '*x^' + deg;
+    s += sign + term;
+  }
+  return s + ' = 0';
+}
+
+function doPolyRoots(args) {
+  const coeffs = args && args.coefficients;
+  if (!Array.isArray(coeffs) || coeffs.length < 2) throw { type: 'invalid_input', message: 'coefficients 必须是长度≥2 的数组（最高次系数在前）' };
+  for (const c of coeffs) if (typeof c !== 'number' || !isFinite(c)) throw { type: 'invalid_input', message: 'coefficients 须为有限数字' };
+  const eq = buildPolyEquation(coeffs);
+  const r = solve([eq], ['x'], 6, undefined, false, {});
+  return shapeResult(r);
+}
+
+function doVerify(args) {
+  const eq = args && args.equation;
+  if (typeof eq !== 'string' || !eq.includes('=')) throw { type: 'invalid_input', message: 'equation 须为含 "=" 的字符串' };
+  const cand = args.candidate;
+  let varNames, candPoint;
+  if (typeof cand === 'number') {
+    varNames = (args && Array.isArray(args.variables) && args.variables[0]) ? [args.variables[0]] : ['x'];
+    candPoint = [cand];
+  } else if (cand && typeof cand === 'object' && !Array.isArray(cand)) {
+    varNames = Object.keys(cand);
+    candPoint = varNames.map(function (v) { return cand[v]; });
+  } else if (Array.isArray(cand)) {
+    varNames = (args && Array.isArray(args.variables)) ? args.variables : [];
+    if (varNames.length !== cand.length) throw { type: 'invalid_input', message: 'candidate 数组长度须与 variables 一致' };
+    candPoint = cand;
+  } else {
+    throw { type: 'invalid_input', message: 'candidate 须为数字 / {变量:值} / [值...]' };
+  }
+  const margin = (args && typeof args.tolerance === 'number' && args.tolerance > 0) ? args.tolerance : 1e-3;
+  const domain = {};
+  varNames.forEach(function (v, i) { domain[v] = [candPoint[i] - margin, candPoint[i] + margin]; });
+  const r = solve([eq], varNames, 6, domain, false, {});
+  const shaped = shapeResult(r);
+  const matched = (r.solutions || []).find(function (s) {
+    return Array.isArray(s.values) && s.values.every(function (val, i) { return Math.abs(val - candPoint[i]) <= 1e-6; });
+  });
+  if (matched) {
+    return {
+      verdict: 'verified', isRoot: true, candidate: cand,
+      matchedRoot: { values: matched.values, tier: matched.tier, certified: !!matched.certified, cert: matched.cert || null,
+        text: varNames.map(function (vn, i) { return vn + '=' + fmt6(matched.values[i]); }).join(', ') },
+      reportId: shaped.reportId, certification: shaped.certification
+    };
+  }
+  let nearest = null;
+  try {
+    // refuted：在更宽域（默认 ±1e6）重算，给 Agent 全局最近的「真认证根」——
+    // 否则当 LLM 把根算偏（如猜 2.1、真根 2）时，窄邻域内无解会导致 nearest 为空，
+    // Agent 看不到正确值，verify 就失去了「纠正 LLM」的核心价值。
+    const rb = solve([eq], varNames, 6, undefined, false, {});
+    const solsB = (rb.solutions || []).filter(function (s) { return Array.isArray(s.values); });
+    if (solsB.length) {
+      let bestD = Infinity, bestS = null;
+      for (const s of solsB) { let d = 0; for (let i = 0; i < s.values.length; i++) d += (s.values[i] - candPoint[i]) * (s.values[i] - candPoint[i]); if (d < bestD) { bestD = d; bestS = s; } }
+      nearest = { values: bestS.values, tier: bestS.tier || null, certified: !!bestS.certified, cert: bestS.cert || null,
+        text: varNames.map(function (vn, i) { return vn + '=' + fmt6(bestS.values[i]); }).join(', ') };
+    }
+  } catch (_e) { /* 宽域重算失败不致命，nearest 保持 null */ }
+  return {
+    verdict: 'refuted_or_unverified', isRoot: false, candidate: cand,
+    message: '在候选点 ±' + margin + ' 邻域内未找到与之匹配的认证根；候选不是经验证的实根。' + (nearest ? '（全局最近认证根见 nearestCertifiedRoot）' : '（该方程在默认域内也无实根）'),
+    nearestCertifiedRoot: nearest, reportId: shaped.reportId
+  };
+}
+
 // ---- 工具定义 ----
 const TOOLS = [
   {
@@ -193,6 +272,32 @@ const TOOLS = [
         context: { type: 'string', description: '可选上下文：触发场景、输入特征等。' }
       },
       required: ['message']
+    }
+  },
+  {
+    name: 'poly_roots',
+    description: '多项式全部实根，逐个 Krawczyk 认证（带严格误差盒）。输入系数「最高次在前」，如 [1,-2,-5,6] 表示 x³−2x²−5x+6。确定性、可复现、可证明正确；复数根不返回（本品只做实数）。给 AI Agent 当「可靠的多项式求根件」——不会再像通用 LLM 那样把根算错或半对。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        coefficients: { type: 'array', items: { type: 'number' }, description: '多项式系数，最高次在前。如 [1,-2,-5,6] 对应 x³−2x²−5x+6。' },
+        tolerance: { type: 'number', description: '根的判定容差（可选，默认内部精度）' }
+      },
+      required: ['coefficients']
+    }
+  },
+  {
+    name: 'verify',
+    description: '核验一个「声称的答案」到底对不对——这是「LLM 猜了 2.1、真根是精确 2」的检查。输入方程 + 候选值/点（数字，或 {变量:值}，或按 variables 顺序的数组），本工具在候选点邻域内调用同一套认证内核：若找到与之匹配的认证根 → 返回 verified + 误差盒；若找不到 → 返回 refuted 并附上最近的认证根（让 Agent 立刻看到正确值）。确定性、非 LLM、结果可复现。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        equation: { type: 'string', description: '含 "=" 的方程，如 "x^2 = 4"。' },
+        candidate: { description: '声称的答案：数字（单变量，默认变量 x）、{变量:值}（多变量）、或按 variables 顺序的数组。', oneOf: [{ type: 'number' }, { type: 'object' }, { type: 'array' }] },
+        variables: { type: 'array', items: { type: 'string' }, description: '变量名（多变量或数组候选时必填），如 ["x","y"]。' },
+        tolerance: { type: 'number', description: '邻域半径（可选，默认 1e-3），在该邻域内寻找匹配的认证根。' }
+      },
+      required: ['equation', 'candidate']
     }
   }
 ];
@@ -240,6 +345,10 @@ function handle(msg) {
           ts: new Date().toISOString(), message: msg_fb, context: args.context || null
         }) + '\n');
         result = { acknowledged: true, note: '反馈已记录（本地，不外传）' };
+      } else if (name === 'poly_roots') {
+        result = doPolyRoots(args);
+      } else if (name === 'verify') {
+        result = doVerify(args);
       } else {
         throw { type: 'unknown_tool', message: '未知工具: ' + name };
       }

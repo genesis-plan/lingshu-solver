@@ -148,7 +148,7 @@ async function main() {
     const solveTool = tl.json && tl.json.result.tools.find(t => t.name === 'solve');
     ok('solve 工具描述已带计费说明', !!solveTool && /计费/.test(solveTool.description) && /1 分钱/.test(solveTool.description));
     ok('工具名清单 = solve/give_feedback/pay（对公收款 新增 pay 工具）',
-      tl.json && tl.json.result.tools.map(t => t.name).sort().join(',') === 'give_feedback,pay,solve',
+      tl.json && tl.json.result.tools.map(t => t.name).sort().join(',') === 'give_feedback,pay,poly_roots,solve,verify',
       tl.json && tl.json.result.tools.map(t => t.name));
 
     const fb = await mcp('tools/call', { name: 'give_feedback', arguments: { message: '回归测试反馈' } });
