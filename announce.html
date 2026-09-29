@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0B1120">
+<meta name="description" content="灵数求解器全球上线：确定性、可认证的实根计算，不调大模型、无幻觉，免费、全球可用、手机可装、给 AI Agent 一行接入。">
+<title>灵数求解器 · 全球上线</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0B1120;color:#E2E8F0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.65;padding:24px 18px;max-width:760px;margin:0 auto}
+  .badge{display:inline-block;background:#16A34A;color:#04140a;font-weight:700;font-size:.8rem;padding:4px 12px;border-radius:999px;letter-spacing:.5px}
+  h1{font-size:1.9rem;margin:14px 0 6px}
+  .sub{color:#94A3B8;font-size:1rem;margin-bottom:18px}
+  .tags{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px}
+  .tag{background:rgba(56,189,248,.12);color:#7DD3FC;border:1px solid rgba(56,189,248,.3);font-size:.82rem;padding:5px 11px;border-radius:8px}
+  .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:20px;margin:16px 0}
+  .card h2{font-size:1.15rem;color:#E2E8F0;margin-bottom:10px}
+  p{color:#CBD5E1;margin:8px 0}
+  .btns{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
+  a.btn{display:inline-block;text-decoration:none;font-weight:600;padding:12px 18px;border-radius:10px;font-size:.95rem}
+  a.primary{background:#38BDF8;color:#04141f}
+  a.ghost{background:transparent;color:#7DD3FC;border:1px solid rgba(56,189,248,.4)}
+  ol{margin:6px 0 6px 22px;color:#CBD5E1}
+  li{margin:7px 0}
+  code{background:rgba(255,255,255,.08);padding:2px 6px;border-radius:5px;font-size:.86rem;color:#A5F3FC;word-break:break-all}
+  .note{border-left:3px solid #16A34A;padding:8px 14px;color:#94A3B8;font-size:.9rem;background:rgba(22,163,74,.07);border-radius:0 8px 8px 0;margin-top:10px}
+  .foot{color:#64748B;font-size:.8rem;text-align:center;margin-top:26px}
+  a{color:#7DD3FC}
+</style>
+</head>
+<body>
+  <span class="badge">🌐 全球上线 · 免费</span>
+  <h1>灵数求解器</h1>
+  <div class="sub">确定性、可认证的实根计算 — 不调大模型，无随机、无幻觉</div>
+
+  <div class="tags">
+    <span class="tag">免费</span>
+    <span class="tag">全球可用</span>
+    <span class="tag">不用注册</span>
+    <span class="tag">手机可装</span>
+    <span class="tag">给 AI Agent 一行接入</span>
+  </div>
+
+  <div class="card">
+    <h2>为什么需要它</h2>
+    <p>大模型做数学会<strong>自信地给错根</strong>。灵数用区间数值法（Krawczyk 认证），同样的题永远给同样的、<strong>带证明的解</strong>——可回代验证、可进审计链。</p>
+    <p>支持代数方程与 sin/cos/tan/log/exp/sqrt/abs 等常见超越函数，≤6 变量、≤64 方程；每个解带 <code>certified</code> 标志，诚实标 <code>truncated</code>。</p>
+  </div>
+
+  <div class="btns">
+    <a class="primary" href="demo.html">▶ 30 秒看它工作</a>
+    <a class="ghost" href="./">打开求解器</a>
+  </div>
+
+  <div class="card">
+    <h2>三步上手</h2>
+    <ol>
+      <li><strong>网页即用</strong>：打开 <code>https://hongchenlingjing.com</code>，输入方程（如 <code>x^2+y^2=25, x+y=7</code>）点求解。</li>
+      <li><strong>装到手机</strong>：用手机浏览器打开上面的网址 → 点「分享」→「添加到主屏幕」。iOS Safari / Android Chrome 都行，装完像 App，飞行模式也能解本地题。</li>
+      <li><strong>给 Agent 接</strong>：MCP 端点 <code>https://hongchenlingjing.com/mcp</code>，工具 <code>solve</code> / <code>poly_roots</code> / <code>verify</code>。</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>给开发者 / AI Agent</h2>
+    <p>标准 MCP 工具，零依赖接入。端点 <code>https://hongchenlingjing.com/mcp</code>。</p>
+    <p>一行跑通示例（仓库 <code>examples/agent-demo.cjs</code>）：<code>node examples/agent-demo.cjs</code></p>
+    <p>已在 Official MCP Registry 上架（<code>io.github.genesis-plan/lingshu-solver</code>），Glama / PulseMCP / MCP.so 自动跟发。</p>
+  </div>
+
+  <div class="note">
+    诚实说明：免费、信任制。求解<strong>永久免费</strong>，不付钱也能用；云端高精度 / 批量是可选增强，非强制。适合工程、财务、教学、合规场景。欢迎使用，先把它用起来。
+  </div>
+
+  <div class="foot">灵数求解器 · 广州市红尘灵境数字科技有限公司 · 确定性可认证实根计算</div>
+</body>
+</html>
