@@ -19,7 +19,7 @@ const path = require('path');
 const { solve } = require('./solver-core');
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.12';
+const SERVER_VERSION = '1.0.13';
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源）----
 const MAX_TOTAL_CHARS = 100 * 1024;   // 单次请求方程文本总长上限 100KB
