@@ -8,7 +8,10 @@
 <meta name="description" content="灵数求解器 — 高维代数方程组求解工具，支持导数/积分/ODE/极限，输出确定性解">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="灵数">
 <title>灵数求解器</title>
 <style>
     * {
@@ -12521,5 +12524,6 @@ function showError(msg) {
   </div>
   <div style="color:#475569;">本网页版永久免费、不限次数、离线计算。托管端点也支持「不付费照常用」（调用时传 honorPaid）。</div>
 </footer>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 </body>
 </html>
