@@ -11195,7 +11195,7 @@ function _runTail(state) {
 
 // —— 可审计结构化溯源（切片A）：每个结果附带完整证据链元数据 ——
 // 设计目标：Agent / 上层系统拿到的不只是裸数字，而是"为什么是这个解"的可读证据链。
-var SOLVER_VERSION = "lingshu-solver/1.0.17";
+var SOLVER_VERSION = "lingshu-solver/1.0.18";
 
 // —— 确定性可复现契约（Certified Real-Root Computation 六属性之「确定性可复现」）——
 // 纯 JS 同步 SHA-256（零依赖，浏览器/Node 通用，免 Web Crypto 异步）。
@@ -12520,9 +12520,9 @@ function showError(msg) {
   <div style="margin-bottom:8px;">
     <a href="/privacy.html" style="color:#94a3b8;">隐私与安全说明</a> ·
     <a href="https://hongchenlingjing.com/mcp" style="color:#94a3b8;">远程调用端点 hongchenlingjing.com/mcp</a> ·
-    <a href="https://hongchenlingjing.com/pay/" style="color:#94a3b8;">支持这个工具（托管端点 ¥0.01/次，付款后立即生效）</a>
+    <a href="https://hongchenlingjing.com/pay/" style="color:#94a3b8;">支持这个工具（自愿支持，任意金额，不付款也完全可用）</a>
   </div>
-  <div style="color:#475569;">本网页版永久免费、不限次数、离线计算。托管端点也支持「不付费照常用」（调用时传 honorPaid）。</div>
+  <div style="color:#475569;">本网页版永久免费、不限次数、离线计算；托管端点同样免费开放——不需要凭证、不需要声明。</div>
 </footer>
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 </body>

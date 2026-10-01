@@ -3,7 +3,7 @@
   "name": "io.github.genesis-plan/lingshu-solver",
   "title": "Lingshu Solver",
   "description": "Deterministic MCP solver for real equation systems (<=6 vars), Krawczyk-certified.",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "repository": {
     "url": "https://github.com/genesis-plan/lingshu-solver",
     "source": "github"
@@ -19,7 +19,7 @@
     {
       "registryType": "npm",
       "identifier": "lingshu-solver",
-      "version": "1.0.17",
+      "version": "1.0.18",
       "transport": {
         "type": "stdio"
       }

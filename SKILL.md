@@ -67,7 +67,7 @@ Rules that matter, because getting them wrong looks like "the solver is broken":
 - **At most 6 variables**, and the number of equations must be at least the number of variables; hard cap 64 equations, 100 KB of text per call.
 - **Give `domain` for `exp`/trig/high-frequency problems.** The default is +1e6 per variable, which often fails to prune and yields `truncated: true`.
 - **A missing `=` means `= 0`**; variables must be single letters (`total` is read as `t*o*l`, not a name).
-- Fees: the hosted endpoint charges ¥0.01 per solved call, or pass `honorPaid: true` for personal or evaluation use — no verification, no deduction. You are never blocked from using it.
+- **Cost: nothing.** Local stdio is free; the hosted endpoint is also free and open — no key, no balance, no deduction, no cap. `honorPaid` still exists for callers that come through a product with its own billing, so the tool is never the thing that blocks a request.
 
 ## Reading the result honestly
 

@@ -47,7 +47,7 @@ const solverCore = require('./solver-core');
 const { solve } = solverCore;
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.17';
+const SERVER_VERSION = '1.0.18';
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源，与 stdio 版一致）----
@@ -634,28 +634,39 @@ function pricingDoc(req) {
     requireTls: REQUIRE_TLS ? 'on' : 'off',
     account: {
       required: false,
-      model: '凭证即账号（API key 就是身份，也是余额载体）。不设注册、不设密码、不设用户名。',
+      model: METERING_ON
+        ? '凭证即账号（API key 就是身份，也是余额载体）。不设注册、不设密码、不设用户名。'
+        : '免费开放，不需要账号：不设注册、不设密码、不设用户名、不需要凭证即可调用。',
       personalDataCollected: false,
       note: '本服务不收集、不存储任何个人信息（姓名/电话/邮箱/微信号等）。服务端只留凭证的 SHA-256、订单与余额元数据，以及调用来源 IP（仅用于防刷与计费对账，不用于用户画像、不向第三方提供）。你在建单时提交的任何联系方式与备注一律丢弃、不落盘。凭证明文仅在建单响应中出现一次，请自行保存；遗失可用订单号联系作者轮换（/admin/rotate）。',
       recovery: '凭证遗失：凭订单号联系作者轮换，新凭证继承余额，旧凭证立即失效。若订单号与凭证明文同时丢失，则无法找回余额——请至少保存订单号。'
     },
-    price: {
+    price: METERING_ON ? {
       centsPerCall: PRICE_CENTS,
       display: yuan(PRICE_CENTS) + ' / 次',
       currency: 'CNY',
       unit: 'per successful solve call',
       billingRule: '仅当 solve 成功产出求解结果时扣费；输入不合法、方程无法解析（响应里 diagnostics.inputError 非空）、内部错误、余额不足，一律不扣费。'
+    } : {
+      free: true,
+      note: '托管端点当前免费开放：不限次数、不需要凭证、不产生任何扣费。'
     },
-    model: '按次付费：每次 solve 固定收费 ' + PRICE_CENTS + ' 分钱（' + yuan(PRICE_CENTS) + '），不预充、无其他金额、无其他档位。',
+    model: METERING_ON
+      ? ('按次付费：每次 solve 固定收费 ' + PRICE_CENTS + ' 分钱（' + yuan(PRICE_CENTS) + '），不预充、无其他金额、无其他档位。')
+      : '免费：托管端点不限次数、无需凭证、无任何扣费。愿意支持的可以用对公静态收款自愿给一笔，不是强制，也不是账单。',
+    freeModeNote: '本产品定位为免费开放的能力层（open-core）：网页版、npx 本地安装、托管远程端点一律免费，可被其它产品集成调用。',
     freeTools: ['initialize', 'tools/list', 'give_feedback', 'GET /credit', 'GET /pricing'],
     auth: 'Authorization: Bearer <key>（亦支持 x-api-key 请求头）',
-    howToBuy: [
+    howToBuy: METERING_ON ? [
       'POST ' + base + '/pay/order   （每次一笔 1 分钱订单；body 不支持 calls/plan 预购，下单恒为 1 次）',
       '响应给出 orderId 与 apiKey（apiKey 只出现一次，请立即保存）',
       '向对公聚合码/账户付款（备注建议含订单号）',
       '★ 付款完成后自助入账：调 MCP pay 工具，入参 {"orderId":"<订单号>","selfReportPaid":true} → 立即入账、立即放行（零人工、不用等对账）',
       'GET  ' + base + '/pay/order?orderId=<id>  查询订单状态',
       'GET  ' + base + '/credit  携带 key 查询余额（免费）'
+    ] : [
+      '现在不需要任何付款步骤——直接调 POST ' + base + '/mcp 即可，无凭证也能解。',
+      '若愿意支持：POST ' + base + '/pay/order 建单后向对公静态收款自愿给任意金额，仍走「付款方自助入账」，属自愿支持、不是账单。'
     ],
     legal: {
       positioning: '本服务定性为「软件授权 / 技术服务」的计算工具，非经营性互联网信息服务。',
