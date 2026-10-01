@@ -36,8 +36,9 @@ jobs:
           Rsp=$(curl -sS -X POST https://registry.modelcontextprotocol.io/v0/auth/github-oidc \
                 -H 'Content-Type: application/json' \
                 -d "{\"oidc_token\":\"$OIDC\"}")
-          echo "$Rsp"
-          JWT=$(printf '%s' "$Rsp" | jq -r '.token')
+          echo "exchange=${Rsp}"
+          # 注意：registry 返回的是 registry_token 字段，不是 token
+          JWT=$(printf '%s' "$Rsp" | jq -r '.registry_token // .token // empty')
           if [ -z "$JWT" ] || [ "$JWT" = "null" ]; then
             echo "::error::registry JWT exchange failed"; exit 1
           fi
