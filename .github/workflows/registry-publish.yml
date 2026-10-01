@@ -1,0 +1,64 @@
+name: Publish to MCP Registry
+
+# 把 server.json 发布到 MCP 官方注册表（registry.modelcontextprotocol.io）。
+# 走 GitHub Actions OIDC 换 registry JWT —— 不需要任何人工授权/浏览器点确认。
+# 触发：server.json 或 package.json 变动推到 master，或手工 dispatch。
+
+on:
+  push:
+    branches: [ master ]
+    paths: [ server.json, package.json ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Exchange GitHub OIDC token for MCP Registry JWT
+        id: auth
+        run: |
+          set -euo pipefail
+          echo "REQUEST_URL=${ACTIONS_ID_TOKEN_REQUEST_URL}"
+          OIDC=$(curl -sS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+                 "${ACTIONS_ID_TOKEN_REQUEST_URL}" | jq -r '.value')
+          if [ -z "$OIDC" ] || [ "$OIDC" = "null" ]; then
+            echo "::error::failed to obtain GitHub OIDC token"; exit 1
+          fi
+          Rsp=$(curl -sS -X POST https://registry.modelcontextprotocol.io/v0/auth/github-oidc \
+                -H 'Content-Type: application/json' \
+                -d "{\"oidc_token\":\"$OIDC\"}")
+          echo "$Rsp"
+          JWT=$(printf '%s' "$Rsp" | jq -r '.token')
+          if [ -z "$JWT" ] || [ "$JWT" = "null" ]; then
+            echo "::error::registry JWT exchange failed"; exit 1
+          fi
+          echo "::add-mask::$JWT"
+          echo "jwt=$JWT" >> "$GITHUB_ENV"
+
+      - name: Validate server.json against registry schema
+        run: |
+          set -euo pipefail
+          echo "--- validate ---"
+          curl -sS -X POST https://registry.modelcontextprotocol.io/v0/validate \
+            -H 'Content-Type: application/json' --data @server.json
+
+      - name: Publish server to MCP Registry
+        run: |
+          set -euo pipefail
+          echo "--- publish ---"
+          Http=$(curl -sS -o resp.txt -w '%{http_code}' \
+                -X POST https://registry.modelcontextprotocol.io/v0/publish \
+                -H 'Content-Type: application/json' \
+                -H "Authorization: Bearer ${jwt}" \
+                --data @server.json)
+          echo "publish HTTP $Http"
+          cat resp.txt
+          if [ "$Http" != "200" ] && [ "$Http" != "201" ] && [ "$Http" != "204" ]; then
+            echo "::error::publish failed with HTTP $Http"; exit 1
+          fi

@@ -1,19 +1,28 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.genesis-plan/lingshu-solver",
-  "description": "确定性可认证实根计算 MCP 工具：给 AI Agent 的不会算错数的数学工具（非大模型、零幻觉）。",
-  "version": "1.0.15",
+  "title": "Lingshu Solver",
+  "description": "Deterministic MCP solver for real equation systems (<=6 vars), Krawczyk-certified.",
+  "version": "1.0.16",
   "repository": {
     "url": "https://github.com/genesis-plan/lingshu-solver",
     "source": "github"
   },
-  "homepage": "https://hongchenlingjing.com/",
-  "license": "SEE LICENSE IN LICENSE",
+  "websiteUrl": "https://hongchenlingjing.com/",
   "remotes": [
     {
       "type": "streamable-http",
-      "transport": "streamable-http",
       "url": "https://hongchenlingjing.com/mcp"
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "lingshu-solver",
+      "version": "1.0.16",
+      "transport": {
+        "type": "stdio"
+      }
     }
   ]
 }
