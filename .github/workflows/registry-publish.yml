@@ -25,8 +25,11 @@ jobs:
         run: |
           set -euo pipefail
           echo "REQUEST_URL=${ACTIONS_ID_TOKEN_REQUEST_URL}"
+          # 关键：registry 会校验 OIDC audience —— 必须是 https://registry.modelcontextprotocol.io，
+          # 默认的 github  audience 会直接被 401 "invalid audience" 拒掉。
           OIDC=$(curl -sS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-                 "${ACTIONS_ID_TOKEN_REQUEST_URL}" | jq -r '.value')
+                 "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https%3A%2F%2Fregistry.modelcontextprotocol.io" \
+                 | jq -r '.value')
           if [ -z "$OIDC" ] || [ "$OIDC" = "null" ]; then
             echo "::error::failed to obtain GitHub OIDC token"; exit 1
           fi
