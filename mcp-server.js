@@ -19,7 +19,7 @@ const path = require('path');
 const { solve } = require('./solver-core');
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.15';
+const SERVER_VERSION = '1.0.16';
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源）----
 const MAX_TOTAL_CHARS = 100 * 1024;   // 单次请求方程文本总长上限 100KB
@@ -233,69 +233,62 @@ function doVerify(args) {
 const TOOLS = [
   {
     name: 'solve',
-    description: '求解实数方程组的确定性数值引擎（非大模型，无随机、同输入输出可复现）。适用：需可验证、可复现的实数解（代数或 sin/cos/tan/log/exp/sqrt/abs 等常见超越函数），尤其给 AI Agent 当"不会胡说"的数学后端。' +
-      '不适用：纯符号推导/闭式证明、微分方程初值问题、整数/必不等于等强制约束（暂不支持）。' +
-      '输入：equations 为含 "=" 的方程字符串数组，如 ["x^2+y^2=25","x+y=7"]；variables 可选（不填自动识别，最多6个）；domain 可选（如 {"x":[-30,30]}），否则默认每变量 ±1e6。' +
-      '硬限制：变量 ≤6；方程 1–64 条且数量须 ≥ 变量数；单次方程文本 ≤100KB；输出固定 6 位小数（不可切换）。' +
-      '输出（JSON）：resultType=empty(严格证无实数解)/finite(有限已验证解)/infinite(无限解集，仅给距原点最近推荐解)；summary=中文一句话总览；solutions[] 每解含 values[](6位小数数值)、tier(proven=Krawczyk已认证/likely/candidate)、certified、text(人类可读如"x=4.000000, y=3.000000")，残差等内部数值收在 internals 子块(机器可跳过)；certified=是否全proven；recommended=距原点最近解的精简结构。' +
-      'truncated=true：预算内未完成全局分支判定、未证明已穷尽——不等于一定漏解，多数情况全部真解已找到；极端病态下可能遗漏个别解，可缩 domain 或提高 budget 重试。' +
-      '错误返回 error.type（invalid_input=输入不合法/超限，internal_error=内部异常）。遇卡点或认为结果有误，请调用 give_feedback（内容仅落本地日志，不外传）。相同输入永远返回完全相同结果，可安全缓存与重复调用。',
+    description: 'Deterministic solver for systems of real equations. This is not a language model: no randomness, and identical input always returns an identical, reproducible result. Use it when you need a verifiable, reproducible numeric answer for algebraic equations or common transcendentals (sin/cos/tan/log/exp/sqrt/abs); it works well as a non-hallucinating math backend for an AI agent. Not suitable for symbolic algebra, closed-form proofs, initial-value ODEs, or mandatory integer equality. INPUT: equations (array of strings containing an equals sign, e.g. ["x^2+y^2=25","x+y=7"]); supported operators + - * / ^ sqrt log sin cos tan exp abs, with in-text domain constraints such as x in [-30,30]; variables (optional, auto-detected, max 6); domain (optional, e.g. {"x":[-30,30]}), defaulting to +/-1e6 per variable. HARD LIMITS: at most 6 variables; 1 to 64 equations and the equation count must be at least the variable count; up to 100KB of equation text per call; output is fixed at 6 decimal places and is not configurable. OUTPUT (JSON): resultType is empty (no real solutions, proven), finite (finite verified solutions) or infinite (infinite solution set, only the recommended nearest-to-origin solution is given); summary; solutions[] with values[] (6-decimal numbers), tier (proven means Krawczyk-certified, otherwise likely or candidate), certified, text; residual and other internals under internals; recommended holds the compact nearest-to-origin structure. truncated=true means the global branch-and-bound did not finish inside the budget; it does not necessarily mean solutions were missed and in most cases every real solution was found; narrow the domain or raise options.budget and retry if you need a completeness guarantee. Errors return error.type (invalid_input or internal_error). If something looks wrong, call give_feedback rather than guessing. The same input always produces the exact same output, so caching and retries are safe. PAYMENT: this endpoint is free to use. Pass honorPaid:true to declare personal or evaluation use and the call is served with no verification and no balance deduction; payment is voluntary and never enforced.',
     inputSchema: {
       type: 'object',
       properties: {
         equations: {
           type: 'array', items: { type: 'string' },
-          description: '方程字符串数组，如 ["x^2 + y^2 = 25", "x + y = 7"]。支持 + - * / ^ sqrt log sin cos tan exp abs，以及 in-text 域约束 "x ∈ [-30,30]"。'
+          description: 'Array of equation strings, e.g. ["x^2 + y^2 = 25", "x + y = 7"]. Supports + - * / ^ sqrt log sin cos tan exp abs, plus in-text domain constraints such as x in [-30,30].'
         },
         variables: {
           type: 'array', items: { type: 'string' },
-          description: '变量名数组（可选）。不填则由方程文本自动识别，顺序按出现。最多 6 个。'
+          description: 'Variable names (optional). If omitted they are auto-detected from the equation text, in order of appearance. Maximum 6.'
         },
         domain: {
           type: 'object',
-          description: '显式搜索域（可选）。形如 {"x":[-30,30],"y":[-30,30]}。对"有限解·部分"演示或快增长函数（exp/sinh）建议显式给定，否则默认 ±1e6 可能剪枝失效并触发 truncated。'
+          description: 'Explicit search domain (optional), e.g. {"x":[-30,30],"y":[-30,30]}. Recommended for near-infinite solution sets or fast-growing functions such as exp or sinh; without it the default +/-1e6 may fail to prune and set truncated.'
         },
-        fastMode: { type: 'boolean', description: '快速模式（默认 false）' },
-        options: { type: 'object', description: '高级选项（可选），如 {budget:500000, maxDepth:28}' }
+        fastMode: { type: 'boolean', description: 'Fast mode (default false).' },
+        options: { type: 'object', description: 'Advanced options (optional), e.g. {budget:500000, maxDepth:28}' }
       },
       required: ['equations']
     }
   },
   {
     name: 'give_feedback',
-    description: 'AI 智能体在调用 solve 遇到卡点、错误、或认为结果有问题时，主动回报。' +
-      '回报内容仅落本地 feedback.log，不会外传。帮助作者持续改进。',
+    description: 'Report a problem to the operator when solve hits a dead end, returns an error, or produces something you believe is wrong. The text is written to a local log only and is never transmitted anywhere else.',
     inputSchema: {
       type: 'object',
       properties: {
-        message: { type: 'string', description: '反馈内容：遇到了什么、期望什么、实际得到什么。' },
-        context: { type: 'string', description: '可选上下文：触发场景、输入特征等。' }
+        message: { type: 'string', description: 'What you hit, what you expected, and what you actually got.' },
+        context: { type: 'string', description: 'Optional context: the triggering scenario or input characteristics.' }
       },
       required: ['message']
     }
   },
   {
     name: 'poly_roots',
-    description: '多项式全部实根，逐个 Krawczyk 认证（带严格误差盒）。输入系数「最高次在前」，如 [1,-2,-5,6] 表示 x³−2x²−5x+6。确定性、可复现、可证明正确；复数根不返回（本品只做实数）。给 AI Agent 当「可靠的多项式求根件」——不会再像通用 LLM 那样把根算错或半对。',
+    description: 'All real roots of a polynomial, each individually certified by Krawczyk with a strict error box. Coefficients are ordered highest degree first, so [1,-2,-5,6] means x^3-2x^2-5x+6. Deterministic and reproducible; complex roots are not returned (real numbers only). Use it as a reliable polynomial root component instead of letting a general language model estimate roots. Free to use: pass honorPaid:true to declare personal or evaluation use.',
     inputSchema: {
       type: 'object',
       properties: {
-        coefficients: { type: 'array', items: { type: 'number' }, description: '多项式系数，最高次在前。如 [1,-2,-5,6] 对应 x³−2x²−5x+6。' },
-        tolerance: { type: 'number', description: '根的判定容差（可选，默认内部精度）' }
+        coefficients: { type: 'array', items: { type: 'number' }, description: 'Polynomial coefficients, highest degree first. [1,-2,-5,6] means x^3-2x^2-5x+6.' },
+        tolerance: { type: 'number', description: 'Tolerance used to decide a root (optional; internal precision is used by default).' }
       },
       required: ['coefficients']
     }
   },
   {
     name: 'verify',
-    description: '核验一个「声称的答案」到底对不对——这是「LLM 猜了 2.1、真根是精确 2」的检查。输入方程 + 候选值/点（数字，或 {变量:值}，或按 variables 顺序的数组），本工具在候选点邻域内调用同一套认证内核：若找到与之匹配的认证根 → 返回 verified + 误差盒；若找不到 → 返回 refuted 并附上最近的认证根（让 Agent 立刻看到正确值）。确定性、非 LLM、结果可复现。',
+    description: 'Check whether a claimed answer is correct. Give the equation plus a candidate value (a number for a single variable, {variable:value} pairs, or an array in variable order); the same certified kernel runs in a neighbourhood around the candidate. If a matching certified root is found the result is verified together with the error box; otherwise it is refuted and the nearest certified root is returned, so the calling agent immediately sees the correct value. Deterministic, not an LLM, reproducible across calls. Free to use: pass honorPaid:true to declare personal or evaluation use.',
     inputSchema: {
       type: 'object',
       properties: {
-        equation: { type: 'string', description: '含 "=" 的方程，如 "x^2 = 4"。' },
-        candidate: { description: '声称的答案：数字（单变量，默认变量 x）、{变量:值}（多变量）、或按 variables 顺序的数组。', oneOf: [{ type: 'number' }, { type: 'object' }, { type: 'array' }] },
-        variables: { type: 'array', items: { type: 'string' }, description: '变量名（多变量或数组候选时必填），如 ["x","y"]。' },
-        tolerance: { type: 'number', description: '邻域半径（可选，默认 1e-3），在该邻域内寻找匹配的认证根。' }
+        equation: { type: 'string', description: 'A single equation containing an equals sign, e.g. "x^2 = 4".' },
+        candidate: { description: 'The claimed answer: a number (single variable, default variable x), {variable:value} for multiple variables, or an array in variables order.', oneOf: [{ type: 'number' }, { type: 'object' }, { type: 'array' }] },
+        variables: { type: 'array', items: { type: 'string' }, description: 'Variable names (required for multiple variables or array candidates), e.g. ["x","y"].' },
+        tolerance: { type: 'number', description: 'Neighbourhood radius (optional, default 1e-3) within which a matching certified root is searched.' }
       },
       required: ['equation', 'candidate']
     }

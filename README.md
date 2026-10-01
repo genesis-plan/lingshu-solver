@@ -1,113 +1,142 @@
-# 灵数求解器 · Lingshu Solver
+# Lingshu Solver
 
-**品类（Category）**：认证实根计算 · Certified Real-Root Computation
+**Category:** Certified Real-Root Computation
 
-[![License](https://img.shields.io/badge/license-非商业免费%20%2F%20商业须书面授权-blue)](LICENSE)
+[![License](https://img.shields.io/badge/license-free%20for%20non--commercial%20%2F%20commercial%20needs%20written%20permission-blue)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP%20%2B%20stdio-blue)](https://modelcontextprotocol.io)
-[![Deterministic](https://img.shields.io/badge/core-deterministic%20%2F%20non--LLM-green)](docs/03-设计思想.md)
+[![Deterministic](https://img.shields.io/badge/core-deterministic%20%2F%20non--LLM-green)](docs/en/01-product-role.md)
 [![npm](https://img.shields.io/npm/v/lingshu-solver)](https://www.npmjs.com/package/lingshu-solver)
 
-> **确定性**实数方程组求解器 —— 同样的题永远得到同样的答案，不含大模型、无随机、无幻觉。
-> 每个找到的解都经 **Krawczyk 区间认证**（`certified: true`），可复现、可回代验证、可进审计链。
+> A **deterministic** solver for systems of real equations. The same problem always produces the same
+> answer — no language model, no randomness, no hallucination. Every solution it reports is
+> **Krawczyk-certified** (`certified: true`), reproducible, checkable by substitution, and usable as an
+> audit trail.
 
-**它给两种对象用**：普通用户（网页打开即用）与 AI Agent（标准 MCP 工具，一行接入）。
+**Two audiences:** people who just want an answer (open the web page, no install), and AI agents (a
+standard MCP tool, one line to connect).
 
-🔬 **实时演示（生产端点实跑）**：<https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/demo.html> —— 浏览器里直接调真实 MCP 端点，看 `poly_roots` 返回带认证的实根、`verify` 判定候选根。这就是「LLM 会算错、灵数能认证」的 30 秒证据。
+🔬 **Live demo against the production endpoint:**
+<https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/demo.html> — call the real MCP
+endpoint right from the browser and watch `poly_roots` return certified real roots and `verify` judge a
+candidate value. Thirty seconds is enough to see why "an LLM will mis-compute this, Lingshu can certify it".
 
-| | 说明 |
+| | |
 |---|---|
-| **是** | 确定性（非大模型）的实数方程组**数值**求解引擎；代数方程与常见超越函数（`sin/cos/tan/log/exp/sqrt/abs`）均可 |
-| **不是** | 符号 CAS（不输出解析推导）、微分方程求解器、整数规划求解器，也不是"保证不漏解"的完备判定器 |
+| **Yes** | a deterministic (non-LLM) **numerical** engine for systems of real equations; algebraic equations and common transcendentals (`sin/cos/tan/log/exp/sqrt/abs`) all work |
+| **No** | a symbolic CAS (no analytic derivation), an ODE solver, an integer-programming solver, and it does **not** claim guaranteed completeness |
 
 ---
 
-## 30 秒上手
+## 30 seconds to start
 
-**① 网页版（零安装，永久免费）**
+**① Web (zero install, permanently free)**
 
-- 主站：<https://hongchenlingjing.com/>
-- 备用镜像：<https://genesis-plan.github.io/lingshu-solver/> ｜ <https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/index.html>
+- Main site: <https://hongchenlingjing.com/>
+- Mirrors: <https://genesis-plan.github.io/lingshu-solver/> ·
+  <https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/index.html>
 
-在输入框写方程（如 `x^2 + y^2 = 25` 与 `x + y = 7`），点求解。计算全部在浏览器内完成，方程不出设备。
+Type equations into the box (for example `x^2 + y^2 = 25` and `x + y = 7`) and press solve. Everything is
+computed inside your browser; the equations never leave your device.
 
-**② AI Agent 接入（MCP，两种形态任选）**
+**② AI agent (MCP — pick either form)**
 
 ```json
-// 本地 stdio —— 永久免费、不限次数、离线，推荐
+// local stdio — permanently free, unlimited, offline. Recommended.
 { "mcpServers": { "lingshu-solver": { "command": "npx", "args": ["-y", "lingshu-solver"] } } }
 ```
 
 ```json
-// 远程托管端点 —— 免安装、常驻、公网直连（固定 ¥0.01/次；传 honorPaid 即免费放行）
+// hosted endpoint — no install, always on, reachable over the public internet
 { "mcpServers": { "lingshu-solver": { "type": "http", "url": "https://hongchenlingjing.com/mcp" } } }
 ```
 
-> **不想付费也照常用**：远程端点走**信任制** —— `solve` 入参加 `"honorPaid": true` 即免费放行（不验证、不扣余额）；
-> 本地 `npx` 版与网页版永久免费。愿意支持请看[付款页](https://hongchenlingjing.com/pay/)（对公账户，付款后自助入账、立即生效，无需任何人审核）。
+> **It also works if you never pay:** the hosted endpoint runs on an honor system — pass
+> `"honorPaid": true` in the `solve` arguments and the call is released for free (no verification, no
+> balance deduction). The `npx` local version and the web version are permanently free. If you do want to
+> support it, see the [payment page](https://hongchenlingjing.com/pay/) — a corporate account, self-service
+> crediting, effective immediately, no human approval anywhere in the loop.
 
-**③ 开发者**
+**③ Developer**
 
 ```bash
 git clone https://github.com/genesis-plan/lingshu-solver.git
 cd lingshu-solver
-node mcp-server.js          # 启动本地 MCP（stdio）服务端
-node test/regression.js     # 常驻考卷回归
+node mcp-server.js          # start the local MCP (stdio) server
+node test/regression.js     # standing regression suite
 ```
 
 ---
 
-## 能力边界（诚实声明）
+## Honest boundaries
 
-| 维度 | 说明 |
+| Dimension | What it means |
 |---|---|
-| 已验证解 | 每个找到的解经 Krawczyk 认证（`tier=proven`），误差 ≤ 认证半径，数学保真 |
-| 穷尽性 | **尽力穷尽多解**；预算内未证明穷尽时显式标 `truncated=true`，**绝不谎称已完备** |
-| `truncated` 语义 | 仅表示「全局分支未在预算内完全判定」，**不等于一定漏解**；多数情况下全部真解已找到 |
-| 变量数 | ≤ 6 |
-| 方程数 | 1–64 条（服务端护栏），且须 ≥ 变量数 |
-| 数值范围 | 默认搜索域 ±1e6；对快增长函数（`exp/sinh`）建议显式给定 `domain` |
-| 输出精度 | 固定 6 位小数（不提供位数切换） |
-| 确定性 | 无随机分支，同输入永远同输出，可安全缓存 |
-| 数据 | 网页端零上行；本地版离线；托管端点不落盘方程内容 |
-| 依赖 | 零第三方依赖（只用 Node 内置模块与浏览器标准 API） |
+| Verified solutions | every reported solution is Krawczyk-certified (`tier=proven`); error is within the certified radius; mathematically faithful |
+| Completeness | **best effort** at finding all solutions; when exhaustiveness could not be proven within budget it says so explicitly with `truncated=true` — it never claims completeness it did not prove |
+| `truncated` semantics | only means "the global branch search did not finish inside the budget"; it does **not** mean solutions were missed. In most cases every real solution was found |
+| Variables | ≤ 6 |
+| Equations | 1–64 (server-side guard), and the count must be ≥ the variable count |
+| Search range | default ±1e6 per variable; supply `domain` explicitly for fast-growing functions (`exp/sinh`) |
+| Output precision | fixed at 6 decimal places (there is no precision switch) |
+| Determinism | no random branching; identical input always yields identical output, so caching is safe |
+| Data | web version sends nothing upward; local version runs offline; the hosted endpoint does not persist equation contents |
+| Dependencies | zero third-party dependencies (Node built-ins and standard browser APIs only) |
 
-**不保证**：对一切输入 100% 穷尽；对高度病态系统在预算内必收敛。
-这是数值数学的诚实下界（'保证找到全部解'在一般情形下不可判定），不是待修缺陷。
-
----
-
-## 文档
-
-| 文档 | 内容 |
-|---|---|
-| [01 · 产品作用](docs/01-产品作用.md) | 它是什么、解决什么问题、给谁用、能力与边界、对外口径 |
-| [02 · 使用指南](docs/02-使用指南.md) | 三种形态上手、MCP 工具契约（入参/出参/错误）、自托管部署、常见问题 |
-| [03 · 设计思想](docs/03-设计思想.md) | 六条设计原则、为什么可信、为什么不用大模型、有意不做的事 |
-| [04 · 技术参考](docs/04-技术参考.md) | 数学框架、算法流水线、49 个算子全表、规格硬约束、测试体系 |
-| [05 · 应用场景](docs/05-应用场景.md) | 七类可落地场景（Agent 后端 / 多 Agent / 链下计算 / 财税风控 / 私有化 / 教育 / 审计）与不适用场景 |
-| [06 · 商业授权与收费](docs/06-商业授权与收费.md) | 许可模型、免费范围、托管端点计费、企业年授权、发票与收款 |
-| [07 · 授权合同](docs/07-授权合同.md) | 商业授权合同模板、关键条款说明、签署流程 |
-| [08 · 版本管理](docs/08-版本管理.md) | 版本号语义、发布流程与一致性清单、兼容性承诺、版本历史 |
-| [09 · 项目历史](docs/09-项目历史.md) | 从起因到当前的阶段沿革与定位 |
-
-> 隐私与安全承诺另见：[privacy.html](privacy.html)（对外页面）。
+**Not guaranteed:** 100% exhaustiveness for every input, or convergence inside budget for highly
+pathological systems. That is the honest floor of numerical mathematics ("guaranteeing all solutions"
+is undecidable in the general case), not a defect to be fixed.
 
 ---
 
-## 许可（摘要）
+## Documentation
 
-**非商业免费 + 商业须书面授权**（自有《灵数求解器商业授权许可协议》，非开源协议）：
+The machine-readable description for AI agents lives at [llms.txt](llms.txt).
 
-- **非商业用途免费**：个人学习/研究/教学/评测；非营利组织与教育机构内部使用；年营收 ≤ 100 万元的团队内部评估（≤ 3 实例）。
-- **商业用途须事先取得书面授权**：任何以营利为目的的产品/服务/业务、SaaS/云/API 转售、集成嵌入、再分发托管，均须取得《商业授权协议》。
-- **版本适用**：`1.0.4` 起适用本协议；`1.0.3` 及更早版本按其发布时的 Apache License 2.0 提供（历史事实，不可撤回，但不延伸至新版本）。
+Three of the design docs are in English; the deep-dive docs (design rationale, technical reference,
+licence and pricing, contract, versioning, history) are still in their original Chinese. Each row below
+tells you which is which.
 
-完整条款见 [LICENSE](LICENSE) ｜ 授权范围与报价见 [06 · 商业授权与收费](docs/06-商业授权与收费.md) ｜ 合同见 [07 · 授权合同](docs/07-授权合同.md)
+| Doc | Language | Contents |
+|---|---|---|
+| [01 · Product role](docs/en/01-product-role.md) | **EN** | what it is, what problem it solves, who it is for, capabilities and limits, official wording |
+| [02 · User guide](docs/en/02-usage-guide.md) | **EN** | the three forms, the MCP tool contract (input/output/errors), self-hosting, FAQ |
+| [05 · Use cases](docs/en/05-use-cases.md) | **EN** | applicable scenarios (agent backend / multi-agent / off-chain computation / tax and finance control / on-prem / education / audit) and the ones that do not apply |
+| [03 · Design ideas](docs/03-%E8%AE%BE%E8%AE%A1%E6%80%9D%E6%83%B3.md) | 中文 | six design principles, why it is trustworthy, why no LLM, what it deliberately refuses to do |
+| [04 · Technical reference](docs/04-%E6%8A%80%E6%9C%AF%E5%8F%82%E8%80%83.md) | 中文 | mathematical framework, algorithm pipeline, operator table, hard spec constraints, test suite |
+| [06 · Commercial licence and pricing](docs/06-%E5%95%86%E4%B8%9A%E6%8E%88%E6%9D%83%E4%B8%8E%E6%94%B6%E8%B4%B9.md) | 中文 | licence model, what is free, hosted-endpoint metering, enterprise annual licence, invoicing |
+| [07 · Licence contract](docs/07-%E6%8E%88%E6%9D%83%E5%90%88%E5%90%8C.md) | 中文 | commercial licence template, clause walkthrough, signing flow |
+| [08 · Versioning](docs/08-%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86.md) | 中文 | version semantics, release flow and the consistency checklist, compatibility promises, history |
+| [09 · Project history](docs/09-%E9%A1%B9%E7%9B%AE%E5%8E%86%E5%8F%B2.md) | 中文 | how it got from the original problem to where it stands now |
+
+If you read only one page, read [01 · Product role](docs/en/01-product-role.md) — it states the limits and
+the approved wording.
+
+> Privacy and security commitments are published separately: [privacy.html](privacy.html).
 
 ---
 
-## 联系
+## Licence (summary)
 
-- 商务 / 授权 / 反馈：553420544@qq.com（亦可用仓库 Issues）
-- 版权方：广州市红尘灵境数字科技有限公司
-- 备案：粤ICP备2026031206号-3 ｜ 粤公网安备44011402001444号
+**Free for non-commercial use; commercial use requires written permission** (a proprietary licence of our
+own, not an open-source licence):
+
+- **Non-commercial, free:** personal study / research / teaching / evaluation; internal use by non-profit
+  organisations and educational institutions; internal evaluation by teams with annual revenue up to RMB 1
+  million (≤ 3 instances).
+- **Commercial use needs prior written permission:** any product, service or business operated for profit,
+  resale of SaaS/cloud/API, integration, embedding, or redistribution as a hosted service.
+- **Version applicability:** this licence applies from `1.0.4`. Versions `1.0.3` and earlier remain under
+  the Apache License 2.0 as published at the time (a historical fact, not revocable, and it does not extend
+  to later versions).
+
+Full terms in [LICENSE](LICENSE) · scope and pricing in
+[06 · Commercial licence and pricing](docs/06-%E5%95%86%E4%B8%9A%E6%8E%88%E6%9D%83%E4%B8%8E%E6%94%B6%E8%B4%B9.md)
+· contract in [07 · Licence contract](docs/07-%E6%8E%88%E6%9D%83%E5%90%88%E5%90%8C.md)
+
+---
+
+## Contact
+
+- Business / licence / feedback: 553420544@qq.com (or open an issue in this repository)
+- Copyright holder: Guangzhou Hongchen Lingjing Digital Technology Co., Ltd. (广州市红尘灵境数字科技有限公司)
+- Filing: 粤ICP备2026031206号-3 · 粤公网安备44011402001444号

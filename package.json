@@ -1,7 +1,7 @@
 {
   "name": "lingshu-solver",
-  "version": "1.0.15",
-  "description": "灵数求解器 · 确定性实数方程组求解 MCP 工具（≤6变量）：区间收缩 + Krawczyk 认证，离线零依赖零数据，诚实标记 truncated。本地 stdio 永久免费；另有常驻托管端点 https://hongchenlingjing.com/mcp（按次 ¥0.01/次，支持 honorPaid 免费放行）。",
+  "version": "1.0.16",
+  "description": "Lingshu Solver — deterministic (non-LLM) MCP tool for solving systems of real equations, up to 6 variables: interval arithmetic + affine arithmetic + constructive Krawczyk certification, zero dependencies, offline, no data upload, unproven-completeness honestly flagged as truncated. Local stdio is permanently free; the hosted endpoint works without paying via honorPaid. Hosted endpoint: https://hongchenlingjing.com/mcp",
   "homepage": "https://genesis-plan.github.io/lingshu-solver/",
   "repository": {
     "type": "git",

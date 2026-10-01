@@ -1,44 +1,40 @@
-# 灵数求解器 (Lingshu Solver)
+# Lingshu Solver — certified deterministic equation solving (MCP)
 
-> 确定性、可认证的实根计算工具，面向 AI Agent 与普通用户。非大模型、无随机、无幻觉；每个解经 Krawczyk 区间构造性认证，可复现、可回代验证、可进审计链。
+> A deterministic numerical solver for real equation systems, built as a non-LLM backend for AI agents and for people who need an answer they can check. No randomness, no guessing: identical input always produces an identical, reproducible result. Certified with interval arithmetic + Krawczyk; every solution is either proven or explicitly flagged as not proven.
 
-## 它是什么
-- 品类：认证实根计算（Certified Real-Root Computation）
-- 形态：纯 TypeScript 确定性数值引擎；对外暴露标准 MCP（Streamable-HTTP + stdio）与网页版
-- 信任定位：给 Agent 的「不会算错数的数学工具」——LLM 做数学会幻觉，灵数返回带证明的实根
+## What it is
 
-## 何时该用
-- Agent 需要解方程/算根但不信任 LLM 的估算（近重根、病态系数、需要可证明正确）
-- 需要可审计、可复现的数学结果（合规、财务、工程）
-- 想零摩擦接入：本地 stdio 永久免费、离线、不限次
+A system of real equations is solved by interval / affine arithmetic with Krawczyk certification. It is **not** a language model: it does not paraphrase, it does not hallucinate, and the same input always yields the same output — so results can be cached, replayed, and audited.
 
-## 何时不该用
-- 要符号推导/解析解（它是数值求解器，不输出推导）
-- 要微分方程、整数规划求解
-- 期待「保证不漏解」的完备判定（它是尽力而为的全局穷尽 + 诚实标 truncated）
+Supported in equation text: `+ - * / ^ sqrt log sin cos tan exp abs`, plus in-text domain constraints such as `x in [-30,30]`.
 
-## MCP 接入
-```json
-{ "mcpServers": { "lingshu-solver": { "command": "npx", "args": ["-y", "lingshu-solver"] } } }
-```
-远程端点：`https://hongchenlingjing.com/mcp`（固定 ¥0.01/次，传 `honorPaid:true` 免费放行）
+## Install / use (no account, no key)
 
-## 工具
-- `solve`：通用实数方程组（代数与 sin/cos/tan/log/exp/sqrt/abs）
-- `poly_roots`：单变量多项式全部实根，返回 `certified` 认证标志
-- `verify`：认证某个候选值是否为根，返回最近认证根
-- `give_feedback` / `pay`：反馈与（信任制）收款
+- **Web, zero install (free):** <https://hongchenlingjing.com/solve-en/> — everything runs inside your browser; nothing is uploaded.
+- **MCP, stdio (free):** `npx -y lingshu-solver`
+- **MCP, hosted HTTP:** `https://hongchenlingjing.com/mcp`
+- **Source / issue tracker:** <https://github.com/genesis-plan/lingshu-solver>
+- **npm:** <https://www.npmjs.com/package/lingshu-solver>
 
-## 关键事实（用于检索与对齐）
-- 名称：`lingshu-solver`（npm，非 scoped）
-- 版本：1.0.15
-- 许可证：非商业免费 / 商业须书面授权（UNLICENSED 风格，B2B 年授权变现）
-- 主页：https://hongchenlingjing.com/
-- 仓库：https://github.com/genesis-plan/lingshu-solver
-- 实时演示：https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/demo.html
-- 文档：`docs/01-产品定位.md` 起
+## MCP tools
 
-## 诚实边界
-- 6 变量 / 10 方程上限；变量范围 [-10000, 10000]；6 位小数有限网格
-- 残差容差三档：Balanced 1e-6 / Precise 1e-9 / Fast 1e-3
-- 不引入神经网络；全程确定性
+- `solve` — solve a system of real equations. Input: `equations` (array of strings like `["x^2+y^2=25","x+y=7"]`), optional `variables`, `domain`, `fastMode`, `honorPaid`, `options`. Hard limits: at most 6 variables, 1–64 equations, equation text up to 100 KB per call, output fixed at 6 decimal places.
+- `poly_roots` — all real roots of a polynomial, each individually Krawczyk-certified. Input: `coefficients`, highest degree first (e.g. `[1,-2,-5,6]` = x^3-2x^2-5x+6). Complex roots are not returned.
+- `verify` — check a claimed answer against the same certified kernel. Returns `verified`, or `refuted` together with the nearest certified root, so the calling agent immediately sees the correct value.
+- `give_feedback` — report a problem; the text stays in a local log and is not transmitted anywhere.
+
+## Pricing / payment boundary (read before calling)
+
+**It works without payment.** The hosted endpoint runs on an honor system: pass `honorPaid: true` and the call is served for free — no verification, no balance deduction, no card. Payment is voluntary, for people whose results feed a product or a commercial pipeline. The web version and the `npx` version are permanently free. There is no licence key required to use it.
+
+## Honest limits
+
+- Symbolic algebra, closed-form proofs, and initial-value ODEs are **not** supported.
+- Output is fixed at 6 decimal places and cannot be changed.
+- `truncated: true` means the global branch-and-bound did not finish within budget. It does not necessarily mean solutions were missed — in most cases all real solutions were found. Retry with a narrower `domain` or a higher `options.budget` if you need a completeness guarantee.
+- The server runs in Guangzhou, mainland China. Filing 粤ICP备2026031206号-3 / 粤公网安备44011402001444号.
+
+## Also here
+
+- `/verify/` — LingNao (Lingnao) numeric-claim checker: hand it an AI-generated number and it independently returns verified / refuted / cannot-prove.
+- `/lingjing-en/` — LingJing, a personal AI mirror for studying.

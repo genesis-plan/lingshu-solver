@@ -399,9 +399,12 @@ async function main() {
     const credit4 = await req('GET', '/credit', { headers: { 'Authorization': 'Bearer ' + apiKey } });
     ok('批量 3 次各计 1 分（99 → 96）', credit4.json.balanceCents === 96, credit4.json.balanceCents);
 
-    // ?key= 查询参数与 x-api-key 头
+    // 凭证只走 Authorization: Bearer / x-api-key，绝不容许 ?key= 走 URL 查询串：
+    // 查询串会被 nginx 访问日志与上游反代原样落盘，key 一旦泄进日志即可盗刷余额。
+    // 路由仍会正常剥离查询串（/credit?key=... 不会掉成 404），只是不再把它当凭证。
     const qk = await req('GET', '/credit?key=' + encodeURIComponent(apiKey));
-    ok('?key= 查询参数可取余额（路由已剥离查询串）', qk.status === 200 && qk.json.balanceCents === 96, { s: qk.status, j: qk.json });
+    ok('?key= 不取凭证（防泄露进访问日志），且路由不掉 404',
+      qk.status === 401 && qk.json.error && qk.json.error.type === 'missing_key', { s: qk.status, j: qk.json });
     const xk = await solveCall(['x^2=9'], null, { 'x-api-key': apiKey });
     ok('x-api-key 头亦可计费调用', xk.payload && xk.payload.solutionCount >= 1, xk.payload && xk.payload.summary);
     const credit5 = await req('GET', '/credit', { headers: { 'Authorization': 'Bearer ' + apiKey } });
