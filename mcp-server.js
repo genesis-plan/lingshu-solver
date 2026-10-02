@@ -19,7 +19,8 @@ const path = require('path');
 const { solve } = require('./solver-core');
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.20';
+const SERVER_VERSION = '1.0.21';
+
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源）----
 const MAX_TOTAL_CHARS = 100 * 1024;   // 单次请求方程文本总长上限 100KB
@@ -85,7 +86,18 @@ function shapeResult(r) {
   // 人类可读总览（A）
   let summary;
   if (typeName === 'empty') {
-    summary = '严格证明：该方程组无实数解。';
+    // 1.0.21：输入类错误（未声明标识符 / 解析失败）绝不能说成「严格证明无解」。
+    if (r.error === 'UNDECLARED_VARIABLE') {
+      summary = r.message ||
+        '方程里出现了未声明的标识符：既不是内置常量（pi/π/e）也不是内置函数，'
+        + '必须在「变量名」里声明后才能求解。当前是「未声明 ⇒ 无法求解」，不是「无解」。';
+    } else if (r.error) {
+      summary = '输入无法解析（' + r.error + '），未给出解；这是「无法求解」，不是「该方程无实数解」。';
+    } else {
+      summary = '严格证明：该方程组无实数解。';
+
+    }
+
   } else if (typeName === 'infinite') {
     summary = `无限解集；给出距原点最近的推荐解（共展示 ${sols.length} 个候选）。`;
   } else {

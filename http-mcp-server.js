@@ -49,7 +49,8 @@ const solverCore = require('./solver-core');
 const { solve } = solverCore;
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.20';
+const SERVER_VERSION = '1.0.21';
+
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源，与 stdio 版一致）----
@@ -763,7 +764,14 @@ function shapeResult(r) {
     //   NO_EQUATION      → input 无法解析，绝不谎称证明；
     //   provenEmpty=true → 经 sound 算子（结构恒正/恒负等）严格证明无解，可称「严格证明」；
     //   其余空集          → 区间穷尽未找到，但未抬 provenEmpty 标志，只能称「未找到」，不得佯称证明。
-    if (r.error === 'NO_EQUATION' || (r.error && /NO_EQUATION|PARSE|UNRECOGNIZED|UNKNOWN/i.test(String(r.error)))) {
+    // UNDECLARED_VARIABLE（1.0.21）：输入里有未声明标识符，属「无法求解」，
+    // 绝不能落到下面「未找到实数解」那条去说 —— 那等于把输入错报成「无解」。
+    if (r.error === 'UNDECLARED_VARIABLE') {
+      summary = r.message ||
+        '方程里出现了未声明的标识符：它们既不是内置常量（pi/π/e）也不是内置函数，'
+        + '必须在「变量名」里声明后才能求解。当前是「未声明 ⇒ 无法求解」，不是「无解」。';
+    } else if (r.error === 'NO_EQUATION' || (r.error && /NO_EQUATION|PARSE|UNRECOGNIZED|UNKNOWN/i.test(String(r.error)))) {
+
       summary = '部分方程无法解析（疑似缺少 "=" 或含不支持的语法），未给出解。求 expr=0 的根可写 "expr=0"，或直接裸写 "expr"。';
     } else if (r.provenEmpty === true) {
       summary = '严格证明：该方程组无实数解。';
@@ -783,6 +791,9 @@ function shapeResult(r) {
     // 解析失败原因（如 NO_EQUATION）。新增：让调用方能区分「输入不可解析」与「已证明无解」，
     // 并让托管端点的计费层把「解析失败」判为非计费情形（不收「我解析不了」的钱）。
     inputError: r.error || null,
+    // 1.0.21：把 solver 的完整说明透出（含未声明的标识符是哪一个），只给一个错误码不够用。
+    inputErrorMessage: r.message || null,
+
     terminatedBy: meta.terminatedBy || null,
     provenCount: (typeof r.provenCount === 'number') ? r.provenCount : null,
     completeness: detF(r.completeness)
