@@ -19,7 +19,7 @@ const path = require('path');
 const { solve } = require('./solver-core');
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.21';
+const SERVER_VERSION = '1.0.22';
 
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源）----

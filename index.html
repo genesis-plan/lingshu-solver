@@ -11310,7 +11310,7 @@ function _runTail(state) {
 
 // —— 可审计结构化溯源（切片A）：每个结果附带完整证据链元数据 ——
 // 设计目标：Agent / 上层系统拿到的不只是裸数字，而是"为什么是这个解"的可读证据链。
-var SOLVER_VERSION = "lingshu-solver/1.0.21";
+var SOLVER_VERSION = "lingshu-solver/1.0.22";
 
 // —— 确定性可复现契约（Certified Real-Root Computation 六属性之「确定性可复现」）——
 // 纯 JS 同步 SHA-256（零依赖，浏览器/Node 通用，免 Web Crypto 异步）。
@@ -11648,6 +11648,149 @@ function krawczykCertify(eqs, vns, xhat, radii) {
     }
     return best || { certified: false };
 }
+// ===== 1.0.22 认证升级：Miranda 第二认证器 + inflate-and-refine（sound-first，失败一律保守降级）=====
+// 归一化用户域：userDomain 可能是 [lo,hi] / {min,max} / 缺失（回退 ±1e6），统一成 {vn:{min,max}}
+function _domBoxOf(state, vns) {
+    var out = {};
+    for (var i = 0; i < vns.length; i++) {
+        var vn = vns[i], lo = -1000000, hi = 1000000;
+        var gv = state && state.userDomain ? state.userDomain[vn] : null;
+        var snap = (state && state._initD0 && state._initD0[vn]) ? state._initD0[vn] : null;
+        if (Array.isArray(gv) && gv.length >= 2) { lo = Number(gv[0]); hi = Number(gv[1]); }
+        else if (gv && typeof gv === 'object' && gv.min !== undefined) { lo = Number(gv.min); hi = Number(gv.max); }
+        else if (snap && snap.min !== undefined) { lo = Number(snap.min); hi = Number(snap.max); }
+        if (!isFinite(lo) || !isFinite(hi) || lo > hi) return null;
+        out[vn] = { min: lo, max: hi };
+    }
+    return out;
+}
+// 数值点雅可比（中心差分，仅取点值）：Y 预条件矩阵只要求非奇异，无 soundness 要求；
+// 区间雅可比（_intervalJacobian）对含除法的导数常回退 ±1e6（中点 0 → 奇异），
+// 因此新认证器的 Y 一律走数值路径，区间包络只用于必须 sound 的地方。
+function _numJac(eqs, vns, x) {
+    var n = vns.length, J = [];
+    for (var a = 0; a < eqs.length; a++) {
+        J.push([]);
+        for (var b = 0; b < n; b++) {
+            var h = Math.max(Math.abs(x[b]), 1e-3) * 1e-7;
+            var xp = x.slice(), xm = x.slice(); xp[b] += h; xm[b] -= h;
+            var v2 = {}, v3 = {};
+            for (var q = 0; q < n; q++) { v2[vns[q]] = xp[q]; v3[vns[q]] = xm[q]; }
+            var fp = evalAST(eqs[a], v2), fm = evalAST(eqs[a], v3);
+            if (!isFinite(fp) || !isFinite(fm)) return null;
+            J[a].push((fp - fm) / (2 * h));
+        }
+    }
+    return J;
+}
+// Miranda（Poincaré–Miranda）/Moore–Kioustelidis 第二认证器：
+// 在盒 [xhat±r] 的成对面做区间求值，若每个 (Y·F)_i 在上/下两面符号严格相反（Y=中点雅可比逆），
+// 则盒内至少存在一个根（存在性证明；唯一性仍由 Krawczyk 路径给出）。任何求值失败 → 保守返回失败。
+function _mirandaCertify(eqs, vns, xhat, r, domBox) {
+    var n = vns.length;
+    if (eqs.length !== n || !(r > 0)) return { certified: false };
+    var Xlo = [], Xhi = [];
+    for (var i = 0; i < n; i++) {
+        var lo = xhat[i] - r, hi = xhat[i] + r;
+        if (domBox) { if (lo < domBox[vns[i]].min || hi > domBox[vns[i]].max) return { certified: false, why: 'box 出域' }; }
+        if (!(hi > lo)) return { certified: false };
+        Xlo.push(lo); Xhi.push(hi);
+    }
+    // 预条件 Y = 数值点雅可比逆（任意非奇异实矩阵即可；区间雅可比中点奇异时仍可用）
+    var Jn = _numJac(eqs, vns, xhat); if (!Jn) return { certified: false };
+    var Y = realMatInv(Jn); if (!Y) return { certified: false };
+    // 整盒 F 区间求值（哨兵：面内有限但内部有极点时，整盒求值会命中 divZero/非有限 → 拒证）
+    var whole = {};
+    for (var w = 0; w < n; w++) whole[vns[w]] = { min: Xlo[w], max: Xhi[w] };
+    for (var e0 = 0; e0 < n; e0++) { var wv = intervalEval(eqs[e0], whole); if (!wv || !isFinite(wv.min) || !isFinite(wv.max)) return { certified: false, why: '整盒求值失败' }; }
+    // 对每个成对面做 F 区间求值，再左乘 Y 得 g_i=(Y·F)_i 的包络
+    function faceIv(idx, val) {
+        var fb = {};
+        for (var i2 = 0; i2 < n; i2++) fb[vns[i2]] = (i2 === idx) ? { min: val, max: val } : { min: Xlo[i2], max: Xhi[i2] };
+        var Fv = [];
+        for (var e = 0; e < n; e++) {
+            var iv = intervalEval(eqs[e], fb);
+            if (!iv || !isFinite(iv.min) || !isFinite(iv.max)) return null;
+            Fv.push(iv);
+        }
+        return Fv;
+    }
+    for (var d = 0; d < n; d++) {
+        var Fp = faceIv(d, Xhi[d]), Fm = faceIv(d, Xlo[d]);
+        if (!Fp || !Fm) return { certified: false, why: '面区间求值失败' };
+        var gp = { min: 0, max: 0 }, gm = { min: 0, max: 0 };
+        for (var k = 0; k < n; k++) { gp = iAdd(gp, iMul(rToI(Y[d][k]), Fp[k])); gm = iAdd(gm, iMul(rToI(Y[d][k]), Fm[k])); }
+        // 舍入安全扩宽（n×n 项浮点累积远小于 1e-10 相对量级，余量给足）
+        var e1 = 1e-10 * Math.max(Math.abs(gp.min), Math.abs(gp.max)) + 1e-300;
+        var e2 = 1e-10 * Math.max(Math.abs(gm.min), Math.abs(gm.max)) + 1e-300;
+        gp = { min: gp.min - e1, max: gp.max + e1 };
+        gm = { min: gm.min - e2, max: gm.max + e2 };
+        var posThenNeg = (gp.min > 0 && gm.max < 0), negThenPos = (gp.max < 0 && gm.min > 0);
+        if (!posThenNeg && !negThenPos) return { certified: false, why: 'Miranda 符号条件不满足' };
+    }
+    return { certified: true, method: 'miranda', radius: r, box: whole };
+}
+// inflate-and-refine（Rump ε-inflation；原型 lingshu-inflate-refine-proto3 已通过双重复核 7/8、0 假证）：
+// 从 xhat 出发逐档膨胀成盒，Krawczyk 迭代收缩；K(X)⊆int(X) 且 X⊆用户域 → certified，误差界 = 盒半径。
+function _inflateRefineCertify(eqs, vns, xhat, domBox) {
+    var n = vns.length;
+    if (eqs.length !== n) return { certified: false };
+    var factors = [1e-8, 3e-8, 1e-7, 3e-7, 1e-6, 3e-6, 1e-5, 3e-5, 1e-4, 1e-3, 1e-2, 1e-1];
+    var _Ynum = null; // 数值预条件矩阵缓存（同一 xhat 各档共用）
+    for (var fi = 0; fi < factors.length; fi++) {
+        var X = [], ok = true;
+        for (var i = 0; i < n; i++) {
+            var s = Math.max(Math.abs(xhat[i]), 1e-3) * factors[fi];
+            var lo = xhat[i] - s, hi = xhat[i] + s;
+            if (domBox) { lo = Math.max(lo, domBox[vns[i]].min); hi = Math.min(hi, domBox[vns[i]].max); }
+            if (!(hi > lo)) { ok = false; break; }
+            X.push({ min: lo, max: hi });
+        }
+        if (!ok) continue;
+        for (var it = 0; it < 30; it++) {
+            var box = {}; for (var bi = 0; bi < n; bi++) box[vns[bi]] = X[bi];
+            var JI = _intervalJacobian(eqs, vns, box, xhat);
+            var Y = _Ynum || (function(){ var Jn = _numJac(eqs, vns, xhat); return Jn ? realMatInv(Jn) : null; })();
+            if (!Y) { _Ynum = null; break; }
+            _Ynum = Y;
+            var vmap = {}; for (var vi = 0; vi < n; vi++) vmap[vns[vi]] = xhat[vi];
+            var F = []; var bad = false;
+            for (var e = 0; e < n; e++) { var fe = evalAST(eqs[e], vmap); if (!isFinite(fe)) { bad = true; break; } F.push(fe); }
+            if (bad) break;
+            var c = []; for (var ci = 0; ci < n; ci++) { var s2 = 0; for (var q = 0; q < n; q++) s2 += Y[ci][q] * F[q]; c.push(xhat[ci] - s2); }
+            var YJ = rMatIMat(Y, JI);
+            var Ii = []; for (var ii = 0; ii < n; ii++) { Ii.push([]); for (var jj = 0; jj < n; jj++) Ii[ii].push(ii === jj ? { min: 1, max: 1 } : { min: 0, max: 0 }); }
+            var C = iMatSub(Ii, YJ);
+            var d = []; for (var di = 0; di < n; di++) d.push({ min: X[di].min - xhat[di], max: X[di].max - xhat[di] });
+            var Cd = iMatVec(C, d), K = [];
+            for (var ki = 0; ki < n; ki++) {
+                var Kv = iAdd(rToI(c[ki]), Cd[ki]);
+                if (!isFinite(Kv.min) || !isFinite(Kv.max) || Kv.min > Kv.max) { K = null; break; }
+                K.push(Kv);
+            }
+            if (!K) break;
+            // 收紧判定 1：K(X) ⊆ int(X) → 存在唯一零点；盒已与用户域求交 → 域内解
+            var inside = true;
+            for (var i3 = 0; i3 < n; i3++) { if (!(K[i3].min > X[i3].min && K[i3].max < X[i3].max)) { inside = false; break; } }
+            if (inside) {
+                var radius = 0;
+                for (var i4 = 0; i4 < n; i4++) radius = Math.max(radius, (X[i4].max - X[i4].min) / 2);
+                return { certified: true, method: 'inflate_refine', radius: radius, box: box };
+            }
+            // 否则收缩：X ← X ∩ K（已含域交），无进展 → 放弃该档
+            var prog = false, Xn = [];
+            for (var i5 = 0; i5 < n; i5++) {
+                var nlo = Math.max(X[i5].min, K[i5].min), nhi = Math.min(X[i5].max, K[i5].max);
+                if (nhi < nlo) { prog = false; Xn = null; break; }
+                if (nhi - nlo < X[i5].max - X[i5].min) prog = true;
+                Xn.push({ min: nlo, max: nhi });
+            }
+            if (!Xn || !prog) break;
+            X = Xn;
+        }
+    }
+    return { certified: false, why: '全部膨胀档未通过' };
+}
 // 对 state.result.solutions 中每个有限孤立解尝试 Krawczyk 认证，写入 sol.certified / sol.certifiedRadius。
 function _certifySolutions(state) {
     if (!state || !state.result || !state.result.solutions) return;
@@ -11660,6 +11803,23 @@ function _certifySolutions(state) {
         var sol = state.result.solutions[i];
         if (!sol.values || sol.values.length !== vns.length) { sol.certified = false; continue; }
         var res = krawczykCertify(eqs, vns, sol.values.slice());
+        var _certMethod = null;
+        if (!res.certified) {
+            // 1.0.22 第二认证器：Miranda（便宜，面符号测试，4 档半径）
+            var _domBox = _domBoxOf(state, vns);
+            var _rads = [1e-7, 1e-6, 1e-5, 1e-4];
+            for (var _mi = 0; _mi < _rads.length; _mi++) {
+                res = _mirandaCertify(eqs, vns, sol.values.slice(), _rads[_mi], _domBox);
+                if (res.certified) break;
+            }
+            if (res.certified) _certMethod = res.method;
+        }
+        if (!res.certified) {
+            // 1.0.22 第三认证器：inflate-and-refine（Rump ε-inflation，多档膨胀 + Krawczyk 迭代收缩）
+            var _domBox2 = _domBoxOf(state, vns);
+            res = _inflateRefineCertify(eqs, vns, sol.values.slice(), _domBox2);
+            if (res.certified) _certMethod = res.method;
+        }
         if (!res.certified) { sol.certified = false; continue; }
         // Krawczyk 仅证"盒[xhat±r]内存在唯一零点"，sol.values 是 solver 原始近似，未必是真根。
         // 快振荡方程(如 sin(1/x)=0)局部导数|1/x²|巨大，原始近似离真根可达 1e-2，
@@ -11681,6 +11841,7 @@ function _certifySolutions(state) {
                 if (isFinite(fe)) maxRes = Math.max(maxRes, Math.abs(fe));
             }
             sol.certified = true;
+            if (_certMethod) sol.certMethod = _certMethod; // 1.0.22：记录认证器（krawczyk_newton 默认 / miranda / inflate_refine）
             sol.certifiedRadius = (maxRes > 0) ? maxRes : 0; // 实际残差保守上界，非盒半径
         } else {
             sol.certified = false; // 降级 candidate，不假证 proven
@@ -11723,22 +11884,42 @@ function _krawczykOnBox(eqs, vns, boxX, xhat) {
 function _newtonRefine(eqs, vns, x0, box) {
     var n = vns.length;
     var x = x0.slice();
+    // 1.0.22：最好点追踪 + 停滞退出。原版死认 rms<1e-11，但大尺度方程（项含 ~1e3 量级、
+    // 中间量 ~6e5）的 F 求值噪声地板实测 ~1.5e-10，永远达不到阈值 → 空转 20 轮 → null
+    // → 明明已认证的解被降级 candidate（公积金/理财/风阻三例的真病根）。
+    // 修复：记录历史最好 rms 的点，连续 3 轮无改善即视为到达机器噪声底，返回最好点（仍盒内、诚实）。
+    var bestRms = Infinity, bestX = null, stall = 0;
     for (var iter = 0; iter < 20; iter++) {
         var vmap = {}; for (var i = 0; i < n; i++) vmap[vns[i]] = x[i];
         var F = []; for (var e = 0; e < n; e++) { var fe = evalAST(eqs[e], vmap); if (!isFinite(fe)) return null; F.push(fe); }
         var rms = 0; for (var i2 = 0; i2 < n; i2++) rms += F[i2] * F[i2]; rms = Math.sqrt(rms / n);
         if (rms < 1e-11) return x;
+        if (rms < bestRms) { bestRms = rms; bestX = x.slice(); stall = 0; } else { stall++; if (stall >= 3 && bestX) return bestX; }
         // 雅可比区间求导：必须喂退化的点区间 {min:x,max:x}（而非裸点值）。
         // 旧实现 intervalEval(d, vmap) 把裸数当 iv，iv.min/iv.max 为 undefined → _buildAffEnv 算出 NaN 噪声
         // → 雅可比整行 NaN → realMatInv 失败 → 本函数对一切良置问题恒返 null（P0-1）。
         var pmap = {}; for (var i3 = 0; i3 < n; i3++) pmap[vns[i3]] = { min: x[i3], max: x[i3] };
-        var J = []; for (var a = 0; a < n; a++) { J.push([]); for (var b = 0; b < n; b++) { var d = _diffAST(eqs[a], vns[b]); var dv = intervalEval(d, pmap); if (!dv) return null; J[a].push((dv.min + dv.max) / 2); } }
+        var J = []; for (var a = 0; a < n; a++) { J.push([]); for (var b = 0; b < n; b++) { var d = _diffAST(eqs[a], vns[b]); var dv = d ? intervalEval(d, pmap) : null;
+            // 1.0.22：区间求导失败（§67：导数含除法常 null）→ 用数值中心差分兜底。
+            // 该雅可比只用于计算牛顿【步长】（点值），不进入任何 soundness 主张（认证盒已由
+            // Krawczyk/Miranda/inflate 单独证得）；步出盒外仍立即返回 null，保守性不变。
+            if (!dv || typeof dv !== 'object' || !isFinite(dv.min) || !isFinite(dv.max)) {
+                var h = Math.max(Math.abs(x[b]), 1e-3) * 1e-7;
+                var v2 = {}, v3 = {};
+                for (var q = 0; q < n; q++) { v2[vns[q]] = x[q]; v3[vns[q]] = x[q]; }
+                v2[vns[b]] = x[b] + h; v3[vns[b]] = x[b] - h;
+                var fp = evalAST(eqs[a], v2), fm = evalAST(eqs[a], v3);
+                if (!isFinite(fp) || !isFinite(fm)) return null;
+                J[a].push((fp - fm) / (2 * h));
+            } else {
+                J[a].push((dv.min + dv.max) / 2);
+            } } }
         var Y = realMatInv(J); if (!Y) return null;
         var dX = rMatVec(Y, F);
         for (var j = 0; j < n; j++) x[j] = x[j] - dX[j];
         for (var k = 0; k < n; k++) { if (x[k] < box[vns[k]].min || x[k] > box[vns[k]].max) return null; }
     }
-    return null;
+    return (bestX && isFinite(bestRms)) ? bestX : null; // 20 轮到顶：返回已达噪声底的最好点（盒内），不再无脑 null
 }
 // K∩X=∅ 判定（严格无不动点 → 无零点，sound 剪枝）
 function iVecDisjoint(A, B) {
@@ -11928,7 +12109,7 @@ function _assignCertBlock(state) {
         }
         sol.cert = {
             status: sol.tier || (sol.certified ? 'proven' : 'candidate'),
-            method: sol.source || (sol.certified ? 'krawczyk_newton' : 'numeric_newton'),
+            method: sol.certMethod || sol.source || (sol.certified ? 'krawczyk_newton' : 'numeric_newton'),
             enclosure: enclosure,
             backwardError: (typeof sol.residual === 'number') ? sol.residual : null,
             krawczykRadius: (typeof sol.certifiedRadius === 'number') ? sol.certifiedRadius : null

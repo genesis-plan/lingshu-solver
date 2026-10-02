@@ -1,6 +1,6 @@
 {
   "name": "lingshu-solver",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "mcpName": "io.github.genesis-plan/lingshu-solver",
   "description": "Lingshu Solver — deterministic (non-LLM) MCP tool for solving systems of real equations, up to 6 variables: interval arithmetic + affine arithmetic + constructive Krawczyk certification, zero dependencies, offline, no data upload, unproven-completeness honestly flagged as truncated. Local stdio is permanently free; the hosted endpoint works without paying via honorPaid. Hosted endpoint: https://hongchenlingjing.com/mcp",
   "homepage": "https://genesis-plan.github.io/lingshu-solver/",
