@@ -58,3 +58,8 @@ credits.json.ledger.jsonl
 calls.log
 feedback.log
 server.out
+!verify-integrate.html
+!pay/
+!pay/index.html
+!pay/en.html
+!pay/qr.png

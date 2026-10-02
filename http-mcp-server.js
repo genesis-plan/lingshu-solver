@@ -14,8 +14,10 @@
  *
  * 零依赖：仅用 Node 内置 http / fs / path / crypto，无需 npm install。
  *
- * ── 按次计费（2026-09-18 新增）────────────────────────────────────────
- * 本文件额外承载「托管端点按次计费」：每次 solve 成功产出结果扣 1 分钱。
+ * ── 托管端点定价（2026-09-18 引入，2026-10-02 起已关闭）────────────────
+ * 现在状态：托管端点当前不收费（metering 关，不需要 key、不按次数收费、不扣费）。
+ * 账本 / 订单 / 对公收款代码保留（已存在、可审计、删除风险大），但 METERING_ON=false ⇒ 计量与扣费永不触发。
+ * 「自愿支持 / 任意金额」是对公静态收款：不折算调用次数，也不需要付款方自助入账。
  *   - 开关：LS_METERING=on 才启用（默认 off —— 自建部署者不被强行收费，
  *           开源工具保持诚实；我们自己的托管端点用 systemd Environment 打开）
  *   - 单价：LS_PRICE_CENTS，默认 1（分）
@@ -30,7 +32,7 @@
  *     代码不代填任何收款账号（避免伪造收款信息）
  *
  * 计费的强制边界（诚实声明）：只有本托管端点能强制。网页版（单文件静态页）与
- * npx 本地版跑在使用者自己的机器上，无法也不应被拦截 —— 二者永久免费。
+ * npx 本地版跑在使用者自己的机器上，无法也不应被拦截 —— 二者当前不收费。
  *
  * 运行：
  *   PORT=3000 node http-mcp-server.js
@@ -47,7 +49,7 @@ const solverCore = require('./solver-core');
 const { solve } = solverCore;
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.18';
+const SERVER_VERSION = '1.0.19';
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // ---- 护栏常量（防畸形/恶意输入耗尽资源，与 stdio 版一致）----
@@ -197,8 +199,8 @@ const ADMIN_LOOPBACK_ONLY = String(process.env.LS_ADMIN_LOOPBACK_ONLY || '1') !=
 // 订单创建限速：默认 10 单/小时/IP（防刷单表；与 /mcp 的 120次/分 独立）
 const ORDER_WINDOW_MS = 60 * 60 * 1000;
 const ORDER_RATE_MAX = parseInt(process.env.LS_ORDER_RATE_MAX || '10', 10);
-// 按次计费：固定 1 分钱/次（¥0.01/call）。对公收款：下单 = 1 次 = 1 分钱的付费凭证，
-// 不预充、无套餐、无其他金额；付款人向对公聚合码付任意正金额，按实收折算 N' = 实收/¥0.01 次入账（多付多得）。
+// 按次计费（2026-10-02 起默认关）：固定 1 分钱/次（¥0.01/call）。对公收款：自愿支持，金额任意。
+// 不预充、无套餐、无其他金额；付款人向对公聚合码付任意正金额（当前按自愿支持处理，不折算调用次数）。
 const ORDER_TTL_DAYS = 365;
 
 let ledger = { version: 1, priceCents: PRICE_CENTS, createdAt: new Date().toISOString(), keys: {}, orders: {} };
@@ -353,11 +355,11 @@ function buildCtx(req, query) {
   };
 }
 
-// 免费替代路径 —— 必须写在计费错误里一起返回。
-// 不作假墙：本地版与网页版真实存在且永久免费，agent 应被告知，而不是被迫付费。
+// 不收费的替代路径 —— 必须写在计费错误里一起返回。
+// 不作假墙：本地版与网页版真实存在且当前不收费，agent 应被告知，而不是被迫付费。
 function freeAlternatives() {
   return [
-    '本地版（离线、免费、无次数限制、零数据外传）：npx -y lingshu-solver',
+    '本地版（离线、免费、不按次数收费、零数据外传）：npx -y lingshu-solver',
     '网页版（免费）：https://genesis-plan.github.io/lingshu-solver/',
     '源码/自建：https://github.com/genesis-plan/lingshu-solver （自建端点默认不计费）'
   ];
@@ -385,7 +387,7 @@ function paymentInfo(orderId, amountCents) {
     };
   }
   // 对公静态收款（对公收款）：不接任何支付平台商户 API，收款入口 = 公司已有的对公账户。
-  // 单价 1 分/次是「折算率 / 定价信号」：实际收款为「自愿支持额」（任何正金额都收），按 ¥0.01/次折算调用次数入账。
+  // 单价 1 分/次是「折算率 / 定价信号」（仅 metering 开启时生效）：实际收款为「自愿支持额」（任何正金额都收），按 ¥0.01/次折算调用次数入账。
   const info = {
     channel: PAY_CHANNEL,
     method: 'corporate-static',
@@ -395,14 +397,13 @@ function paymentInfo(orderId, amountCents) {
     payToName: PINNED_ACCOUNT_NAME,
     payToQr: PAY_TO_QR || null,        // 已由上方护栏保证：非钉死码址一律 fail-closed，走到这里必是可信码
     receiptVerified: true,           // 账号已与钉死值比对一致，客户端可据此信任
-    rateNote: '本服务按次计费 ' + yuan(PRICE_CENTS) + '/次。对公静态收款不强制每笔恰收 1 分（银行也不支持 1 分转账），' +
-      '实际可付任意「自愿支持额」，我们将按 ' + yuan(PRICE_CENTS) + '/次 折算调用次数入账（收到 ' + yuan(500) + ' 即入账 500 次）。',
+    rateNote: '★ 托管端点已当前不收费（metering 关闭）：不需要 key、不按次数收费、不扣费。下面只是「自愿支持」说明 —— 对公收款不设最低额、任意金额都可以，付完不用任何操作（不建单、不自助入账、不等流水），我们事后按对公流水对账；不付款也完全可用。',
     instructions: [
-      '1. POST /pay/order 创建订单，响应给出订单号（形如 LS-YYYYMMDD-xxxxxx）、专属 key（key 只出现这一次，请立即保存）与 payUrl',
-      '2. 打开 payUrl 让付款人扫码（微信 / 支付宝 / 银联均可），或向对公账户转账；付款备注**建议**填写订单号（不填也能付款与入账，只是无法自动对应到订单）',
-      '3. ★ 付款完成后**自助入账、立即生效、零人工**：调 MCP pay 工具，入参 {"orderId":"<订单号>","selfReportPaid":true} → 按订单面值入账（' + yuan(PRICE_CENTS) + '/次），**不需要等任何人确认、不需要发邮件**',
-      '4. 之后每次调用带上 Authorization: Bearer <key> 即可',
-      '5. 不想付款也行：任一 solve 传 honorPaid:true 即免费放行 —— 本服务不做强制收费'
+      '1.（可选，非必需）POST /pay/order 建一个「自愿支持单」，响应给出订单号、可选 key 与 payUrl',
+      '2. 打开 payUrl 扫码（微信 / 支付宝 / 银联均可）或向对公账户转账 —— **金额任意，1 元、100 元都行**，备注可写订单号（不写也可以）',
+      '3. 到此为止：端点本来就不收费，付不付都不影响调用，不再需要「付款后自助入账」这一步',
+      '4. 建单返回的 apiKey 只是想用专用凭证时的可选物：之后带 Authorization: Bearer <key> 调用即可（不用也能调）',
+      '5. 本服务不强制收费、也不验证付款：愿意支持就打一笔，不愿意照常用 —— 没有墙、没有门槛'
     ]
   };
   // 带订单号的直达付款链接：付款页打开即展示收款码（未带订单号也照样出码，带订单号只是为了能自动对应）
@@ -424,7 +425,7 @@ function availableChannels() {
     mode: 'self-report',     // 付款后由调用方自助入账 ⇒ 全程零人工（不再需要任何人对账触发）
     manualReconcile: true,   // 另可选用对公流水交叉核对（核实营收用，非必需流程）
     protocol: PAY_INTENT_PROTOCOL,
-    label: '对公静态收款（公司账户/聚合码付款 → 付款后自助入账，按 ' + yuan(PRICE_CENTS) + '/次，无需等待对账）'
+    label: '对公静态收款（公司账户/聚合码付款，任意金额，不折算调用次数；付款后什么都不用做，无需等待对账）'
   });
   return a;
 }
@@ -443,19 +444,19 @@ function payIntent(orderId, calls, amountCents) {
     payTo: info.payTo || null,
     payToQr: info.payToQr || null,
     ratePerCallCents: PRICE_CENTS,
-    rateNote: '本服务按次计费 ' + yuan(PRICE_CENTS) + '/次；对公静态收款不强制每笔恰收 1 分，建议 ' + yuan(amountCents) + ' ≈ ' + calls + ' 次。',
+    rateNote: '端点免费（0 元/次、无凭证不按次数收费）：本单只是一个「自愿支持」标记，金额任意、不折算调用次数（按次计费与 1 分/次折算已停用）。',
     suggestedCalls: calls,
     suggestedAmountCents: amountCents,
     suggestedAmountDisplay: yuan(amountCents),
     memo: orderId,                // 付款备注建议含订单号，便于需要时与银行流水交叉核对
     agentSteps: [
       '1. 把 payUrl（若存在）展示给付款人 —— 那是带订单号的付款页，打开即显示收款码；无 payUrl 时展示 payTo 账户信息。',
-      '2. 请付款人扫码或转账（本单面值 ' + yuan(amountCents) + '）；备注建议含订单号 ' + orderId + '（不填也能入账，只是无法自动对应）。',
-      '3. 付款完成后：用 orderId 调 MCP pay 工具，入参 {"orderId":"' + orderId + '","selfReportPaid":true} → **立即入账、立即放行**（服务端不验证，信任制）。不需要等任何人、不需要发邮件。',
-      '4. 入账后用 apiKey 调 solve 即不再走信任制：Authorization: Bearer <key>。',
-      '5. 若不便付款或缺凭证：直接用 honorPaid:true 免费调用，效果相同（本服务不做强制验证）。'
+      '2. 请付款人扫码或转账，**任意金额**都收（本单面值只作标记：' + yuan(amountCents) + '）；备注可含订单号 ' + orderId + '（不填也无所谓）。',
+      '3. 付完不用做别的：本端点当前不收费，不存在「先入账再放行」这一步，也不需要任何人工确认。',
+      '4. 想要专用凭证：用建单返回的 apiKey 调 solve，Authorization: Bearer <key>（不用这个也照样能调）。',
+      '5. 若不便付款：直接调用即可 —— 本服务不验证付款，也没有任何门槛。'
     ],
-    crediting: '自助入账（self-report，零人工、无需等对账）：付款后调 pay + selfReportPaid:true 即按订单面值入账。账本标注 amountVerified:false / creditedBy:self_report；需要核实的场景由运营方用对公流水交叉核对（幂等）。',
+    crediting: '已停用。端点开放且当前不收费，付款方不再需要自助入账（self-report）；愿意支持就直接向对公账户打任意金额，运营方按银行流水对账（reconcile），不要求付款方提供任何声明。',
     honestNote: '「静态聚合码 + 自助入账」不是实时 API 扣款：入账凭调用方声明，因此**账面上的自助入账额度不等于已核实营收**。真营收以银行流水为准；本服务经营口径是「信任制 + 概率」——愿意付的付，不愿意的照常用。'
   };
 }
@@ -480,11 +481,11 @@ function paywallError(reason, ctx) {
     if (PAY_PAGE) pay.paymentPage = PAY_PAGE;
     pay.payTo = PAY_TO;
     pay.howToPay = [
-      '1. POST /pay/order 创建订单 → 响应含 orderId、apiKey，以及付款入口（payment / payIntent）',
-      '2. 打开 payUrl 扫码（若配置了收款码）或向对公账户转账，备注建议含订单号（账户信息见该页面 / payIntent.payTo）',
-      '3. ★ 付款完成后自助入账：调 MCP pay 工具，入参 {"orderId":"<订单号>","selfReportPaid":true} → 立即入账、立即放行（零人工，不用等任何人）',
-      '4. 之后带 Authorization: Bearer <key> 调用即可（不再走信任制，也不再需要 honorPaid）',
-      '5. 说明：自助入账不做验证（信任制）；账本会标注 amountVerified:false，真营收仍以银行流水核对为准',
+      '1.（可选）POST /pay/order 建一个「自愿支持单」→ 响应含 orderId、可选 apiKey 与付款入口',
+      '2. 打开 payUrl 扫码（若配置了收款码）或向对公账户转账，**金额任意**，备注可含订单号（账户信息见该页 / payIntent.payTo）',
+      '3. 付款即结束：本端点当前不收费，不存在「付款后还要自助入账 / 等放行」这一步',
+      '4. 想要专用凭证：带 Authorization: Bearer <key> 调用即可（apiKey 是可选的，不用也能调）',
+      '5. 说明：付款不做验证、不折算次数；自愿支持只记金额与时间，真营收以银行流水核对为准',
       '6. 对公来款若无法对应到任何订单：不会被自动折算成额度；需要核对 / 开票 / 退回，请邮件联系（联系方式见 paymentPage）'
     ];
   } else {
@@ -494,21 +495,21 @@ function paywallError(reason, ctx) {
   return Object.assign({
     type: 'payment_required',
     reason: reason,
-    message: '灵数远程端点按次计费：每次 solve 收费 ' + PRICE_CENTS + ' 分钱（' + yuan(PRICE_CENTS) + '/次）。' + (msgMap[reason] || ''),
+    message: '本次未产出求解结果（未产生任何计费：托管端点自 2026-10-02 起当前不收费，按次计费已停用）。' + (msgMap[reason] || ''),
     priceCentsPerCall: PRICE_CENTS,
     currency: 'CNY',
     balanceCents: k ? k.balanceCents : null,
     callsRemaining: k ? Math.floor(k.balanceCents / PRICE_CENTS) : null,
-    // ⭐ 免费路径必须写在撞墙处：本服务靠「信任制 + 概率」运转 —— 不付钱也能用。
+    // ⭐ 不收费的路径必须写在撞墙处：本服务靠「信任制 + 概率」运转 —— 不付钱也能用。
     // 撞到收费墙的 Agent 若不知道这条路，会直接放弃调用 ⇒ 用量与付费概率一起丢。
     freePath: {
-      how: '不想付费？在 solve 入参传 honorPaid:true（声明本次为「个人/评估用途」）即立即免费放行，不验证、不扣余额。',
-      why: '本服务按信任制运转：愿意支持的付费，不愿意的照常使用 —— 付费完全自愿，非强制。1 分/次是定价信号与折算率，不是每笔强收的硬门槛。',
-      alsoFree: '本地版（npx -y lingshu-solver）与网页版永久免费、无次数限制、离线不外传。'
+      how: '不想付费？在 solve 入参传 honorPaid:true（声明本次为「个人/评估用途」）即立即不收费放行，不验证、不扣余额。',
+      why: '本服务按信任制运转，且自 2026-10-02 起托管端点当前不收费（不需要 key、不按次数收费）：付费完全自愿，任意金额都只算自愿支持，不是账单。',
+      alsoFree: '本地版（npx -y lingshu-solver）与网页版当前不收费、不按次数收费、离线不外传。'
     },
     howToGetKey: [
       'GET  /pricing            查看价格与付款方式',
-      'POST /pay/order          创建订单（每次一笔 1 分钱）→ 响应含 orderId 与 apiKey',
+      'POST /pay/order          建一个「自愿支持单」（任意金额，非必需）→ 响应含 orderId 与可选 apiKey',
       'GET  /credit             携带 key 查询余额（免费）'
     ],
     payment: pay,
@@ -636,7 +637,7 @@ function pricingDoc(req) {
       required: false,
       model: METERING_ON
         ? '凭证即账号（API key 就是身份，也是余额载体）。不设注册、不设密码、不设用户名。'
-        : '免费开放，不需要账号：不设注册、不设密码、不设用户名、不需要凭证即可调用。',
+        : '当前不收费，也不需要账号：不设注册、不设密码、不设用户名、不需要 key 即可调用。',
       personalDataCollected: false,
       note: '本服务不收集、不存储任何个人信息（姓名/电话/邮箱/微信号等）。服务端只留凭证的 SHA-256、订单与余额元数据，以及调用来源 IP（仅用于防刷与计费对账，不用于用户画像、不向第三方提供）。你在建单时提交的任何联系方式与备注一律丢弃、不落盘。凭证明文仅在建单响应中出现一次，请自行保存；遗失可用订单号联系作者轮换（/admin/rotate）。',
       recovery: '凭证遗失：凭订单号联系作者轮换，新凭证继承余额，旧凭证立即失效。若订单号与凭证明文同时丢失，则无法找回余额——请至少保存订单号。'
@@ -649,12 +650,12 @@ function pricingDoc(req) {
       billingRule: '仅当 solve 成功产出求解结果时扣费；输入不合法、方程无法解析（响应里 diagnostics.inputError 非空）、内部错误、余额不足，一律不扣费。'
     } : {
       free: true,
-      note: '托管端点当前免费开放：不限次数、不需要凭证、不产生任何扣费。'
+      note: '托管端点当前开放、不按次数收费：不按次数收费、不需要 key、不产生任何扣费。'
     },
     model: METERING_ON
       ? ('按次付费：每次 solve 固定收费 ' + PRICE_CENTS + ' 分钱（' + yuan(PRICE_CENTS) + '），不预充、无其他金额、无其他档位。')
-      : '免费：托管端点不限次数、无需凭证、无任何扣费。愿意支持的可以用对公静态收款自愿给一笔，不是强制，也不是账单。',
-    freeModeNote: '本产品定位为免费开放的能力层（open-core）：网页版、npx 本地安装、托管远程端点一律免费，可被其它产品集成调用。',
+      : '当前不收费：托管端点不按次数收费、不需要 key、无任何扣费。愿意支持的可以用对公静态收款自愿给一笔，不是强制，也不是账单。',
+    freeModeNote: '本产品是一个确定性求解器能力层（open-core 结构）：网页版、npx 本地安装、托管远程端点都走同一套引擎，可被其它产品集成调用。',
     freeTools: ['initialize', 'tools/list', 'give_feedback', 'GET /credit', 'GET /pricing'],
     auth: 'Authorization: Bearer <key>（亦支持 x-api-key 请求头）',
     howToBuy: METERING_ON ? [
@@ -666,7 +667,7 @@ function pricingDoc(req) {
       'GET  ' + base + '/credit  携带 key 查询余额（免费）'
     ] : [
       '现在不需要任何付款步骤——直接调 POST ' + base + '/mcp 即可，无凭证也能解。',
-      '若愿意支持：POST ' + base + '/pay/order 建单后向对公静态收款自愿给任意金额，仍走「付款方自助入账」，属自愿支持、不是账单。'
+      '若愿意支持：POST ' + base + '/pay/order 建单后向对公静态收款自愿给任意金额即可 —— 属自愿支持、不是账单，也不需要自助入账（端点本来就免费）。'
     ],
     legal: {
       positioning: '本服务定性为「软件授权 / 技术服务」的计算工具，非经营性互联网信息服务。',
@@ -679,18 +680,18 @@ function pricingDoc(req) {
     creditModes: {
       prefer: 'self-report',
       modes: [
-        { mode: 'self-report', latency: '立即（零人工）', verified: false, how: '付款后调 pay + selfReportPaid:true 自助入账；服务端不验证声明。', note: '账本标注 amountVerified:false / creditedBy:self_report。' },
+        { mode: 'self-report', latency: '无需（已停用）', verified: false, how: '已停用：端点免费，付款方不再需要自助入账；自愿支持直接打款到对公账户即可。', note: '账本只保留自愿支持的金额与时间，真营收以银行流水核对（reconcile）为准。' },
         { mode: 'reconcile', latency: '取决于流水导出（可选）', verified: true, how: '运营方用对公流水按订单号交叉核对入账（reconcile-bank.js，幂等）。', note: '真营收口径以这条为准；不给付款方增加任何步骤。' }
       ],
-      why: '自助入账之所以敢不验证：同一道门的 solve honorPaid:true 本来就免费 ⇒ 「声明已付」不会多出任何损失，只是让诚实付款的人立刻可用。'
+      why: '端点当前不收费、无墙无额度，所以「已付/未付」本来就不改变任何人的可用性；自愿支持只是让愿意的人有个出口，我们事后按流水核对即可。'
     },
     autoCredit: {
       enabled: false,
       method: 'corporate-static',
-      note: '无支付平台回调（本服务不接任何第三方商户 API）。到账放行走「付款方自助入账」（立即），运营方可选用对公流水交叉核对。',
+      note: '无支付平台回调（本服务不接任何第三方商户 API）。自助入账已停用；自愿支持直接打款到对公账户，运营方事后用对公流水核对（可选、幂等）。',
       guardrails: [
         '收款去向钉死：按「去向」判定 LS_PAY_TO / LS_PAY_TO_QR / LS_PAY_PAGE（账号数字、码链接、链接主机），被换即 fail-closed 拒绝生成付款意图（防收款账号被换）',
-        '对账（可选）：流水按订单号匹配、按 ' + yuan(PRICE_CENTS) + '/次 折算，少付少得、多付多得',
+        '对账（可选）：流水按订单号匹配核对金额即可；按次计费与「折算次数」已停用，多付不会多给调用次数，少付也不会被拦',
         '幂等：同一订单重复入账只记一次（自助入账与流水核对共用同一入账入口）',
         'fail-closed：账号被换 / 未配收款 → 绝不「当作已付款」展示错误账号'
       ]
@@ -698,19 +699,19 @@ function pricingDoc(req) {
     freeAlternatives: freeAlternatives(),
     honorSystem: {
       enabled: true,
-      how: 'solve 入参传 honorPaid:true 即声明「本次为个人/评估用途」并直接放行，无需凭证、不扣余额。',
-      why: '本服务按「信任制 + 概率」运转：愿意支持的付费，不愿意的照常使用。求解是确定性离线计算，边际成本≈0 ⇒ 白嫖不亏；有人真去付那 1 分即净赚。',
-      ask: '若你确实想支持：调 pay 工具建单 → 向对公账户付款 → 再调 pay 传 orderId + selfReportPaid:true 自助入账（立即放行）。付费完全自愿，非强制；托管端点之外，本地版与网页版永久免费。',
+      how: 'solve 入参传 honorPaid:true 即声明「本次为个人/评估用途」并直接放行，不需要 key、不扣余额。',
+      why: '托管端点自 2026-10-02 起当前不收费（不需要 key、不按次数收费）；愿意支持的随意打一笔（任意金额），不愿意照常用 —— 求解是确定性离线计算，边际成本≈0。',
+      ask: '若你确实想支持：直接向对公账户（或用 pay 工具建的支持单）打任意金额即可 —— 付费完全自愿、不是账单，也不必自助入账；网页版与本地版（npx）同样当前不收费。',
       counters: { honorClaims: 'honorClaims', selfReportClaims: 'selfReportClaims', honesty: '两个计数都不代表真收入；真营收只认银行流水核对过的单。' }
     },
     notes: [
-      '托管端点的定价是「按次 ' + PRICE_CENTS + ' 分钱」这个**信号与折算率**：不预充、无套餐、无其他金额、无其他档位。',
-      '但本服务不做强制收费（信任制）：不想付费的话，solve 传 honorPaid:true 即可免费放行，本地版与网页版更是永久免费。',
+      '托管端点自 2026-10-02 起当前不收费：无按次计费、不预充、无套餐、无档位、无最低门槛；自愿支持任意金额，我们事后按对公流水对账。',
+      '但本服务不做强制收费（信任制）：不想付费的话，solve 传 honorPaid:true 即可不收费放行，本地版与网页版更是当前不收费。',
       '无需注册账号：凭证（key）即身份，不设用户名、不设密码。',
       '不收集、不存储任何个人信息：服务端只留凭证 SHA-256 与订单/余额元数据，没有你的联系方式。',
       '凭证仅以 SHA-256 存储于服务端账本，不存明文；明文仅在你建单时返回一次，请自行保存。',
       '接入请用 HTTPS：Bearer 凭证走明文 HTTP 会在公网裸奔，路上任何人抓走即可花掉余额。',
-      '网页版与 npx 本地版永远免费：托管端点买的是「免安装、常驻、公网可直连、带账单台账」。'
+      '网页版与 npx 本地版当前不收费：托管端点买的是「免安装、常驻、公网可直连、带账单台账」。'
     ]
   };
 }
@@ -815,24 +816,24 @@ function honorSupportBlock() {
   const block = {
     mode: 'honor', // 本次经信任制放行，未验证、未扣余额
     note: '本结果经「信任制」放行。若你（或调用你的智能体）将其用于产品或商业/自动化流程，请按下方方式付费支持作者（' +
-      yuan(PRICE_CENTS) + '/次）。个人/评估用途可免费继续使用。',
+      '0 元/次、当前不收费）。个人/评估用途本来就免费，不付也照样调用。',
     reciprocity: '你刚免费拿到了一个经 Krawczyk 区间认证的实数解——若它帮到了你，回 1 分是公平的（互惠规范）。',
     identity: '支持一位独立开发者维护这个「离线、无 LLM、可审计」的数学工具，让你成为「让好工具活下去」的人。',
-    publicGood: '你的 1 分让这个托管端点继续对所有人免费开放——包括未来那些付不起/不愿付的人。',
+    publicGood: '你的 1 分让这个托管端点继续对所有人开放且当前不收费——包括未来那些付不起/不愿付的人。',
     payTo: info.configured ? info.payTo : null,
     payUrl: info.payUrl || null,
     channelConfigured: info.configured,
     payInstruction: info.configured
-      ? '付款时备注你的用途即可；我们不做强制验证，靠信任制运转。也可调用本服务的 pay 工具创建正式订单。'
+      ? '付款时备注你的用途即可（任意金额）；我们不做强制验证，靠信任制运转，也不需要建单或自助入账。'
       : '服务端尚未配置 LS_PAY_TO（收款码链接），请联系作者配置后再付款；在此之前请自由使用，或调用 pay 工具预建订单。',
-    whyItMatters: '托管端点按次计费是我们唯一的可持续来源；你的一次 1 分付款，能帮助这个确定性离线求解器持续免费对外开放。'
+    whyItMatters: '托管端点当前不收费，靠愿意的人自愿支持（任意金额）维持；你的一笔支持能帮助这个确定性离线求解器继续免费对外开放。'
   };
   // 我们的方法（不依赖支付宝 / 微信商户）：对公静态收款 + 付款方自助入账。
   // 没支付宝、没商户号也能收——用的是公司本就有的对公账户；代码、账本全在咱们自己服务器，可审计、合规（对公、绝不用个人码）。
   block.ourMethod = {
     channel: 'corporate-static',
-    how: '调用本服务的 pay 工具创建订单 → 向对公账户/聚合码付款（备注建议含订单号）→ **再调一次 pay 传 orderId + selfReportPaid:true，立即入账、立即放行**。全程无需任何人工参与。',
-    why: '1 分/次是折算率与定价信号，不是每笔强收 1 分；你付多少支持额，就按 1 分/次换多少调用次数。',
+    how: '（可选）用 pay 工具建一个自愿支持单 → 向对公账户/聚合码付款任意金额（备注可含订单号）→ **结束**，没有任何后续步骤、不需要人工。',
+    why: '按次计费与「1 分换 N 次」已于 2026-10-02 停用：端点当前不收费，自愿支持收任意金额，不折算调用次数。',
     honestNote: '自助入账不做验证（信任制）：因为同一道门的 honorPaid 本来就免费，声明已付不会造成额外损失。账本标注 amountVerified:false / creditedBy:self_report，真营收仍以银行流水核对为准。'
   };
   return block;
@@ -1011,13 +1012,13 @@ const TOOLS = [
   },
   {
     name: 'pay',
-    description: 'Create a real payment order for this or future solving. Returns the order id, a dedicated key, and a structured payment intent. The payment channel is a corporate static collection code (UnionPay aggregate QR) settling into a corporate bank account; no payment-platform merchant API is used. AFTER PAYING: call this tool again with orderId and selfReportPaid:true and the order is credited and released immediately, with no manual check and no waiting for reconciliation, because this service runs on an honor system. If the server has no payment method configured the order is still created but payIntent.payTo is null; use honorPaid:true or contact the operator instead.',
+    description: "Optional voluntary-support only. The hosted endpoint is no per-call charge today (metering off) (metering off: no credential required, no call limit, no per-call charge), so no payment is needed at all. This tool records a support contribution of any amount: the channel is a corporate static collection code (UnionPay aggregate QR) settling into a corporate bank account, and no payment-platform merchant API is used. AFTER PAYING: nothing to do — there is no self-crediting step and no waiting for reconciliation; the operator reconciles against the corporate bank statement, and any positive amount counts as support, not a bill. If the server has no payment method configured the order is still created but payIntent.payTo is null; in that case just keep calling the endpoint with no credential at all.",
     inputSchema: {
       type: 'object',
       properties: {
         channel: { type: 'string', description: 'Payment channel: currently fixed to corporate-static (corporate bank collection). Leave empty.' },
         orderId: { type: 'string', description: 'For self-reporting: the order id returned by a previous pay call, shaped like LS-YYYYMMDD-xxxxxx.' },
-        selfReportPaid: { type: 'boolean', description: 'For self-reporting: set true after paying to declare that this order was paid. The server does not verify and credits the order amount and releases it immediately (honor system); the credit is marked amountVerified:false / creditedBy:self_report so it can be reconciled against bank statements afterwards.' },
+        selfReportPaid: { type: 'boolean', description: 'Retired on 2026-10-02 with per-call billing: the endpoint is free, so no credit is created and nothing is released. Kept only for backwards compatibility; it is ignored. Voluntary support is any amount paid straight to the corporate account (payTo / payToQr), reconciled by the operator afterwards.' },
         selfReportNote: { type: 'string', description: 'Optional payment note (payer, channel, time), kept only for reconciliation, up to 200 characters.' }
       },
       required: []
@@ -1026,16 +1027,16 @@ const TOOLS = [
 ];
 
 // 【与 stdio 版唯一的刻意差异】本文件是「托管远程端点」，按次计费，故在 solve 的
-// 描述尾部追加计费说明，让 agent 在调用前就知道价格与免费替代路径。
+// 描述尾部追加计费说明，让 agent 在调用前就知道价格与不收费的替代路径。
 // 注意：这只是「分发形态」元信息，shapeResult / doSolve / 输入校验仍与 stdio 版逐字零分叉。
-const PRICING_NOTE = '【计费·仅托管远程端点】本端点每次 solve 收费 ' + PRICE_CENTS + ' 分钱（' + yuan(PRICE_CENTS) + '/次），' +
+const PRICING_NOTE = (METERING_ON ? '【计费·托管端点已开启计费】每次 solve 成功产出结果收费 ' + PRICE_CENTS + ' 分钱（' + yuan(PRICE_CENTS) + '/次），' : '【当前：托管端点当前不收费，metering 关闭】不收费、不建单、不折算次数；') +
   '需在请求头携带 Authorization: Bearer <key>；尚无凭证时请先 GET /pricing 查看价格与付款方式（无需注册账号，凭证即身份）。' +
   '信任制：solve 入参传 honorPaid:true 即声明「个人/评估用途」并直接放行（不验证、不扣余额）——不付钱也能用，付费属自愿。' +
   '若结果用于产品/商业/自动化流程，欢迎走付费通道（GET /pricing 取得订单，通过对公账户付款支持作者）；不付也照常能用，本服务不做强制验证。' +
-  '托管端点收款走公司「对公静态收款」，不接任何支付平台商户 API：下单 → 对公转账备注订单号 → **付款后自助入账**（再调 pay 传 orderId + selfReportPaid:true 即立即放行，零人工；按 ' + yuan(PRICE_CENTS) + '/次）。' +
+  '收款只走公司「对公静态收款」，不接任何支付平台商户 API：可（可选）用 pay 建一个**「自愿支持单」**→ 对公转账任意金额、备注可含订单号 → **到此结束**，不需要自助入账、不需要等任何人（现在也没有墙需要放行）。' +
   '自助入账不做验证（信任制）：同一道门的 honorPaid 本来就免费 ⇒ 声明已付不会造成额外损失，只是让诚实付款的人不必等对账。' +
-  '本地版（npx -y lingshu-solver）与网页版永久免费、无次数限制、离线不外传 —— 若不便付费请直接用它们。' +
-  '免费调用：initialize / tools/list / give_feedback / GET /credit。';
+  '本地版（npx -y lingshu-solver）与网页版当前不收费、不按次数收费、离线不外传 —— 若不便付费请直接用它们。' +
+  '不收费调用：initialize / tools/list / give_feedback / GET /credit。';
 
 const TOOLS_PUBLIC = METERING_ON
   ? TOOLS.map(t => t.name === 'solve' ? Object.assign({}, t, { description: t.description + PRICING_NOTE }) : t)
@@ -1182,7 +1183,7 @@ function handleRpc(msg, ip, ctx) {
               header: 'Authorization: Bearer ' + o.key,
               note: '付款后凭此 key 调用 solve 即不再走信任制（也不需 honorPaid）。'
             },
-            note: '这是一笔真实付费订单（' + yuan(PRICE_CENTS) + '/次，共 ' + o.calls + ' 次）。若 payment 为 null 或 payable=false（服务端未配收款方式），请改用 honorPaid:true 或联系作者。',
+            note: '这是一笔自愿支持单（金额任意，不折算调用次数：端点本身当前不收费，共 ' + o.calls + ' 只是建议标记次数）。若 payment 为 null 或 payable=false（服务端未配收款方式），不必付款，直接调用即可或用 honorPaid:true。',
             payIntent: payIntent(o.orderId, o.calls, o.amountCents)
           };
         }
@@ -1300,15 +1301,15 @@ function creditOrder(orderId, opt) {
 // ---- 建单逻辑（被 /pay/order 路由与 MCP `pay` 工具共用，零分叉）----
 // 返回 { orderId, key, calls, amountCents, payment, discarded } 或 { error:{status,error} }
 function createOrder(ip, body) {
-  // 对公收款：按次计费 ¥0.01/次，下单 = 1 次 = 1 分钱。
+  // 对公收款：按次计费（默认关），下单 = 1 次 = 1 分钱；当前端点不收费，下单只作自愿支持标记。
   // 不预充、无套餐、无其他金额：每次 pay 只卖「1 次调用」的凭证（calls 恒为 1）。
   // 「多付多得」由对账按实收金额折算实现：付款人向对公聚合码付任意正金额，
-  // reconcile-bank.js 按 ¥0.01/次 折算 N' = 实收/¥0.01 次入账，与本次下单次数无关。
+  // reconcile-bank.js 按 ¥0.01/次 折算 N' = 实收/¥0.01 次入账（仅 metering 开启时），与本次下单次数无关。
   if (body && body.plan !== undefined) {
-    return { error: { status: 400, error: { type: 'no_bundles', message: '本服务按次付费（' + yuan(PRICE_CENTS) + '/次），不卖套餐/订阅；每次 pay 即 1 次（1 分钱），无需传 plan。' } } };
+    return { error: { status: 400, error: { type: 'no_bundles', message: '本服务托管端点当前不收费，不存在按次付费：不卖套餐/订阅，也不卖调用次数。想留个支持直接调 pay（无需传 plan）。' } } };
   }
   if (body && body.calls !== undefined) {
-    return { error: { status: 400, error: { type: 'fixed_price', message: '本服务单价固定为 ' + yuan(PRICE_CENTS) + '/次，不预充、无套餐、无其他金额；每次下单即为 1 次（1 分钱），无需传 calls。' } } };
+    return { error: { status: 400, error: { type: 'fixed_price', message: '本服务没有固定单价：托管端点免费、不按次数收费；自愿支持收任意金额，不预充、无套餐、不折算次数。下单无需传 calls。' } } };
   }
   const calls = 1;
   const amountCents = calls * PRICE_CENTS; // 恒为 1 分
@@ -1427,7 +1428,7 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  // ---- GET /pricing：公开价格表（无需凭证）----
+  // ---- GET /pricing：公开价格表（不需要 key）----
   if (req.method === 'GET' && pathname === '/pricing') {
     return sendJson(res, 200, pricingDoc(req));
   }
@@ -1458,7 +1459,7 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  // ---- POST /pay/order：创建订单并发凭证（无需凭证，但限速；防刷单表）----
+  // ---- POST /pay/order：创建订单并发凭证（不需要 key，但限速；防刷单表）----
   if (req.method === 'POST' && pathname === '/pay/order') {
     if (!METERING_ON) {
       return sendJson(res, 200, { metering: 'off', note: '本端点未启用计费，无需下单；直接调用即可。', freeAlternatives: freeAlternatives() });
@@ -1553,7 +1554,7 @@ const server = http.createServer((req, res) => {
               expectedCents: o.amountCents,
               expectedDisplay: yuan(o.amountCents),
               whyItMatters: '付款链接里的 amount 参数是客户端可改的；不核对金额 = 1 分钱的转账可以领走整单额度。',
-              alternative: '对公收款：走「对公静态收款 + 银行流水对账」——付款后由作者按订单号批量折算入账（按 ' + yuan(PRICE_CENTS) + '/次），无需平台回调。',
+              alternative: '对公收款：走「对公静态收款 + 银行流水对账」——付款任意金额，运营方事后按订单号核对，不折算调用次数，无需平台回调。',
               orPass: 'acknowledgeUnverified:true（表示你已自行核对，风险自担）'
             }
           });

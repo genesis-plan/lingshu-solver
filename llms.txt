@@ -1,40 +1,31 @@
-# Lingshu Solver — certified deterministic equation solving (MCP)
+# Hongchen Lingjing — deterministic verification for AI-computed numbers
 
-> A deterministic numerical solver for real equation systems, built as a non-LLM backend for AI agents and for people who need an answer they can check. No randomness, no guessing: identical input always produces an identical, reproducible result. Certified with interval arithmetic + Krawczyk; every solution is either proven or explicitly flagged as not proven.
+We build three tools around one idea: AI-computed numbers must be checkable, deterministically, before anyone acts on them. No confidence scores, no vibes — three verdicts only: verified, refuted, unverified (honest abstention).
 
-## What it is
+## Lingshu Solver — deterministic equation engine (Krawczyk-certified real roots, ≤6 vars)
 
-A system of real equations is solved by interval / affine arithmetic with Krawczyk certification. It is **not** a language model: it does not paraphrase, it does not hallucinate, and the same input always yields the same output — so results can be cached, replayed, and audited.
+- Hosted MCP endpoint: `https://hongchenlingjing.com/mcp` (streamable HTTP)
+- Web app: <https://hongchenlingjing.com/>
+- Free forever via web / `npx lingshu-solver`; the hosted MCP endpoint is free as well, no metering — see [support](https://hongchenlingjing.com/pay/en.html) (corporate account, any amount, nothing to do after paying)
 
-Supported in equation text: `+ - * / ^ sqrt log sin cos tan exp abs`, plus in-text domain constraints such as `x in [-30,30]`.
+## Lingjing — personal AI brain / knowledge library (bring your own key)
 
-## Install / use (no account, no key)
+- <https://hongchenlingjing.com/lingjing-en/>
 
-- **Web, zero install (free):** <https://hongchenlingjing.com/solve-en/> — everything runs inside your browser; nothing is uploaded.
-- **MCP, stdio (free):** `npx -y lingshu-solver`
-- **MCP, hosted HTTP:** `https://hongchenlingjing.com/mcp`
-- **Source / issue tracker:** <https://github.com/genesis-plan/lingshu-solver>
-- **npm:** <https://www.npmjs.com/package/lingshu-solver>
+## LingNao — AI number verification API (verify the numbers your AI produces)
 
-## MCP tools
+- Playground: <https://hongchenlingjing.com/verify/>
+- API: `POST https://hongchenlingjing.com/verify` — body `{"caseLabel":"...","items":[{"id":"i1","kind":"algebraic","payload":{"equations":["x+2=5"],"claimed":{"x":3}}}]}`; three verdicts only: verified | refuted | unverified; English in, English out.
+- Claim kinds (`items[].kind`): `algebraic` (equations + claimed), `membership` (claimed value ∈ certified solution set), `entail` (∀ certified solutions satisfy a boundary), `consistency` (≥2 statements mutually non-exclusive), `constraint`. `items[].depends:[id]` builds a DAG; the kernel topologically sorts it, refuses on cycles (422), and composes by `∃ refuted ⇒ refuted; else ∀ verified ⇒ verified; else 𝕌`. Optional `items[].tol` (relative, capped at 1e-3) and request-level `budget` (default 200 primitive evaluations; unaffordable items abstain as `abstainedBy:"budget"`).
+- **Variable names.** Multi-character names work when declared in `variables` `["subtotal","tax","total"]`: the solver keeps them whole and echoes the resolved list in `varNames`. With `variables` empty the default is single-letter product parsing (`xy` → `x*y`); if that would exceed the 6-variable cap the engine switches to whole-identifier reading and flags `interpretation:"whole_identifier_fallback"`. Read `varNames` back before trusting `values`.
+- Integration guide (JS / Python / LangChain / OpenAI tool schema / MCP snippets): <https://hongchenlingjing.com/verify/integrate.html>
+- MCP (stdio): `npx lingnao-mcp` — one gateway tool `lingnao`
 
-- `solve` — solve a system of real equations. Input: `equations` (array of strings like `["x^2+y^2=25","x+y=7"]`), optional `variables`, `domain`, `fastMode`, `honorPaid`, `options`. Hard limits: at most 6 variables, 1–64 equations, equation text up to 100 KB per call, output fixed at 6 decimal places.
-- `poly_roots` — all real roots of a polynomial, each individually Krawczyk-certified. Input: `coefficients`, highest degree first (e.g. `[1,-2,-5,6]` = x^3-2x^2-5x+6). Complex roots are not returned.
-- `verify` — check a claimed answer against the same certified kernel. Returns `verified`, or `refuted` together with the nearest certified root, so the calling agent immediately sees the correct value.
-- `give_feedback` — report a problem; the text stays in a local log and is not transmitted anywhere.
+## Scope and refusals (by design)
 
-## Pricing / payment boundary (read before calling)
+Medical, mental-health, education & training, investment or financial advice, and legal advice are refused (HTTP 422, `compliance:true`). A verification service must refuse what it cannot check.
 
-**It works without payment.** The hosted endpoint runs on an honor system: pass `honorPaid: true` and the call is served for free — no verification, no balance deduction, no card. Payment is voluntary, for people whose results feed a product or a commercial pipeline. The web version and the `npx` version are permanently free. There is no licence key required to use it.
+## Company
 
-## Honest limits
+广州市红尘灵境数字科技有限公司 (Guangzhou Hongchen Lingjing Digital Technology Co., Ltd.) · 粤ICP备2026031206
 
-- Symbolic algebra, closed-form proofs, and initial-value ODEs are **not** supported.
-- Output is fixed at 6 decimal places and cannot be changed.
-- `truncated: true` means the global branch-and-bound did not finish within budget. It does not necessarily mean solutions were missed — in most cases all real solutions were found. Retry with a narrower `domain` or a higher `options.budget` if you need a completeness guarantee.
-- The server runs in Guangzhou, mainland China. Filing 粤ICP备2026031206号-3 / 粤公网安备44011402001444号.
-
-## Also here
-
-- `/verify/` — LingNao (Lingnao) numeric-claim checker: hand it an AI-generated number and it independently returns verified / refuted / cannot-prove.
-- `/lingjing-en/` — LingJing, a personal AI mirror for studying.

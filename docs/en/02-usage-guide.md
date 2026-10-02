@@ -10,9 +10,9 @@
 
 | Form | Entry | Install | Cost | Data |
 |---|---|---|---|---|
-| **Web page** | <https://hongchenlingjing.com/> (mirror: [GitHub Pages](https://genesis-plan.github.io/lingshu-solver/) / [COS](https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/index.html)) | none | Free, unlimited | Computed **inside the browser** — equations never leave the device |
-| **Local MCP (stdio)** | `npx -y lingshu-solver` / `node mcp-server.js` | Node ≥ 18 on the machine | Free, unlimited | Local process, **offline, nothing sent out** |
-| **Remote MCP (HTTP)** | `https://hongchenlingjing.com/mcp` | none | ¥0.01/call fixed; passing `honorPaid: true` **releases the call for free** | Solved in server memory; **equation contents are not written to disk** |
+| **Web page** | <https://hongchenlingjing.com/> (mirror: [GitHub Pages](https://genesis-plan.github.io/lingshu-solver/) / [COS](https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/index.html)) | none | No charge today | Computed **inside the browser** — equations never leave the device |
+| **Local MCP (stdio)** | `npx -y lingshu-solver` / `node mcp-server.js` | Node ≥ 18 on the machine | No charge today | Local process, **offline, nothing sent out** |
+| **Remote MCP (HTTP)** | `https://hongchenlingjing.com/mcp` | none | No per-call charge today (metering off); passing `honorPaid: true` **releases the call for free** | Solved in server memory; **equation contents are not written to disk** |
 
 All three share the **same solving core** (`<script id="solver-core">` inside `index.html`), so results are identical.
 
@@ -31,7 +31,7 @@ Open the link → type equations (one per line, or separated by `,`) → press s
 
 ## 3. Connecting an AI agent (MCP)
 
-### 3.1 Recommended: local stdio (free forever, offline)
+### 3.1 Recommended: local stdio (offline)
 
 ```json
 {
@@ -65,7 +65,7 @@ Open the link → type equations (one per line, or separated by `,`) → press s
 ```
 
 - Protocol: MCP **Streamable HTTP** (`initialize` → `notifications/initialized` → `tools/call`); both SSE and plain JSON responses are parsed.
-- Billing and the free path: see [06 · Commercial licence and pricing](06-%E5%95%86%E4%B8%9A%E6%8E%88%E6%9D%83%E4%B8%8E%E6%94%B6%E8%B4%B9.md). In one line: **pass `honorPaid: true` and the call is released for free**.
+- Billing and the free path: see [06 · Commercial licence and pricing](06-%E5%95%86%E4%B8%9A%E6%8E%88%E6%9D%83%E4%B8%8E%E6%94%B6%E8%B4%B9.md). In one line: **pass `honorPaid: true` and the call is released for free** (the hosted endpoint charges nothing today).
 - Always use `https://`: sending a bearer credential over plaintext HTTP exposes it on the public internet.
 
 ### 3.3 Tool inventory

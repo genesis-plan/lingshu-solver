@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LingNao API — verify the numbers your AI produces</title>
+<meta name="description" content="AI number verification API: your AI computes, LingNao recomputes independently and returns one of three verdicts — verified / refuted / unverifiable. No second model, ~3 ms, fail-closed.">
+<meta property="og:title" content="LingNao — AI number verification API">
+<meta property="og:description" content="Your AI computes the numbers. LingNao recomputes them: verified / refuted / unverifiable. No second model in the loop.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://hongchenlingjing.com/verify/integrate.html">
+<meta name="twitter:card" content="summary">
+<style>
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;max-width:860px;margin:0 auto;padding:24px 16px;color:#1c2333;line-height:1.6}
+  h1{font-size:1.55em;margin:0 0 6px}
+  h2{font-size:1.12em;margin:22px 0 8px;border-bottom:2px solid #e8ebf2;padding-bottom:4px}
+  .sub{color:#4a5468;margin:0 0 18px}
+  .card{background:#f7f8fb;border:1px solid #e3e7ef;border-radius:10px;padding:12px 16px;margin:10px 0}
+  pre{background:#101418;color:#d8e0ea;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:.86em;line-height:1.5}
+  code{background:#eef1f6;padding:1px 5px;border-radius:4px;font-size:.92em}
+  pre code{background:none;padding:0}
+  .note{color:#6a7488;font-size:.92em}
+  a{color:#2456c4}
+  table{border-collapse:collapse;width:100%;font-size:.95em}
+  td,th{border:1px solid #dfe3ec;padding:6px 10px;text-align:left}
+  th{background:#f0f2f7}
+</style>
+</head>
+<body>
+<h1>LingNao — AI number verification API</h1>
+<div class="sub">Your AI (or your app) produces numbers, formulas, logic. LingNao recomputes them <b>independently</b> — no second model in the loop, no confidence scores — and returns one of <b>three verdicts</b>: <b>verified</b> / <b>refuted</b> / <b>unverifiable</b>. Typical latency ≈ 3&nbsp;ms.</div>
+
+<div class="card"><h2>The three verdicts — there is no fourth</h2>
+<table>
+<tr><th>Verdict</th><th>Meaning</th><th>What to do</th></tr>
+<tr><td><b>verified</b></td><td>Recomputed independently and matches your claim</td><td>Continue; archive the proof id with your record</td></tr>
+<tr><td><b>refuted</b></td><td>Recomputed independently and contradicts it</td><td>Stop; discard the output; fix the source</td></tr>
+<tr><td><b>unverifiable (𝕌)</b></td><td>Nothing checkable, or no claim to compare against</td><td>Route to a human; never treated as "passed"</td></tr>
+</table>
+<p class="note">"Probably fine" is not a verdict. Anything the API cannot check, it refuses to grade — it abstains as <code>unverified(𝕌)</code> with a machine-readable reason (<code>abstainedBy</code>), and never invents a pass. Two abstentions carry real engineering meaning: <code>truncated_solution_set</code> (the solver did not finish within your budget) and <code>engine_unsupported_identifier</code> (the equations contain a variable name the solver cannot parse today).</p></div>
+
+<div class="card"><h2>Quickstart — one HTTP call</h2>
+<pre><code>curl -X POST https://hongchenlingjing.com/verify \
+  -H "Content-Type: application/json" \
+  -d '{"caseLabel":"invoice total","items":[{"id":"i1","kind":"algebraic",
+        "payload":{"equations":["x+y=z","x=80","y=8"],
+                   "claimed":{"z":88}}}]}'
+
+# → {"ok":true,"overall":"verified","items":[{"verdict":"verified", "idx":0, ...}]}</code></pre>
+<p class="note">Input kinds: <code>algebraic</code> (equations + <code>claimed</code> values as an object), <code>membership</code>, <code>entail</code>, <code>consistency</code>, <code>constraint</code>. English input gets English verdict text; Chinese in, Chinese out. Every response carries a proof id (<code>reportId</code>) you can archive as evidence.</p>
+<p class="note"><b>Variable names.</b> Multi-character names work when you <b>declare</b> them in <code>variables</code> (<code>["subtotal","tax","total"]</code>): the solver keeps them whole, no implicit multiplication gets inserted, and the resolved list is echoed in <code>varNames</code>. If you leave <code>variables</code> empty the default convention is single-letter product parsing (<code>xy</code> → <code>x*y</code>); when that default would blow past the 6-variable cap the engine says so and switches to whole-identifier reading, flagging <code>interpretation:"whole_identifier_fallback"</code>. Always read <code>varNames</code> back before trusting <code>values</code>.</p></div>
+
+<div class="card"><h2>Five verifiable claim kinds</h2>
+<table>
+<tr><th><code>kind</code></th><th>Ask</th><th>Example item</th></tr>
+<tr><td><code>algebraic</code></td><td>Do these equations hold at the <code>claimed</code> values?</td><td><code>{"equations":["x+2=5"],"claimed":{"x":3}}</code></td></tr>
+<tr><td><code>membership</code></td><td>Is the claimed value actually one of the certified solutions?</td><td><code>{"kind":"membership","payload":{"equations":["x^2=16"],"claimed":{"x":4}}}</code></td></tr>
+<tr><td><code>entail</code></td><td>Does every certified solution satisfy the boundary? (<code>P ⊨ x ≤ B</code>)</td><td><code>{"kind":"entail","payload":{"equations":["x^2=16"],"variables":["x"],"op":"<=","bound":{"x":2}}}</code></td></tr>
+<tr><td><code>consistency</code></td><td>Are ≥2 statements mutually non-exclusive?</td><td><code>{"kind":"consistency","payload":{"statements":[{"id":"a","values":{"staff":12}},{"id":"b","values":{"staff":13}}]}}</code></td></tr>
+<tr><td><code>constraint</code></td><td>Boundary / feasibility claim (compactness theorem)</td><td><code>{"op":"<=","bound":100}</code></td></tr>
+</table>
+<p class="note">A refuted <code>entail</code> comes back with a <code>counterexample</code> inside <code>evidence</code>. A <code>consistency</code> verdict of <code>refuted</code> is the single highest-frequency error class in LLM output — two statements contradicting each other on shared variables.</p></div>
+
+<div class="card"><h2>Batch audit — <code>depends</code>, budget and composition law</h2>
+<p>Items can declare <code>depends:[itemId]</code>; the kernel topologically sorts the DAG and refuses (HTTP 422) if it cycles — it never guesses an evaluation order. The overall verdict obeys one composition law Φ:</p>
+<pre><code>∃ item refuted        ⇒ overall = refuted
+else ∀ item verified  ⇒ overall = verified
+else                  ⇒ overall = unverifiable (𝕌)</code></pre>
+<p>An item whose dependency is unresolved or refuted is <b>not</b> judged on its own (<code>abstainedBy:"dependency_unresolved" / "dependency_refuted"</code>) — a conclusion may not stand on an unproven premise. Every call also consumes a <b>judgement budget</b> (default <code>200</code>) measured in primitive evaluations; when it runs out the remaining items return <code>abstainedBy:"budget"</code> as 𝕌 rather than being silently judged. Pass <code>"budget": N</code> to raise it.</p>
+<pre><code>curl -X POST https://hongchenlingjing.com/verify \
+  -H "Content-Type: application/json" \
+  -d '{"caseLabel":"robot shift plan","budget":500,"items":[
+        {"id":"sol","kind":"membership","payload":{"equations":["x^2=16"],"claimed":{"x":4}}},
+        {"id":"bound","kind":"entail","depends":["sol"],
+         "payload":{"equations":["x^2=16"],"variables":["x"],"op":"<=","bound":{"x":2}}}]}'
+
+# → overall:"refuted", compositionLaw:"∃ refuted ⇒ refuted", budget:{used:2,exceeded:false}</code></pre></div>
+
+<div class="card"><h2>Copy-paste integrations</h2>
+<p><b>JavaScript / TypeScript</b></p>
+<pre><code>const r = await fetch("https://hongchenlingjing.com/verify", {
+  method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ caseLabel: "agent step", items: [{
+    id: "i1", kind: "algebraic",
+    payload: { equations: ["x+y=z"], claimed: { z: 88 } } }] })
+});
+const { items } = await r.json();
+if (items[0].verdict === "verified") proceed(); else escalate();</code></pre>
+<p><b>OpenAI / any tool-calling schema</b></p>
+<pre><code>{ "type": "function", "function": {
+    "name": "lingnao_verify",
+    "description": "Independently recompute numeric conclusions. Returns verified / refuted / unverifiable. Use before acting on any AI-computed number.",
+    "parameters": { "type": "object", "properties": {
+        "equations": { "type": "array", "items": { "type": "string" } },
+        "claimed":   { "type": "object" } },
+      "required": ["equations", "claimed"] } } }</code></pre>
+<p><b>LangChain (Python)</b></p>
+<pre><code>import json, urllib.request
+from langchain_core.tools import tool
+
+@tool
+def lingnao_verify(equations: list[str], claimed: dict) -> str:
+    """Recompute numeric conclusions independently.
+    Returns verified / refuted / unverifiable — use before acting on AI-computed numbers."""
+    req = urllib.request.Request(
+        "https://hongchenlingjing.com/verify",
+        data=json.dumps({"caseLabel": "agent step", "items": [{
+            "id": "i1", "kind": "algebraic",
+            "payload": {"equations": equations, "claimed": claimed}}]}).encode(),
+        headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return r.read().decode()</code></pre>
+<p><b>MCP (stdio) — for agent frameworks that speak MCP</b></p>
+<pre><code>{ "mcpServers": { "lingnao": { "command": "npx", "args": ["-y", "lingnao-mcp"] } } }</code></pre>
+</div>
+
+<div class="card"><h2>Free — no pricing, voluntary support only</h2>
+<p>The <a href="https://hongchenlingjing.com/verify/">browser playground</a> is free. Hosted API calls are <b>free too</b> (metering off, ¥0 per call): no order, no key, no credits, no self-crediting step. If you want to support the tool, any amount is accepted at <a href="https://hongchenlingjing.com/pay/en.html">/pay/en.html</a> — corporate transfer, and nothing to do after paying.</p>
+<p class="note">Honest path: sending <code>{"honorPaid": true}</code> in a solve request also opens the service — the endpoint is free and never gated; voluntary support is optional and any amount counts as support, not a bill. The free playground above already covers most human use.</p></div>
+
+<div class="card"><h2>Refused domains — by design</h2>
+<p>Medical, mental-health, education &amp; training, investment or financial advice, legal advice → HTTP <b>422</b> with <code>compliance: true</code>. A verification service must refuse what it cannot check. In scope: everyday numbers, formulas, algebraic constraints, logic, safety boundaries.</p></div>
+
+<div class="card"><h2>Playground</h2>
+<p>Try it without any code: <a href="https://hongchenlingjing.com/verify/">hongchenlingjing.com/verify</a> (English) · 中文版同页切换。LingNao never produces answers itself — it is the referee, not the player.</p></div>
+
+<p class="note">© 广州市红尘灵境数字科技有限公司 (Guangzhou Hongchen Lingjing Digital Technology Co., Ltd.) · 粤ICP备2026031206 · Licence: non-commercial use free, commercial use by written agreement.</p>
+</body>
+</html>

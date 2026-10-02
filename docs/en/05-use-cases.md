@@ -167,6 +167,6 @@ reproducibility (see [08 · Version management](08-%E7%89%88%E6%9C%AC%E7%AE%A1%E
 | Method | Suits | Command / URL |
 |---|---|---|
 | **Local stdio** (recommended: free, offline, no latency) | single-machine agents, intranet, local debugging | `npx -y lingshu-solver` or `node mcp-server.js` |
-| **Hosted HTTP endpoint** | zero install, shared across machines, direct from the public internet | `https://hongchenlingjing.com/mcp` (¥0.01/call; `honorPaid: true` is free) |
+| **Hosted HTTP endpoint** | zero install, shared across machines, direct from the public internet | `https://hongchenlingjing.com/mcp` (no per-call charge today; `honorPaid: true` is free) |
 
 > To run the whole loop as code (including a reference payment agent) run `node pay-agent-example.js` in the repository.
