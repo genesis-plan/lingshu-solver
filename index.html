@@ -6576,30 +6576,41 @@ function _rangeEval(ast, intervals) {
                 return _iNorm({ min: Math.min.apply(null, vals), max: Math.max.apply(null, vals) });
             }
             case '^': {
-                // 处理幂运算
-                if (right.min === right.max && Number.isInteger(right.min) && Math.abs(right.min) < 100) {
-                    var exp = Math.round(right.min);
-                    if (exp === 2) {
-                        var a = left.min, b = left.max;
-                        if (a >= 0) return _iNorm({ min: a * a, max: b * b });
-                        if (b <= 0) return _iNorm({ min: b * b, max: a * a });
-                        return _iNorm({ min: 0, max: Math.max(a * a, b * b) });
+                // 处理幂运算（sound 优先：凡不能给出【确定包络】的情形一律 return null，绝不截断/外推）
+                if (right.min === right.max) {
+                    var e0 = right.min;
+                    var l0 = left.min, l1 = left.max;              // 底数区间 [l0,l1]
+                    if (Number.isInteger(e0)) {
+                        var n = e0;
+                        if (n === 0) return _iNorm({ min: 1, max: 1 });
+                        if (n === 1) return left;
+                        if (n > 0 && n % 2 === 0) {
+                            // 偶次幂：x^n ≥ 0；端点取绝对值，跨 0 时下界收紧到 0
+                            var pe0 = Math.pow(Math.abs(l0), n), pe1 = Math.pow(Math.abs(l1), n);
+                            return _iNorm({ min: (l0 <= 0 && l1 >= 0) ? 0 : Math.min(pe0, pe1), max: Math.max(pe0, pe1) });
+                        }
+                        if (n > 0) {
+                            // 奇次幂：x^n 在 R 上严格单调增
+                            return _iNorm({ min: Math.pow(l0, n), max: Math.pow(l1, n) });
+                        }
+                        // 修复（2026-10-02，P0）：负整数幂旧实现直接 return null ⇒ intervalEval(符号微分 AST) 常为 null
+                        // ⇒ _intervalJacobian 退化 ±1e6、金融反算恒不认证。
+                        // 正确口径：x^n = 1 / x^|n|；底数跨 0 ⇒ 无定义（保守跳过），否则先算 |n| 次幂区间 D（必不含 0）再取倒数。
+                        if (l0 <= 0 && l1 >= 0) { _IEEE.divZero = true; return null; }
+                        var m = -n;
+                        var daa = Math.pow(l0, m), dbb = Math.pow(l1, m);
+                        return _iNorm({ min: 1 / Math.max(daa, dbb), max: 1 / Math.min(daa, dbb) });
                     }
-                    if (exp === 1) return left;
-                    if (exp === 0) return _iNorm({ min: 1, max: 1 });
-                    if (exp > 0 && exp % 2 === 0) {
-                        // 偶次幂
-                        var a = left.min, b = left.max;
-                        if (a >= 0) return _iNorm({ min: Math.pow(a, exp), max: Math.pow(b, exp) });
-                        if (b <= 0) return _iNorm({ min: Math.pow(b, exp), max: Math.pow(a, exp) });
-                        return _iNorm({ min: 0, max: Math.max(Math.pow(a, exp), Math.pow(b, exp)) });
+                    // 非整数幂：实数域下 x^e0 仅在 x ≥ 0（e0 < 0 时 x > 0）上有定义
+                    if (e0 > 0) {
+                        if (l1 < 0) return null;                                   // 整段无定义 ⇒ 保守跳过
+                        var lo0 = l0 > 0 ? l0 : 0;                                 // 定义域自 max(l0,0) 起，x^e0 单调增
+                        return _iNorm({ min: Math.pow(lo0, e0), max: Math.pow(l1, e0) });
                     }
-                    if (exp > 0) {
-                        // 奇次幂
-                        return _iNorm({ min: Math.pow(left.min, exp), max: Math.pow(left.max, exp) });
-                    }
+                    if (l0 <= 0 || l1 <= 0) { _IEEE.divZero = true; return null; } // 定义域含 0 ⇒ 无界/无定义
+                    return _iNorm({ min: Math.pow(l1, e0), max: Math.pow(l0, e0) }); // e0 < 0：x^e0 单调减
                 }
-                return null; // 非整数幂，保守跳过
+                return null; // 变指数：保守跳过
             }
         }
         return null;
@@ -6787,12 +6798,18 @@ function _affineEval(ast, env) {
     if (ast.op === '*') return _affMul(l, r);
     if (ast.op === '/') return _affDiv(l, r);
     if (ast.op === '^') {
-      if (Object.keys(r.e).length === 0 && Number.isInteger(Math.round(r.c)) && Math.abs(r.c) < 100) {
-        var n = Math.round(r.c); if (n === 0) return _Aff(1, {}); if (n === 1) return l;
+      // 修复（sound 优先，2026-10-02）：旧实现用 Number.isInteger(Math.round(r.c)) 判整数幂，
+      // 非整数指数被 Math.round 截断后照常返回仿射结果（x^0.2857→x^0=1、x^0.5→x^1、x^1.7→x^2），
+      // 包络不覆盖真值 ⇒ unsound，且会把"明明有根"的式子判成无解。
+      // 正确口径：指数必须是【精确非负整数】（Number.isInteger(r.c)，不做任何 round），否则 return null 降级 _rangeEval。
+      // 负幂另加拒绝：_affInv 的一阶误差界 err=rb²/(2c²m²) 在 rb/c 不小时过紧（实测 x^-1@[2,3] 给 [0.315,0.485]，
+      // 真值 [1/3,1/2] 落在盒外 ⇒ unsound）。负幂一律交 _rangeEval（端点取幂 + 倒数，精确且保守）。
+      if (Object.keys(r.e).length === 0 && Number.isInteger(r.c) && r.c >= 0 && Math.abs(r.c) < 100) {
+        var n = r.c; if (n === 0) return _Aff(1, {}); if (n === 1) return l;
         var acc = l; for (var p = 1; p < Math.abs(n); p++) acc = _affMul(acc, l);
         return n < 0 ? _affInv(acc) : acc;
       }
-      return null; // 非整数幂：保守跳过（区间版也跳过，降级 _rangeEval）
+      return null; // 非整数幂：不能给出可信包络 ⇒ 保守交还 _rangeEval
     }
     return null;
   }
@@ -10757,6 +10774,35 @@ function solve(equationStrs, varNames, decimals, initialD0, fastMode, opts) {
                 });
                 _vnNorm = _vnNorm.map(function(vn) { return vn === 'e' ? 'ₑ' : vn; });
             }
+            // 修复（2026-10-02，诚实优先）：旧实现在"方程含未声明标识符"时一路走到无解分支，
+            // 甚至【谎称已严格证明无实数解】。实测：solve(["2*z+1=5"], ["x"]) 返回
+            // error=NO_SOLUTION、message=「过定线性方程组不相容：经高斯消元+秩判定严格确认无实数公共解【已严格证明：
+            // 定义域内不存在实数解】」—— 而真实原因只是 z 没声明，压根没进求解路径。用户据此会以为"方程无解"。
+            // 正确做法：求解前置门禁，把"未声明"与"无解"严格分开，给出可操作诊断。
+            var _lsDeclSet = {}, _lsDi = 0;
+            for (; _lsDi < _vnNorm.length; _lsDi++) { _lsDeclSet[_vnNorm[_lsDi]] = 1; }
+            var _lsBadName = {}, _lsBadAny = false;
+            for (var _lsEi = 0; _lsEi < _eqsNorm.length; _lsEi++) {
+                var _lsEqStr = _eqsNorm[_lsEi];
+                if (typeof _lsEqStr !== 'string') continue;
+                var _lsToks = null;
+                try { _lsToks = tokenize(_lsEqStr); } catch (_lsTe) { continue; }   // 含 ∈/[ ] 的约束式 tokenize 会抛，跳过检测（不误报）
+                for (var _lsTi = 0; _lsToks && _lsTi < _lsToks.length; _lsTi++) {
+                    if (_lsToks[_lsTi].type === 'var' && !_lsDeclSet[_lsToks[_lsTi].name]) {
+                        _lsBadName[_lsToks[_lsTi].name] = 1; _lsBadAny = true;
+                    }
+                }
+            }
+            if (_lsBadAny) {
+                _solveRecursionCount--;   // 早退不进 try/finally，需手动回收递归计数
+                return {
+                    solutions: [], resultType: 1, error: "UNDECLARED_VARIABLE",
+                    message: "方程里出现了未声明的标识符：" + Object.keys(_lsBadName).join("、")
+                           + "。它们既不是内置常量（pi/π/e 是常数）、也不是内置函数（sin/cos/ln/exp/sqrt/abs…），"
+                           + "必须在「变量名」里声明后求解。当前是「未声明 ⇒ 无法求解」，不是「无解」。",
+                    executionPath: "未声明标识符前置门禁（求解前拦截）", timeMs: 0, varNames: varNames || []
+                };
+            }
             // 仅当声明表/方程确有改变才走归一化路径（含希腊名或声明了 e 两种情况），
             // 纯 ASCII 输入保持原路径，行为完全不变，避免回归。
             var _changed = false;
@@ -11264,7 +11310,7 @@ function _runTail(state) {
 
 // —— 可审计结构化溯源（切片A）：每个结果附带完整证据链元数据 ——
 // 设计目标：Agent / 上层系统拿到的不只是裸数字，而是"为什么是这个解"的可读证据链。
-var SOLVER_VERSION = "lingshu-solver/1.0.19";
+var SOLVER_VERSION = "lingshu-solver/1.0.20";
 
 // —— 确定性可复现契约（Certified Real-Root Computation 六属性之「确定性可复现」）——
 // 纯 JS 同步 SHA-256（零依赖，浏览器/Node 通用，免 Web Crypto 异步）。
@@ -12407,6 +12453,30 @@ function _fmtResidual(r) {
     return r.toExponential(2);
 }
 
+// 残差口径修正（2026-10-02，诚实优先 / 用户拿到的是"真结果"）：
+// 页面把数值按 6 位小数截断后展示（toFixed(6)），但旧代码【显示的残差是截断前全精度值的残差】。
+// 实测：5307.27=1000000*i/(1-(1+i)^-360) ⇒ 解 i=0.004083337163661045，页面展示 i=0.004083；
+// 截断值代回原式的真残差 ≈ 2.46e-1（月供差约 2 毛 4），而旧 UI 显示残差 6.39e-5 ⇒ 相差 4 个数量级，
+// 用户看到"i=0.004083 + 残差 6.4e-5"，把这个数拿去用就对不上账 —— 这正是不真实的结果。
+// 正确口径：残差必须在【用户实际拿到的（截断后）值】上算；截断前的残差另保留供排查。
+function _residualAtDisplayed(values, eqLines, varNames) {
+    if (!eqLines || !eqLines.length || !values || !varNames) return null;
+    var vmap = {};
+    for (var k = 0; k < varNames.length && k < values.length; k++) { vmap[varNames[k]] = values[k]; }
+    var mx = 0;
+    for (var i = 0; i < eqLines.length; i++) {
+        var e = String(eqLines[i]);
+        var idx = e.indexOf('=');
+        var f;
+        try {
+            var A = idx >= 0 ? e.slice(0, idx) : e, B = idx >= 0 ? e.slice(idx + 1) : '0';
+            f = evalAST(parse(tokenize('(' + A + ')-(' + B + ')')), vmap);
+        } catch (err) { f = NaN; }
+        if (isFinite(f)) mx = Math.max(mx, Math.abs(f)); else return null;   // 有未识别变量 ⇒ 放弃，交由调用方回退
+    }
+    return mx;
+}
+
 // HTML 转义（安全等保加固 2026-09-01）：所有用户可控内容（变量名、诊断信息、警告、
 // 方程回显等）注入 innerHTML 前必须转义，杜绝 XSS 注入。
 function _escHtml(s) {
@@ -12498,9 +12568,30 @@ function displayResult(result, eqLines) {
     html += '</div>';
 
         // 结果可信度说明（对所有含解的结果适用）
+        // 修复（2026-10-02，诚实优先）：旧文案对所有含解结果【无条件】宣称"每个点都经残差验证（<1e-6），可直接使用"。
+        // 实测 5307.27=1000000*i/(1-(1+i)^-360)：展示值 i=0.004083 的代入残差为 2.46e-1（> 1e-6），
+        // 页面却仍写"<1e-6、可直接使用" ⇒ 用户拿这个月利率去算，月供对不上账。文案必须按真实残差说话。
         if (rt === 2 || rt === 3) {
-            html += '<div style="font-size:12px;color:#155724;margin-bottom:8px;padding:8px 12px;background:#f0fff0;border-radius:6px;border:1px solid #c3e6cb;line-height:1.5">';
-            html += '<b>✓ 可信说明</b>：下方"解列表"中的每个点都经残差验证（&lt;1e-6），满足全部方程，可直接使用。';
+            var _tolD = Math.pow(10, -COMPUTE_DECIMALS);
+            var _resAll = 0, _resAllUnknown = false;
+            for (var _sa = 0; _sa < result.solutions.length; _sa++) {
+                var _sv2 = result.solutions[_sa].values || [];
+                var _rd2 = [];
+                for (var _rdi = 0; _rdi < _sv2.length; _rdi++) { _rd2.push(Number(_sv2[_rdi].toFixed(6))); }
+                var _rr = _residualAtDisplayed(_rd2, eqLines, result.solutions[_sa].varNames || outVars);
+                if (_rr === null) { _resAllUnknown = true; } else { _resAll = Math.max(_resAll, _rr); }
+            }
+            var _allOk = !_resAllUnknown && _resAll < _tolD;
+            html += '<div style="font-size:12px;margin-bottom:8px;padding:8px 12px;border-radius:6px;line-height:1.5;'
+                  + (_allOk ? 'color:#155724;background:#f0fff0;border:1px solid #c3e6cb;' : 'color:#856404;background:#fff8e1;border:1px solid #ffe69c;') + '">';
+            if (_allOk) {
+                html += '<b>✓ 可信说明</b>：下方"解列表"中的每个点都经残差验证（&lt;1e-6），满足全部方程，可直接使用。';
+            } else {
+                html += '<b>⚠ 注意（残差未达代入容差）</b>：下列值已按 ' + COMPUTE_DECIMALS + ' 位小数截断显示；'
+                      + (_resAllUnknown ? '其中部分解无法独立复算残差' : '代入原式后最大残差为 ' + _fmtResidual(_resAll))
+                      + '（大于容差 1e-' + COMPUTE_DECIMALS + '）。这些点是数值近似解而非严格根：请用更高精度的原始值复核，'
+                      + '或接受这一量级的代入偏差（把数截断到 ' + COMPUTE_DECIMALS + ' 位小数本身就会带来这么大的偏差）。';
+            }
             if (rt === 3) {
                 html += ' 本例为欠定系统（无限解集），仅输出距原点最近的推荐解；该点是真解但非唯一，如需更多解请增加方程约束。';
             }
@@ -12526,7 +12617,16 @@ function displayResult(result, eqLines) {
                 }
             }
             var _zc = 0; for (var _mz = 0; _mz < minSol.values.length; _mz++) if (Math.abs(minSol.values[_mz]) < 1e-9) _zc++;
-            html += '  <span style="color:#999;font-size:11px">' + _zc + ' 个零分量，距原点 ' + Math.sqrt(minDist2).toFixed(6) + '，残差 ' + _fmtResidual(minSol.residual) + '</span>';
+            // 残差必须在【展示给用户的值（6 位小数截断）】上算（2026-10-02 修正），否则用户拿到的数与残差自相矛盾
+            var _dispVals = [];
+            for (var _dq = 0; _dq < outVars.length; _dq++) { _dispVals.push(Number(minSol.values[_dq].toFixed(6))); }
+            var _resDisp0 = _residualAtDisplayed(_dispVals, eqLines, outVars);
+            html += '  <span style="color:#999;font-size:11px">' + _zc + ' 个零分量，距原点 ' + Math.sqrt(minDist2).toFixed(6)
+                  + '，残差 ' + _fmtResidual(_resDisp0 === null ? minSol.residual : _resDisp0);
+            if (_resDisp0 !== null && typeof minSol.residual === 'number' && Math.abs(_resDisp0) > Math.abs(minSol.residual) * 2 + 1e-12) {
+                html += ' <span style="color:#856404">（已截断到 6 位小数：该显示值代回原式残差 ' + _fmtResidual(_resDisp0) + '，截断前残差 ' + _fmtResidual(minSol.residual) + '）</span>';
+            }
+            html += '</span>';
             html += '</div></div>';
         }
 
@@ -12552,7 +12652,14 @@ function displayResult(result, eqLines) {
             }
 
             html += '  </div>';
-            html += '  <div class="residual-info">残差: ' + (sol.residual !== undefined ? _fmtResidual(sol.residual) : "?") + '</div>';
+            // 残差口径（2026-10-02）：在展示值（6 位小数）上算残差；与截断前残差差异大时显式说明
+            var _dv = []; for (var _tvi = 0; _tvi < sol.values.length; _tvi++) { _dv.push(Number(sol.values[_tvi].toFixed(6))); }
+            var _rd = _residualAtDisplayed(_dv, eqLines, outVars);
+            html += '  <div class="residual-info">残差: ' + _fmtResidual(_rd === null ? sol.residual : _rd);
+            if (_rd !== null && typeof sol.residual === 'number' && Math.abs(_rd) > Math.abs(sol.residual) * 2 + 1e-12) {
+                html += ' <span style="color:#856404">（该显示值已截断到 6 位小数，代回原式残差 ' + _fmtResidual(_rd) + '；截断前残差 ' + _fmtResidual(sol.residual) + '）</span>';
+            }
+            html += '</div>';
             html += '</div>';
         }
 
