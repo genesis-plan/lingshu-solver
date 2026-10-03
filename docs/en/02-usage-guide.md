@@ -109,17 +109,25 @@ Open the link → type equations (one per line, or separated by `,`) → press s
   "resultTypeName": "finite",
   "certified": true,
   "truncated": false,
-  "precisionDecimals": 6,
+  "precisionDecimals": 4,
   "solutionCount": 2,
+  "trust": {
+    "trustLevel": "verified", "safeToUse": true,
+    "agentAction": "All 2 solution(s) are interval-certified. Safe to use directly.",
+    "provenCount": 2, "candidateCount": 0,
+    "meaningOfEmpty": null, "mustNotClaim": "no_solution"
+  },
   "summary": "Found 2 real solutions (all Krawczyk-interval certified).",
   "recommended": {
-    "values": [3, 4], "tier": "proven", "certified": true,
-    "text": "x=3.000000, y=4.000000",
-    "internals": { "residual": 0, "certifiedRadius": 0.00001 }
+    "values": [2, 3], "tier": "proven", "certified": true,
+    "text": "x=2.0000, y=3.0000",
+    "cert": { "status": "proven", "method": "krawczyk_newton", "enclosure": [[2,2],[3,3]], "backwardError": 0, "krawczykRadius": 0 }
   },
-  "solutions": [ { "values": [3, 4], "tier": "proven", "certified": true, "text": "x=3.000000, y=4.000000" } ],
+  "solutions": [ { "values": [2, 3], "tier": "proven", "certified": true, "text": "x=2.0000, y=3.0000", "cert": { "status": "proven", "method": "krawczyk_newton", "enclosure": [[2,2],[3,3]], "backwardError": 0, "krawczykRadius": 0 } } ],
   "warnings": [],
-  "diagnostics": { "inputError": null, "solverVersion": "lingshu-solver/1.0.16" }
+  "reportId": "ls1-...",
+  "certification": { "proven": 2, "candidate": 0, "structural": 0, "emptyProof": null, "certifiedCoverage": 1 },
+  "diagnostics": { "inputError": null, "inputErrorMessage": null, "truncated": false }
 }
 ```
 
@@ -131,10 +139,17 @@ Open the link → type equations (one per line, or separated by `,`) → press s
 | `solutionCount` | Number of solutions |
 | `summary` | A one-line overview. Note: `summary` and the page copy are **Chinese**; if you need another language, let your own LLM layer rewrite it — the structured fields above are the authoritative interface |
 | `recommended` | The solution nearest the origin (smallest norm) |
-| `solutions[]` | Per solution: `values` (6 decimals), `tier`, `certified`, `text` (human readable), `internals` (residual etc.; skip the block wholesale to save tokens) |
+| `solutions[]` | Per solution: `values` (full float), `tier`, `certified`, `text` (4-decimal display string), `cert` (certification block: status / method / enclosure / backwardError). **No `internals`** — residuals were removed on 2026-10-03: an agent's decision rests on `tier` + `cert` (interval certification), not on a residual magnitude. Residuals remain in the web build and the regression suite for debugging. |
 | `tier` | `proven` (Krawczyk certified) / `candidate` (not proven but plausible) / `structural` (derived structurally) |
-| `precisionDecimals` | Always `6` (fixed spec) |
+| `precisionDecimals` | Always `4` (agent-facing display digits since 2026-10-03; **internal computation stays at 6** — see the FAQ) |
+| `trust` | **The agent decision block (read this first)**: `trustLevel` (verified / verified_empty / partially / candidates_only / budget_exhausted / unverified / undecidable), `safeToUse`, `agentAction` (what to do this time), `mustNotClaim` (when `no_solution`, you **must not** claim there is no solution — branch on this enum instead of parsing English), `meaningOfEmpty` (why there is nothing — `null` whenever `solutions[]` is non-empty) |
+| `certification` | Certification summary: per-tier counts + `certifiedCoverage` |
+| `reportId` | Deterministic reproducibility credential (same input ⇒ same reportId) |
 | `diagnostics` | Diagnostics; a non-null `inputError` means this call was rejected as invalid input — **no charge is made in that case** |
+
+> **No top-level `instructions` field** (removed 2026-10-03, 162 B). It duplicated the tool description's "READ THE TIERS" section; its one non-redundant hard rule ("must not claim no-solution unless `trustLevel` is `verified_empty`") now lives in `trust.mustNotClaim` as an enum.
+>
+> `mustNotClaim` is a **positive whitelist**: only `verified_empty` returns `null`; all six other levels return `"no_solution"`. If a new `trustLevel` is ever added it is forbidden from claiming no-solution by default, so a future level can never silently lose this guarantee.
 
 ### 4.2 `give_feedback` — feedback
 
@@ -254,7 +269,11 @@ found; if some are missing, narrow `domain` or raise `budget` and retry.
 `+ - * / ^`, `sqrt`, `log`, `sin`, `cos`, `tan`, `exp`, `abs`. No hyperbolic or inverse trigonometric functions (deliberately not implemented).
 
 **Q: Can precision be adjusted?**
-No — fixed at 6 decimal places (product spec). Residual tolerance has three tiers: Balanced 1e-6 (default), Precise 1e-9, Fast 1e-3.
+No. There is no user-facing precision switch. Two separate numbers matter, and they are not the same thing:
+- **Internal computation: 6 decimals.** This is the product spec and it fixes the solver's own grid, tolerance and certification radius. It is not adjustable.
+- **Agent-facing display: 4 decimals** (`solutions[].text`, `precisionDecimals`). The underlying `solutions[].values` stay at full float precision, so nothing is lost — read `values` if you need more digits.
+
+Residual tolerance has three tiers: Balanced 1e-6 (default), Precise 1e-9, Fast 1e-3. Lowering the display precision does not lower the computed precision; that separation was measured, not assumed (see [03 · Design ideas](03-%E8%AE%BE%E8%AE%A1%E6%80%9D%E6%83%B3.md)).
 
 **Q: Will my equations be uploaded?**
 The web form computes entirely in the browser; equations never leave the device. The local form runs offline.

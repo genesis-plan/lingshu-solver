@@ -35,10 +35,12 @@
     "node": ">=18"
   },
   "files": [
+    "dist/",
     "index.html",
     "mcp-server.js",
     "http-mcp-server.js",
     "solver-core.js",
+    "services/",
     "beian.png",
     "README.md",
     "LICENSE"
@@ -53,6 +55,22 @@
   },
   "scripts": {
     "start": "node mcp-server.js",
-    "test": "node test/p0_fix_regression.js"
+    "test": "node test/p0_fix_regression.js",
+    "build": "node scripts/build.mjs",
+    "golden": "node scripts/build.mjs && node test/golden/diff.mjs",
+    "audit": "node scripts/audit.mjs",
+    "bench": "node test/benchmarks/bench_binary_lingshu.mjs",
+    "parity": "node test/dual-parity.mjs",
+    "recognize": "node test/input-recognize.mjs",
+    "implicit-mult": "node test/implicit-multiply.mjs",
+    "tools-parity": "node test/tool-metadata-parity.mjs",
+    "fingerprint": "node scripts/code-fingerprint.mjs",
+    "fingerprint:check": "node scripts/code-fingerprint.mjs --check",
+    "tidy": "node scripts/simplify-comments.mjs --dry-run --log",
+    "verify": "npm run build && npm run golden && npm run recognize && npm run implicit-mult && npm run suan56 && npm run suan-family && npm run alpha-routing && npm run tan-singleton && npm run test && npm run audit && npm run parity && npm run tools-parity && npm run fingerprint:check",
+    "suan56": "node test/test_suan56_projection.mjs",
+    "suan-family": "node test/test_suan57_pruning.mjs && node test/test_suan58_basic_trig.mjs && node test/test_suan59_resultant.mjs && node test/test_suan60_linear.mjs && node test/test_suan59_ternary.mjs",
+    "alpha-routing": "node test/test-alpha-theory.mjs && node test/test-operator-routing.mjs",
+    "tan-singleton": "node test/test_tan_singleton.mjs"
   }
 }

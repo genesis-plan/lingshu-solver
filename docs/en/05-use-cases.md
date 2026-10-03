@@ -155,7 +155,7 @@ reproducibility (see [08 · Version management](08-%E7%89%88%E6%9C%AC%E7%AE%A1%E
 | Symbolic derivation, closed-form solutions, formula simplification | It is a numeric solver, no symbolic algebra | SymPy / Mathematica and similar CAS |
 | Differential equations (ODE/PDE) | A different kind of math problem | Dedicated ODE/PDE solvers |
 | Integer programming / Diophantine constraints | Integer enforcement is unsupported (it reports `integer-unenforced`) | MILP / CP solvers |
-| High-precision scientific computing (multi-precision, large matrices) | Fixed 6-decimal finite grid | MPFR/GMP, professional numerical libraries |
+| High-precision scientific computing (multi-precision, large matrices) | 6-decimal internal computation grid (4-decimal agent display) | MPFR/GMP, professional numerical libraries |
 | Large-scale optimisation (thousands of variables) | Hard cap of 6 variables | A professional optimiser |
 | Financial investment or medical diagnosis conclusions | It is a computing tool and gives no professional conclusion (compliance red line) | The corresponding licensed professional judgement |
 | "Guarantee that nothing is missed" | In the general case this is mathematically undecidable; no implementation can promise it | Problem-specific algorithms over a restricted input class |

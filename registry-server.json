@@ -3,7 +3,7 @@
   "name": "io.github.genesis-plan/lingshu-solver",
   "title": "灵数求解器 Lingshu Solver",
   "description": "Deterministic equation solver: interval + Krawczyk, offline, no LLM.",
-  "version": "1.0.19",
+  "version": "1.0.22",
   "websiteUrl": "https://genesis-plan.github.io/lingshu-solver/",
   "repository": {
     "url": "https://github.com/genesis-plan/lingshu-solver",

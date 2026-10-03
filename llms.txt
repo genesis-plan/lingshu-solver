@@ -7,6 +7,7 @@ We build three tools around one idea: AI-computed numbers must be checkable, det
 - Hosted MCP endpoint: `https://hongchenlingjing.com/mcp` (streamable HTTP)
 - Web app: <https://hongchenlingjing.com/>
 - Free forever via web / `npx lingshu-solver`; the hosted MCP endpoint is free as well, no metering — see [support](https://hongchenlingjing.com/pay/en.html) (corporate account, any amount, nothing to do after paying)
+- **Agent contract:** every `solve` result carries `trust` — read it before anything else. `trust.trustLevel` (7 levels), `trust.safeToUse`, `trust.provenCount` / `candidateCount` (branch on these, do not count solutions yourself), and `trust.meaningOfEmpty` which separates *proven* no-real-solution from *not found within budget* from *input not solvable* — an empty result is never silently "no solution". `verify` returns the certified corrected value plus `correctionMagnitude`, so a wrong number becomes a repair rather than a retry loop.
 
 ## Lingjing — personal AI brain / knowledge library (bring your own key)
 

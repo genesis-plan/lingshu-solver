@@ -52,6 +52,27 @@ jobs:
           curl -sS -X POST https://registry.modelcontextprotocol.io/v0/validate \
             -H 'Content-Type: application/json' --data @server.json
 
+      # 版本漂移守卫（2026-10-03）：server.json 曾长期卡在 1.0.19 而 package.json 已是 1.0.22。
+      # registry 对同名 server 的重复版本号会直接拒（version already exists），
+      # 于是「第一版注册成功、第二版开始永远失败」——2571 历史失败里同一根因。
+      # 这里提前拦住，错误信息直接指到要改哪一行。
+      - name: Guard all version manifests against package.json
+        # 2026-10-03 扩展：原来只查 server.json 三处，漏掉 registry-server.json(1.0.19) 与
+        # glama.json(1.0.19)——它们同样是「对外声明的版本」，卡 3 个版本会骗过 CI 却发错版。
+        # 现在五处（server.json 2 处 + registry-server.json + glama.json + package.json）全查。
+        run: |
+          set -euo pipefail
+          PV=$(node -p "require('./package.json').version")
+          SV=$(node -p "require('./server.json').version")
+          SPV=$(node -p "require('./server.json').packages[0].version")
+          RV=$(node -p "require('./registry-server.json').version")
+          GV=$(node -p "require('./glama.json').version")
+          echo "package.json=$PV  server.json=$SV  server.packages[0]=$SPV  registry-server.json=$RV  glama.json=$GV"
+          if [ "$SV" != "$PV" ] || [ "$SPV" != "$PV" ] || [ "$RV" != "$PV" ] || [ "$GV" != "$PV" ]; then
+            echo "::error::版本漂移: 必须五处一致（package.json=$PV / server.json=$SV / packages[0]=$SPV / registry-server.json=$RV / glama.json=$GV）"
+            exit 1
+          fi
+
       - name: Publish server to MCP Registry
         run: |
           set -euo pipefail

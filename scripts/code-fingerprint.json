@@ -1,0 +1,162 @@
+{
+  "src/engine/algebra/exact.js": {
+    "hash": "41833273a0aea917",
+    "lines": 664
+  },
+  "src/engine/algebra/multivar.js": {
+    "hash": "4f88d8191a56d50e",
+    "lines": 428
+  },
+  "src/engine/algebra/resultant.js": {
+    "hash": "bd6fad15d0eceba6",
+    "lines": 479
+  },
+  "src/engine/algebra/simplex.js": {
+    "hash": "006a0b14046cc4ee",
+    "lines": 117
+  },
+  "src/engine/ast/basic.js": {
+    "hash": "535b00822fda422e",
+    "lines": 1166
+  },
+  "src/engine/certify.js": {
+    "hash": "9aa861f285f355a3",
+    "lines": 445
+  },
+  "src/engine/constants.js": {
+    "hash": "ab4b2b80a96378dd",
+    "lines": 87
+  },
+  "src/engine/input/recognize.js": {
+    "hash": "fcbf09dd4daaa235",
+    "lines": 93
+  },
+  "src/engine/interval/affine.js": {
+    "hash": "2338a2e886acfc7a",
+    "lines": 89
+  },
+  "src/engine/interval/core.js": {
+    "hash": "0f96c9ed43b71be7",
+    "lines": 384
+  },
+  "src/engine/lex.js": {
+    "hash": "e37583d2fc100401",
+    "lines": 425
+  },
+  "src/engine/numeric/linear.js": {
+    "hash": "0d6cc305ae6b901b",
+    "lines": 380
+  },
+  "src/engine/numeric/polynomial.js": {
+    "hash": "3af6abf88d069890",
+    "lines": 381
+  },
+  "src/engine/numeric/root.js": {
+    "hash": "c34fde1230c9bd7a",
+    "lines": 367
+  },
+  "src/engine/ode.js": {
+    "hash": "02e93a32796fef11",
+    "lines": 230
+  },
+  "src/engine/operators/algebra.js": {
+    "hash": "d5f5767cf7161ac7",
+    "lines": 1321
+  },
+  "src/engine/operators/branch.js": {
+    "hash": "815cd7b9d3b83058",
+    "lines": 124
+  },
+  "src/engine/operators/contract.js": {
+    "hash": "c97c4f3decc7d435",
+    "lines": 673
+  },
+  "src/engine/operators/geometry.js": {
+    "hash": "da74b04fef578be3",
+    "lines": 329
+  },
+  "src/engine/operators/ineq.js": {
+    "hash": "4efc48d3c2325c31",
+    "lines": 187
+  },
+  "src/engine/operators/numeric.js": {
+    "hash": "5db482bf4d26bd33",
+    "lines": 284
+  },
+  "src/engine/operators/output.js": {
+    "hash": "7651e1464b594df2",
+    "lines": 816
+  },
+  "src/engine/operators/post.js": {
+    "hash": "86aad79b6dd2f160",
+    "lines": 140
+  },
+  "src/engine/operators/pre.js": {
+    "hash": "27ec87f8f565fe85",
+    "lines": 599
+  },
+  "src/engine/operators/registry.js": {
+    "hash": "65d5034947a1a2c2",
+    "lines": 73
+  },
+  "src/engine/operators/screen.js": {
+    "hash": "8350e42c7ea95687",
+    "lines": 355
+  },
+  "src/engine/operators/setup.js": {
+    "hash": "4a75cbffa8e08f88",
+    "lines": 146
+  },
+  "src/engine/operators/support.js": {
+    "hash": "f4a86da60f3ee65c",
+    "lines": 367
+  },
+  "src/engine/pipeline/output.js": {
+    "hash": "a67925527c75e63d",
+    "lines": 70
+  },
+  "src/engine/pipeline/report.js": {
+    "hash": "5e5d80278775f066",
+    "lines": 52
+  },
+  "src/engine/pipeline/scheduler.js": {
+    "hash": "b6c2a87aa38e6ae0",
+    "lines": 233
+  },
+  "src/engine/pipeline/solver.js": {
+    "hash": "041fd00909809135",
+    "lines": 761
+  },
+  "src/engine/ui.js": {
+    "hash": "763daa9781140ee3",
+    "lines": 404
+  },
+  "services/solver-service.js": {
+    "hash": "8a1f18427a0faaa2",
+    "lines": 295
+  },
+  "services/tool-metadata.js": {
+    "hash": "df44e5983b8f3c53",
+    "lines": 78
+  },
+  "mcp-server.js": {
+    "hash": "d87ef9c80224f134",
+    "lines": 102
+  },
+  "http-mcp-server.js": {
+    "hash": "6086ba857ccb8bda",
+    "lines": 1348
+  },
+  "solver-core.js": {
+    "hash": "9743468703799524",
+    "lines": 93
+  },
+  "reconcile-bank.js": {
+    "hash": "651e85944cbc7a6d",
+    "lines": 110
+  },
+  "native-bridge.js": {
+    "hash": "bfca28a6218ce554",
+    "lines": 21
+  }
+}

@@ -1,0 +1,2004 @@
+[
+  {
+    "name": "g001-2d-basic",
+    "eqs": [
+      "x^2+y^2=4",
+      "x*y=1"
+    ],
+    "varNames": [
+      "x",
+      "y"
+    ],
+    "result": {
+      "resultTypeName": "有限个解",
+      "exactSolutionCount": 4,
+      "provenCount": 4,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 2,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "y": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 4,
+      "solutions": [
+        {
+          "values": [
+            -1.9318516525781366,
+            -0.5176380902050416
+          ],
+          "residual": 3.292325079229e-9,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -0.5176380902050415,
+            -1.9318516525781366
+          ],
+          "residual": 3.292325079229e-9,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            0.5176380902050416,
+            1.9318516525781364
+          ],
+          "residual": 3.292325079229e-9,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            1.9318516525781366,
+            0.5176380902050415
+          ],
+          "residual": 3.292325079229e-9,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g002-2d-resultant",
+    "eqs": [
+      "x^2-2=0",
+      "y-3=0"
+    ],
+    "varNames": [
+      "x",
+      "y"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 2,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 2,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "y": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 2,
+      "solutions": [
+        {
+          "values": [
+            -1.4142135623731626,
+            3
+          ],
+          "residual": 0.000001237796000364,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            1.4142135623731626,
+            3
+          ],
+          "residual": 0.000001237796000364,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g003-3d-sphere",
+    "eqs": [
+      "x^2+y^2+z^2=14",
+      "x+y+z=6",
+      "x*y*z=6"
+    ],
+    "varNames": [
+      "x",
+      "y",
+      "z"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 6,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 3,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "y": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "z": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 6,
+      "solutions": [
+        {
+          "values": [
+            3.0000000000053726,
+            1.9999999999946272,
+            1.0000000000000002
+          ],
+          "residual": 1.074340616469e-11,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            2.9999999999999996,
+            0.9999999999999999,
+            2.0000000000000004
+          ],
+          "residual": 5.567404315343e-10,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            2,
+            1,
+            3
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            1,
+            2,
+            3
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            2,
+            3,
+            1
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            1,
+            3,
+            2
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g004-3d-linear",
+    "eqs": [
+      "x+y+z=6",
+      "y+z=3",
+      "z=1"
+    ],
+    "varNames": [
+      "x",
+      "y",
+      "z"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 1,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 3,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "y": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "z": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 1,
+      "solutions": [
+        {
+          "values": [
+            3,
+            2,
+            1
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g005-4d-couple-ok",
+    "eqs": [
+      "x^2+y^2+z^2+w^2=30",
+      "x+y+z+w=10",
+      "x*y=4",
+      "z*w=6"
+    ],
+    "varNames": [
+      "x",
+      "y",
+      "z",
+      "w"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 0,
+      "candidateCount": 4,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 4,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "y": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "z": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "w": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 4,
+      "solutions": [
+        {
+          "values": [
+            4.000009241822238,
+            0.9999976895444426,
+            2.0000138627334554,
+            2.999979205899864
+          ],
+          "residual": 7.151186309784e-10,
+          "tier": "candidate",
+          "certified": false,
+          "method": "numeric_newton"
+        },
+        {
+          "values": [
+            4.000008762388412,
+            0.9999978094028982,
+            2.999980284626098,
+            2.0000131435825916
+          ],
+          "residual": 6.43073150286e-10,
+          "tier": "candidate",
+          "certified": false,
+          "method": "numeric_newton"
+        },
+        {
+          "values": [
+            1.0000003956450048,
+            3.999998417419984,
+            3.0000035608050437,
+            1.9999976261299683
+          ],
+          "residual": 2.099298512803e-11,
+          "tier": "candidate",
+          "certified": false,
+          "method": "numeric_newton"
+        },
+        {
+          "values": [
+            1.0000019074778308,
+            3.999992370088681,
+            1.99998855513308,
+            3.0000171673004083
+          ],
+          "residual": 4.874323167314e-10,
+          "tier": "candidate",
+          "certified": false,
+          "method": "numeric_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g006-4d-partial",
+    "eqs": [
+      "x^2+y^2+z^2=14",
+      "x+y+z+w=10",
+      "x*y=4",
+      "z*w=6"
+    ],
+    "varNames": [
+      "x",
+      "y",
+      "z",
+      "w"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 4,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 4,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "y": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "z": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "w": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 4,
+      "solutions": [
+        {
+          "values": [
+            3.2052584615778734,
+            1.2479492833257142,
+            1.4727324199360556,
+            4.074059835160357
+          ],
+          "residual": 4.298783551349e-13,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            1.2479492833249353,
+            3.2052584615786515,
+            1.4727324199360543,
+            4.074059835160359
+          ],
+          "residual": 3.467448550509e-12,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -1.129223784744383,
+            -3.542256241887531,
+            0.421039619013627,
+            14.250440407618287
+          ],
+          "residual": 2.742694960034e-12,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -3.5422562418869648,
+            -1.129223784744944,
+            0.4210396190136272,
+            14.250440407618282
+          ],
+          "residual": 4.036948553221e-11,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g007-5d-chain",
+    "eqs": [
+      "x+y+z+w+v=10",
+      "x^2+y^2+z^2+w^2+v^2=30",
+      "x*y=z",
+      "z*v=w",
+      "w*v=x"
+    ],
+    "varNames": [
+      "x",
+      "y",
+      "z",
+      "w",
+      "v"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 2,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 5,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "y": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "z": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "w": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "v": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 2,
+      "solutions": [
+        {
+          "values": [
+            0.7403376612824708,
+            4.1705045374109115,
+            3.0875815755948435,
+            1.5119037412132859,
+            0.4896724844984889
+          ],
+          "residual": 5.897504706809e-13,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            4.454443080677352,
+            0.24225870380233538,
+            1.0791276068861773,
+            2.192467217921865,
+            2.0317033907122712
+          ],
+          "residual": 8.037801535465e-10,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g008-n7-failclosed",
+    "eqs": [
+      "a+b+c+d+e+f+g=7",
+      "a*b=1",
+      "c*d=1",
+      "e*f=1",
+      "g*a=1",
+      "b*c=1",
+      "d*e=1"
+    ],
+    "varNames": [
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+      "f",
+      "g"
+    ],
+    "result": {
+      "resultTypeName": "空结果",
+      "provenCount": 0,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 7,
+        "domain": {},
+        "decimals": 6
+      },
+      "nSolutions": 0,
+      "solutions": []
+    }
+  },
+  {
+    "name": "g009-positive-dim",
+    "eqs": [
+      "x-y=0"
+    ],
+    "varNames": [
+      "x",
+      "y"
+    ],
+    "result": {
+      "resultTypeName": "无限解集（推荐解）",
+      "provenCount": 0,
+      "candidateCount": 1,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 2,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "y": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 1,
+      "solutions": [
+        {
+          "values": [
+            0,
+            0
+          ],
+          "residual": 0,
+          "tier": "candidate",
+          "method": "numeric_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g010-no-real-sol",
+    "eqs": [
+      "x^2+1=0"
+    ],
+    "varNames": [
+      "x"
+    ],
+    "result": {
+      "resultTypeName": "空结果",
+      "provenCount": 0,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 1,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 0,
+      "solutions": []
+    }
+  },
+  {
+    "name": "g011-trig",
+    "eqs": [
+      "sin(x)=0.5"
+    ],
+    "varNames": [
+      "x"
+    ],
+    "result": {
+      "resultTypeName": "有限个解（截断）",
+      "exactSolutionCount": 636620,
+      "provenCount": 100,
+      "candidateCount": 0,
+      "truncated": true,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 1,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 100,
+      "solutions": [
+        {
+          "values": [
+            -999999.8339653915
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999993.5507800843
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999987.2675947772
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999980.98440947
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999974.7012241628
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999968.4180388555
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999962.1348535484
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999955.8516682412
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999949.568482934
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999943.2852976269
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999937.0021123197
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999930.7189270125
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999924.4357417054
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999918.1525563982
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999911.869371091
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999905.5861857838
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999899.3030004766
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999893.0198151694
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999886.7366298622
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999880.453444555
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999874.1702592479
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999867.8870739407
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999861.6038886335
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999855.3207033264
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999849.0375180192
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999842.754332712
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999836.4711474049
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999830.1879620976
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999823.9047767904
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999817.6215914832
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999811.3384061761
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999805.0552208689
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999798.7720355617
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999792.4888502546
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999786.2056649474
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999779.9224796402
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999773.639294333
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999767.3561090259
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999761.0729237187
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999754.7897384114
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999748.5065531043
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999742.2233677971
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999735.9401824899
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999729.6569971828
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999723.3738118756
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999717.0906265684
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999710.8074412612
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999704.5242559541
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999698.2410706469
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999691.9578853397
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999685.6747000325
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999679.3915147253
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999673.1083294181
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999666.825144111
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999660.5419588038
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999654.2587734966
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999647.9755881894
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999641.6924028823
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999635.4092175751
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999629.1260322679
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999622.8428469608
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999616.5596616535
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999610.2764763463
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999603.9932910391
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999597.710105732
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999591.4269204248
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999585.1437351176
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999578.8605498105
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999572.5773645033
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999566.2941791961
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999560.010993889
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999553.7278085818
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999547.4446232746
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999541.1614379673
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999534.8782526602
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999528.595067353
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999522.3118820458
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999516.0286967386
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999509.7455114315
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999503.4623261243
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999497.1791408171
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999490.89595551
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999484.6127702028
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999478.3295848956
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999472.0463995883
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999465.7632142812
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999459.480028974
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999453.1968436668
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999446.9136583597
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999440.6304730525
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999434.3472877453
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999428.0641024382
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999421.780917131
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999415.4977318238
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999409.2145465167
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999402.9313612095
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999396.6481759022
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999390.364990595
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999384.0818052879
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            -999377.7986199807
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g012-abs-miranda",
+    "eqs": [
+      "abs(x)-2=0"
+    ],
+    "varNames": [
+      "x"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 2,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 1,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 2,
+      "solutions": [
+        {
+          "values": [
+            -2
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "miranda"
+        },
+        {
+          "values": [
+            2
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "miranda"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g013-rational-loan",
+    "eqs": [
+      "120000*p*(1+p)^360-2500000=0"
+    ],
+    "varNames": [
+      "p"
+    ],
+    "result": {
+      "resultTypeName": "有限个解",
+      "provenCount": 1,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 1,
+        "domain": {
+          "p": {
+            "min": -2500000000,
+            "max": 2500000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 1,
+      "solutions": [
+        {
+          "values": [
+            0.01955308479666175
+          ],
+          "residual": 6.100162863731e-8,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g014-division-equation",
+    "eqs": [
+      "x^2-4=0",
+      "(x-2)/(x+2)=0"
+    ],
+    "varNames": [
+      "x",
+      "y"
+    ],
+    "result": {
+      "resultTypeName": "有限个解",
+      "provenCount": 0,
+      "candidateCount": 1,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 1,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 1,
+      "solutions": [
+        {
+          "values": [
+            2
+          ],
+          "residual": 0,
+          "tier": "candidate",
+          "method": "numeric_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g015-bezout8",
+    "eqs": [
+      "x^2+y^2+z^2=3",
+      "x*y=1",
+      "y*z=1"
+    ],
+    "varNames": [
+      "x",
+      "y",
+      "z"
+    ],
+    "result": {
+      "resultTypeName": "有限个解",
+      "exactSolutionCount": 2,
+      "provenCount": 2,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 3,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "y": {
+            "min": -1000000,
+            "max": 1000000
+          },
+          "z": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 2,
+      "solutions": [
+        {
+          "values": [
+            -0.7071067811865476,
+            -1.414213562373095,
+            -0.7071067811865476
+          ],
+          "residual": 1.256660886462e-9,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        },
+        {
+          "values": [
+            0.7071067811865474,
+            1.4142135623730954,
+            0.7071067811865475
+          ],
+          "residual": 1.256660886462e-9,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g016-2d-watt",
+    "eqs": [
+      "x^3+y^3-3*a*x*y=0",
+      "x+y=1"
+    ],
+    "varNames": [
+      "x",
+      "y"
+    ],
+    "result": {
+      "certificateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": null,
+      "bound": null,
+      "nSolutions": 0,
+      "solutions": []
+    }
+  },
+  {
+    "name": "g017-exp-equation",
+    "eqs": [
+      "exp(x)-2=0"
+    ],
+    "varNames": [
+      "x"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 1,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 1,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 1,
+      "solutions": [
+        {
+          "values": [
+            0.6931471805599616
+          ],
+          "residual": 7.430500659211e-11,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g018-inequality-domain",
+    "eqs": [
+      "x^2-4=0",
+      "x>0"
+    ],
+    "varNames": [
+      "x"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 1,
+      "candidateCount": 0,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 1,
+        "domain": {
+          "x": {
+            "min": 0,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 1,
+      "solutions": [
+        {
+          "values": [
+            2
+          ],
+          "residual": 0,
+          "tier": "proven",
+          "certified": true,
+          "method": "krawczyk_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g019-repeated-root",
+    "eqs": [
+      "x^3-3*x^2+3*x-1=0"
+    ],
+    "varNames": [
+      "x"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 0,
+      "candidateCount": 1,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 1,
+        "domain": {
+          "x": {
+            "min": -1000000,
+            "max": 1000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 1,
+      "solutions": [
+        {
+          "values": [
+            1
+          ],
+          "residual": 0,
+          "tier": "candidate",
+          "certified": false,
+          "method": "numeric_newton"
+        }
+      ]
+    }
+  },
+  {
+    "name": "g020-big-scale",
+    "eqs": [
+      "x*y-1e6=0",
+      "x+y-2000=0"
+    ],
+    "varNames": [
+      "x",
+      "y"
+    ],
+    "result": {
+      "resultTypeName": "有限离散孤立采样点",
+      "provenCount": 0,
+      "candidateCount": 1,
+      "truncated": false,
+      "hardTimeout": false,
+      "positiveDim": false,
+      "completenessProven": true,
+      "bound": {
+        "varCount": 2,
+        "domain": {
+          "x": {
+            "min": -1000000000,
+            "max": 1000000000
+          },
+          "y": {
+            "min": -1000000000,
+            "max": 1000000000
+          }
+        },
+        "decimals": 6
+      },
+      "nSolutions": 1,
+      "solutions": [
+        {
+          "values": [
+            1000,
+            1000
+          ],
+          "residual": 0,
+          "tier": "candidate",
+          "certified": false,
+          "method": "numeric_newton"
+        }
+      ]
+    }
+  }
+]

@@ -89,7 +89,9 @@ function timedSolve(label, eqs, vns, dom, expectRt, expectMin) {
 timedSolve('solve(sin(x)-0.5) 默认域', ['sin(x)-0.5'], ['x'], undefined, 3, 100);   // 周期无限 → rt=3
 timedSolve('solve(sin(x)=0.5) 限域[0,4]', ['sin(x)=0.5'], ['x'], { x: [0, 4] }, 2, 2);  // 有限 2 根
 timedSolve('solve(cos(x)=0.5) 限域[0,20]', ['cos(x)=0.5'], ['x'], { x: [0, 20] }, 2, 7); // 有限 7 根
-timedSolve('solve(tan(x)=1) 默认域', ['tan(x)=1'], ['x'], undefined, 3, 10);       // 周期无限 → rt=3
+// 2026-10-03 suan58：tan(x)=1 由符号通解接管 ⇒ rt=2（有限解·截断）+ 精确总数 636620。
+// 旧断言 rt=3（无限解集）是**错误分类** —— 声明域有限 ⇒ 真解有限（tan 周期 π，±1e6 内 636620 个）。
+timedSolve('solve(tan(x)=1) 默认域', ['tan(x)=1'], ['x'], undefined, 2, 10);       // suan58 通解 ⇒ rt=2
 timedSolve('solve(sin(x)+2=0) 无根', ['sin(x)+2=0'], ['x'], undefined, 1, 0);      // 候选空集
 
 console.log(`\n===== 合计: PASS=${pass}  FAIL=${fail} =====`);

@@ -12,8 +12,18 @@
 > **Krawczyk-certified** (`certified: true`), reproducible, checkable by substitution, and usable as an
 > audit trail.
 
-**Two audiences:** people who just want an answer (open the web page, no install), and AI agents (a
-standard MCP tool, one line to connect).
+**Built for AI agents.** Connect it as an MCP tool and your model stops guessing arithmetic. It is a
+deterministic, non-LLM numerical engine: same input, same answer, every reported solution interval-certified
+and checkable by substitution. Three things matter to a calling agent, and all three are built in:
+
+| What an agent needs | What this tool does |
+|---|---|
+| **A verdict it can branch on without guessing** | every result carries a `trust` block — a 7-level `trustLevel`, `safeToUse`, and `provenCount` / `candidateCount` so you never have to count solutions yourself |
+| **Honesty about "no answer"** | an empty result is never silently "no real solution" — `meaningOfEmpty` distinguishes *proven* empty / not found within budget / input not solvable |
+| **A way to fix its own mistake** | `verify` returns the certified corrected value and how far off the original was, so a wrong number becomes a repair, not a retry loop |
+
+Humans can use the web page too (zero install) — but the design target is the agent: compact tool
+descriptions, structured errors that say what to change, and no prose the model has to pay for on every turn.
 
 🔬 **Live demo against the production endpoint:**
 <https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/demo.html> — call the real MCP
@@ -29,16 +39,7 @@ candidate value. Thirty seconds is enough to see why "an LLM will mis-compute th
 
 ## 30 seconds to start
 
-**① Web (zero install, permanently free)**
-
-- Main site: <https://hongchenlingjing.com/>
-- Mirrors: <https://genesis-plan.github.io/lingshu-solver/> ·
-  <https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/index.html>
-
-Type equations into the box (for example `x^2 + y^2 = 25` and `x + y = 7`) and press solve. Everything is
-computed inside your browser; the equations never leave your device.
-
-**② AI agent (MCP — pick either form)**
+**① AI agent (MCP — pick either form)**
 
 ```json
 // local stdio — permanently free, unlimited, offline. Recommended.
@@ -55,6 +56,15 @@ computed inside your browser; the equations never leave your device.
 > balance deduction). The `npx` local version and the web version are permanently free. If you do want to
 > support it, see the [payment page](https://hongchenlingjing.com/pay/) — a corporate account, self-service
 > crediting, effective immediately, no human approval anywhere in the loop.
+
+**② Web (zero install, permanently free)**
+
+- Main site: <https://hongchenlingjing.com/>
+- Mirrors: <https://genesis-plan.github.io/lingshu-solver/> ·
+  <https://hclj-1409755229.cos.ap-guangzhou.myqcloud.com/lingshu-solver/index.html>
+
+Type equations into the box (for example `x^2 + y^2 = 25` and `x + y = 7`) and press solve. Everything is
+computed inside your browser; the equations never leave your device.
 
 **③ Developer**
 
@@ -77,7 +87,7 @@ node test/regression.js     # standing regression suite
 | Variables | ≤ 6 |
 | Equations | 1–64 (server-side guard), and the count must be ≥ the variable count |
 | Search range | default ±1e6 per variable; supply `domain` explicitly for fast-growing functions (`exp/sinh`) |
-| Output precision | fixed at 6 decimal places (there is no precision switch) |
+| Output precision | No user-facing switch. Internal computation is fixed at 6 decimals; the agent-facing display is 4 decimals (`precisionDecimals`) while `solutions[].values` keep full float precision |
 | Determinism | no random branching; identical input always yields identical output, so caching is safe |
 | Data | web version sends nothing upward; local version runs offline; the hosted endpoint does not persist equation contents |
 | Dependencies | zero third-party dependencies (Node built-ins and standard browser APIs only) |

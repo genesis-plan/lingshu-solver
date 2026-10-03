@@ -1,25 +1,39 @@
 /**
  * 灵数求解器 · 引擎加载器（零依赖）
  *
- * 单一事实来源：桌面真源 index.html 里的 <script id="solver-core">。
- * 本文件不重写任何求解逻辑——它把那段已验证的脚本在 vm 沙箱里实跑，
- * 取出其中的 solve() 暴露给 Node / MCP 服务端复用，从而保证
- * 「浏览器内 UI」与「MCP 服务端」调用的是同一份核心代码（同源、零分叉、零新 bug）。
+ * 【2026-10-03 生产级大改】单一事实来源改为 **构建产物 dist/lingshu.mjs**：
+ *   - 旧做法：正则从 index.html 抠 <script id="solver-core"> 再用 vm.runInContext 实跑。
+ *     问题：① 把「已构建好的产物」当源码解析，构建链一改就漏改；② vm 沙箱无 timeout、
+ *           无隔离策略，引擎若死循环无法中断；③ 每次启动重新解析 700KB HTML，白付开销。
+ *   - 新做法：直接 require 构建产物（ESM 真·入口，strict 模式、显式 var、零隐式全局）。
+ *     回退：仅当 dist/ 缺失时才走旧 vm 路径（兼容「clone 后没跑 npm run build」的旧部署）。
  *
+ * 对外契约不变：solve() / raw() / _reset()。
  * 用法：
  *   const { solve } = require('./solver-core');
  *   const r = solve(['x^2 = 4'], [], 6);
  */
 'use strict';
 const fs = require('fs');
-const vm = require('vm');
 const path = require('path');
-const { performance } = require('perf_hooks');
+const vm = require('vm');
 
-/**
- * 递归 no-op 桩：任意属性访问 / 调用 / 赋值都安全。
- * 用于顶层的 document / window 等浏览器对象，避免 UI 初始化代码在 Node 下崩溃。
- */
+let _mod = null;
+let _sandbox = null;
+
+// ── 主路径：构建产物 ESM ─────────────────────────────────────────
+function loadDist() {
+  const candidates = [
+    path.resolve(__dirname, 'dist', 'lingshu.mjs'),
+    path.resolve(__dirname, '..', 'dist', 'lingshu.mjs')
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return require(c);
+  }
+  return null;
+}
+
+// ── 回退路径：vm 跑 index.html 里的 solver-core（生产默认走不到） ──
 function makeNoop() {
   const fn = function () { return p; };
   const p = new Proxy(fn, {
@@ -36,40 +50,27 @@ function makeNoop() {
   });
   return p;
 }
+const { performance } = require('perf_hooks');
 
-function resolveHtmlPath() {
-  if (process.env.LINGSHU_HTML && fs.existsSync(process.env.LINGSHU_HTML)) {
-    return process.env.LINGSHU_HTML;
+function loadLegacyVm() {
+  let htmlPath = null;
+  const envPath = process.env.LINGSHU_HTML;
+  if (envPath && fs.existsSync(envPath)) htmlPath = envPath;
+  if (!htmlPath) {
+    for (const c of [path.resolve(__dirname, 'index.html'), path.resolve(__dirname, '..', 'index.html')]) {
+      if (fs.existsSync(c)) { htmlPath = c; break; }
+    }
   }
-  const candidates = [
-    path.resolve(__dirname, 'index.html'),
-    path.resolve(__dirname, '..', 'index.html')
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
-  throw new Error('灵数求解器 index.html 未找到；请设置环境变量 LINGSHU_HTML 指向它。');
-}
-
-let _sandbox = null;
-
-function loadSandbox() {
-  const htmlPath = resolveHtmlPath();
+  if (!htmlPath) throw new Error('灵数求解器 index.html 未找到（且 dist/ 缺失）；请先 npm run build。');
   const html = fs.readFileSync(htmlPath, 'utf8');
   const m = html.match(/<script id="solver-core">([\s\S]*?)<\/script>/);
   if (!m) throw new Error('未在 index.html 中找到 <script id="solver-core">。');
-  const code = m[1];
 
   const sandbox = {};
   const noop = makeNoop();
-
-  // 让 window/self/globalThis 都指向 sandbox 自身，
-  // 这样顶层 function solve(){} 与 window.xxx= 赋值都落到 sandbox，可被取到。
   sandbox.window = sandbox;
   sandbox.self = sandbox;
   sandbox.globalThis = sandbox;
-
-  // 浏览器对象桩
   sandbox.document = noop;
   sandbox.navigator = { serviceWorker: null, userAgent: 'node-lingshu' };
   sandbox.localStorage = {
@@ -89,17 +90,21 @@ function loadSandbox() {
   sandbox.cancelAnimationFrame = function () {};
 
   vm.createContext(sandbox);
-  // 实跑整段核心脚本（顶层 UI 初始化靠 noop 桩安全通过）
-  vm.runInContext(code, sandbox, { filename: 'solver-core.js' });
-
-  if (typeof sandbox.solve !== 'function') {
-    throw new Error('核心脚本中未找到 solve() 函数；可能 index.html 结构已变更。');
-  }
+  vm.runInContext(m[1], sandbox, { filename: 'solver-core.js' });
+  if (typeof sandbox.solve !== 'function') throw new Error('核心脚本中未找到 solve() 函数。');
   return sandbox;
 }
 
 function getSandbox() {
-  if (!_sandbox) _sandbox = loadSandbox();
+  if (!_sandbox) {
+    _mod = loadDist();
+    if (_mod && typeof _mod.solve === 'function') {
+      _sandbox = _mod;                                  // ✅ 生产路径：ESM 产物
+    } else {
+      console.warn('[lingshu] 未找到 dist/lingshu.mjs，回退到 vm 读 index.html 的旧路径；请先执行 `npm run build`。');
+      _sandbox = loadLegacyVm();                          // ⚠️ 兼容回退
+    }
+  }
   return _sandbox;
 }
 
@@ -109,8 +114,8 @@ module.exports = {
     const sb = getSandbox();
     return sb.solve.apply(sb, arguments);
   },
-  /** 取原始沙箱（高级用法：访问 EXAMPLES 等） */
+  /** 取引擎命名空间（高级用法 / 测试直接访问内部符号） */
   raw: function () { return getSandbox(); },
   /** 仅用于测试：重置缓存，强制重新加载 */
-  _reset: function () { _sandbox = null; }
+  _reset: function () { _mod = null; _sandbox = null; }
 };

@@ -31,13 +31,16 @@ guess, it computes, and it lets you verify what it computed.
 
 ## 3. Who it is for
 
+The design target is **AI agents** (row 1). Everything below row 1 is a secondary path that also happens
+to work.
+
 | User | What they get |
 |---|---|
-| **Individuals / students / teachers / accountants** | A system-of-equations calculator that does not make things up: nonlinear and constraint-bearing problems, works in the browser, same answer every time, checkable by back-substitution |
-| **AI agent developers** | A **deterministic math backend** for the agent: constraint solving no longer depends on how the model happens to feel that turn; results are cacheable, reproducible, verifiable |
+| **AI agent developers** (primary) | A **deterministic math backend** for the agent: constraint solving no longer depends on how the model happens to feel that turn; results are cacheable, reproducible, verifiable. Every response carries a `trust` block (`trustLevel` / `safeToUse` / solution counts) so the agent can branch on a verdict instead of interpreting prose; `verify` hands back the certified corrected value so a wrong number becomes a repair rather than a retry loop |
 | **Multi-agent / distributed systems** | An **intermediate computation certificate a third party can check** ("this number really was computed") instead of agents trusting each other's arithmetic |
 | **Enterprises / private deployment** | Data stays inside, self-hostable, verified-solution numerical fidelity — suitable for embedding in internal systems, risk pipelines, compliance computation |
 | **Audit / compliance evidence** | Certification results and diagnostic fields are structured and can be archived alongside business logs |
+| **Individuals / students / teachers / accountants** | A system-of-equations calculator that does not make things up: nonlinear and constraint-bearing problems, works in the browser, same answer every time, checkable by back-substitution |
 
 ---
 
@@ -61,10 +64,10 @@ guess, it computes, and it lets you verify what it computed.
 | Enforced integer / natural-number constraints | Solves over the reals; integers are not guaranteed. Returns a structured warning `integer-unenforced` rather than silently ignoring it |
 | "must not equal" constraints | Not implemented |
 | Hyperbolic / inverse trigonometric functions | `sinh/cosh/tanh/asin/acos/atan` are deliberately not implemented (see [03 · Design ideas](03-%E8%AE%BE%E8%AE%A1%E6%80%9D%E6%83%B3.md)) |
-| High-precision global scientific computing | Fixed 6-decimal finite grid; it is a lightweight numerical tool, not a full-precision scientific stack |
+| High-precision global scientific computing | 6-decimal internal computation grid; it is a lightweight numerical tool, not a full-precision scientific stack |
 | A guarantee of 100% exhaustion | For the general case, "find every solution" is mathematically undecidable; when it cannot prove exhaustion within budget it honestly reports `truncated` |
 
-**Scale and limits**: at most 6 variables; default search domain ±1e6; fixed 6-decimal output; at most 100 KB of equation text per call.
+**Scale and limits**: at most 6 variables; default search domain ±1e6 (auto-widened, never narrowed, for fast-growing functions); 6-decimal internal computation with a 4-decimal agent-facing display; at most 100 KB of equation text per call.
 
 ---
 
@@ -84,7 +87,7 @@ guess, it computes, and it lets you verify what it computed.
 
 **You may say**: deterministic, reproducible, verifiable, non-hallucinating, verified-solution numerical
 fidelity, best-effort global exhaustion, Krawczyk interval certification, offline, zero dependencies,
-zero data (per form), ≤6 variables, fixed 6 decimals, honest flagging when not exhausted.
+zero data (per form), ≤6 variables, 6-decimal internal computation, honest flagging when not exhausted.
 
 **You may not say**:
 - ❌ "never misses a solution", "100% correct", "absolutely exact", "zero risk"

@@ -1,0 +1,114 @@
+[
+ {
+  "name": "sum/sumsq/xyz(6)",
+  "eqs": [
+   "x + y + z - 6",
+   "x**2 + y**2 + z**2 - 14",
+   "x*y*z - 6"
+  ],
+  "sympy_ms": 141.3,
+  "sympy_n": 6,
+  "sympy_valid": 6,
+  "sympy_worst": 0.0,
+  "sympy_timeout": false,
+  "sympy_err": null
+ },
+ {
+  "name": "Vieta(6,11,6)",
+  "eqs": [
+   "x + y + z - 6",
+   "x*y + y*z + z*x - 11",
+   "x*y*z - 6"
+  ],
+  "sympy_ms": 145.7,
+  "sympy_n": 6,
+  "sympy_valid": 6,
+  "sympy_worst": 0.0,
+  "sympy_timeout": false,
+  "sympy_err": null
+ },
+ {
+  "name": "3 quad",
+  "eqs": [
+   "x**2 + y**2 + z**2 - 1",
+   "x**2 - y**2 + z**2 - 1",
+   "x**2 + y**2 - z**2 - 1"
+  ],
+  "sympy_ms": 138.4,
+  "sympy_n": 2,
+  "sympy_valid": 2,
+  "sympy_worst": 0.0,
+  "sympy_timeout": false,
+  "sympy_err": null
+ },
+ {
+  "name": "xyz=6,sum=6,sumsq=14",
+  "eqs": [
+   "x*y*z - 6",
+   "x + y + z - 6",
+   "x**2 + y**2 + z**2 - 14"
+  ],
+  "sympy_ms": 137.6,
+  "sympy_n": 6,
+  "sympy_valid": 6,
+  "sympy_worst": 0.0,
+  "sympy_timeout": false,
+  "sympy_err": null
+ },
+ {
+  "name": "cubic chain",
+  "eqs": [
+   "x**3 - 3*x - y",
+   "y**3 - 3*y - x",
+   "z - x - y"
+  ],
+  "sympy_ms": 197.4,
+  "sympy_n": 9,
+  "sympy_valid": 9,
+  "sympy_worst": 2.220446049250313e-16,
+  "sympy_timeout": false,
+  "sympy_err": null
+ },
+ {
+  "name": "sphere+plane+quad",
+  "eqs": [
+   "x**2 + y**2 + z**2 - 4",
+   "x + y + z - 1",
+   "x - y"
+  ],
+  "sympy_ms": 173.1,
+  "sympy_n": 2,
+  "sympy_valid": 2,
+  "sympy_worst": 4.440892098500626e-16,
+  "sympy_timeout": false,
+  "sympy_err": null
+ },
+ {
+  "name": "mixed deg",
+  "eqs": [
+   "x**2 + y - z",
+   "y**2 + z - x",
+   "z**2 + x - y"
+  ],
+  "sympy_ms": 20000.0,
+  "sympy_n": 0,
+  "sympy_valid": 0,
+  "sympy_worst": 0.0,
+  "sympy_timeout": true,
+  "sympy_err": "TIMEOUT"
+ },
+ {
+  "name": "bezout 8",
+  "eqs": [
+   "x**2 - y*z",
+   "y**2 - x*z",
+   "z**2 - x*y"
+  ],
+  "sympy_ms": 252.5,
+  "sympy_n": 0,
+  "sympy_valid": 0,
+  "sympy_worst": 0.0,
+  "sympy_timeout": false,
+  "sympy_err": null
+ }
+]

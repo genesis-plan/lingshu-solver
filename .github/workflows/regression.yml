@@ -16,6 +16,26 @@ jobs:
           node-version: 20
       - name: Run regression suite
         run: node test/regression.js
+      - name: Build engine (dist/)
+        run: node scripts/build.mjs
+      - name: Code fingerprint — 注释/格式化改动不得触碰代码
+        # 与 golden 互补：golden 证明「行为没变」，本步证明「纯代码逐字节没变」。
+        # 只改注释时两者都必须绿；一旦有人顺手改了逻辑，这里立刻红。
+        run: node scripts/code-fingerprint.mjs --check
+      - name: Golden diff — 零行为变更对拍 (20 用例)
+        # 重构/改算子的唯一硬闸门：与「构建前单作用域引擎」逐字段对拍，任一字段漂移即红。
+        # 之前 golden 链路无人调用（test/golden 从没进过任何 workflow），等于没有质量门。
+        run: node test/golden/diff.mjs
+      - name: Engine static audit
+        # 生产级红线：隐式全局 / 空 catch 吞异常 / 死代码 / 重复定义 / TODO
+        run: node scripts/audit.mjs
+      - name: Dual parity — stdio/http 同一求解域 + 诚实三档
+        # 锁死「两端 shapeResult 分叉」与「空集虚报严格证明」两类回归
+        run: node test/dual-parity.mjs
+      - name: Agent tool-metadata parity — 两端同一份工具描述
+        # 文案分叉比代码分叉更隐蔽：代码分叉有测试会红，描述分叉没有任何测试会发现。
+        # 曾真实发生：stdio 端压了 solve description 而 HTTP 端没跟上。
+        run: node test/tool-metadata-parity.mjs
       - name: Run MCP smoke test
         # 零依赖：本 job 不执行 npm install，故 test/mcp_smoke.js 只使用 Node 内置模块
         run: node test/mcp_smoke.js

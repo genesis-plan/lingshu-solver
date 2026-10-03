@@ -1,0 +1,66 @@
+[
+ {
+  "name": "sum/sumsq/xyz(6)",
+  "ls": 4.632,
+  "lsN": 6,
+  "lsWorst": 2.3092638912203256e-14,
+  "sp": 141.3,
+  "spN": 6
+ },
+ {
+  "name": "Vieta(6,11,6)",
+  "ls": 3.948,
+  "lsN": 6,
+  "lsWorst": 1.2434497875801753e-14,
+  "sp": 145.7,
+  "spN": 6
+ },
+ {
+  "name": "3 quad",
+  "ls": 0.507,
+  "lsN": 2,
+  "lsWorst": 0,
+  "sp": 138.4,
+  "spN": 2
+ },
+ {
+  "name": "xyz=6,sum=6,sumsq=14",
+  "ls": 10.907,
+  "lsN": 6,
+  "lsWorst": 4.7672550351762766e-9,
+  "sp": 137.6,
+  "spN": 6
+ },
+ {
+  "name": "cubic chain",
+  "ls": 15.202,
+  "lsN": 9,
+  "lsWorst": 1.1892348217301674e-9,
+  "sp": 197.4,
+  "spN": 9
+ },
+ {
+  "name": "sphere+plane+quad",
+  "ls": 0.755,
+  "lsN": 2,
+  "lsWorst": 2.220446049250313e-16,
+  "sp": 173.1,
+  "spN": 2
+ },
+ {
+  "name": "mixed deg",
+  "ls": 2.298,
+  "lsN": 1,
+  "lsWorst": 0,
+  "sp": 20000,
+  "spN": 0
+ },
+ {
+  "name": "bezout 8",
+  "ls": 0.526,
+  "lsN": 0,
+  "lsWorst": 0,
+  "sp": 252.5,
+  "spN": 0
+ }
+]

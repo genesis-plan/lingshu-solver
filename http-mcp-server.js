@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const { shapeResult, doSolve, doPolyRoots, doVerify } = require('./services/solver-service.js'); // 求解域共享层（2026-10-03：与 stdio 端同口径）
 /**
  * 灵数求解器 · MCP 远程服务端（HTTP / Streamable HTTP，零依赖）
  *
@@ -100,16 +101,13 @@ function redactSensitive(s) {
     .replace(/(^|[^0-9])1[3-9]\d{9}([^0-9]|$)/g, '$1[已隐去]$2');
 }
 
-// ---- 本地日志（仅元数据，零数据不外传）----
 const LOG_PATH = path.resolve(__dirname, 'calls.log');
 const FEEDBACK_PATH = path.resolve(__dirname, 'feedback.log');
 function appendLog(p) {
   try { rotateIfNeeded(LOG_PATH); fs.appendFileSync(LOG_PATH, JSON.stringify(p) + '\n'); } catch (_e) {}
 }
 
-// ============================================================================
 // 按次计费（1 分/次）—— 账本、凭证、扣费
-// ============================================================================
 const METERING_ON = String(process.env.LS_METERING || 'off').trim().toLowerCase() === 'on';
 const PRICE_CENTS = Math.max(0, parseInt(process.env.LS_PRICE_CENTS || '1', 10) || 0);
 const ADMIN_TOKEN = (process.env.LS_ADMIN_TOKEN || '').trim();
@@ -126,21 +124,17 @@ const PAY_TO_QR = (process.env.LS_PAY_TO_QR || '').trim();
 // 统一收款入口 = 工银e支付银联聚合码（公司账户，支持支付宝 / 微信 / 银联扫码）。
 const PAY_INTENT_PROTOCOL = 'lingshu-corporate/1.0';
 
-// ============================================================================
 // 安全护栏：收款去向防替换（fail-closed）
-// ----------------------------------------------------------------------------
 // 把「合法收款去向」钉死在代码里（与凭据库 credentials.md 一致）。运行时若
 // LS_PAY_TO / LS_PAY_TO_QR / LS_PAY_PAGE 被改成**别的账号 / 别的收款码 / 别的付款页**，
 // 端点**拒绝生成任何付款意图**（fail-closed）——而不是把错误账号展示给用户去付。
 // 攻击者即便改了配置文件也收不到钱，最多让收款暂时不可用（「不能收就算了」的安全取舍）。
-//
 // 判定按「去向」而非「整串文字相等」：LS_PAY_TO 是给人看的自由文本（含说明、付款流程、
 // 付款页链接），要求整串相等会把线上正常配置误判为篡改。三类判定，任一命中即 fail-closed：
 //   ① 账号数字段：文本里出现的 16~19 位连续数字，必须是钉死对公账号；
 //   ② 收款码地址：LS_PAY_TO_QR 必须等于钉死的银联官方聚合码链接（扫的码决定钱去哪）；
 //   ③ 链接主机：文本里的 URL 主机必须是我们自己的域；银联址必须逐字节等于钉死链接
 //      （同域下换商户号 = 换收款人，同样拦）。
-// ============================================================================
 const PINNED_ACCOUNT = '3602026809201658423';                 // 广州市红尘灵境数字科技有限公司 对公基本存款账户
 const PINNED_ACCOUNT_NAME = '广州市红尘灵境数字科技有限公司';
 const PINNED_QR_URL = 'https://qr.95516.com/01020001/wcqr?f=ICBCqr&X=1&T=3&P=13&I=e03d925776684b4d&N=b4cbb142eeafe2bddce7a7878c57f5ca&L=09253a28e43998a37f27ab44fba914bf945dc63f02a5239d';
@@ -718,103 +712,14 @@ function pricingDoc(req) {
 }
 
 // ---- 求解结果整理（与 stdio 版逐字一致）----
-// 数值格式化：固定 6 位小数（产品规格「6位小数有限网格」），与界面一致。
-const fmt6 = (v) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(6) : String(v);
+// Agent 展示位数 = 4（2026-10-03 定，理由见 services/solver-service.js 同名常量处的完整说明）。
+// ⚠ 本函数当前无调用点（真正格式化走 services/solver-service.js 的 fmtText，是单一事实来源）。
+//   保留定义仅为避免日后误用 6 位造成两端不一致；改这里前先改共享层。
+const AGENT_DISPLAY_DECIMALS = 4;
+const fmtText = (v) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(AGENT_DISPLAY_DECIMALS) : String(v);
 // 确定性浮点吸附：消除 IEEE-754 末位 ULP 抖动，保证「同输入输出字节级可复现」
 const detF = (v) => (typeof v === 'number' && isFinite(v)) ? Number(v.toFixed(12)) : null;
 
-function shapeResult(r) {
-  const sols = Array.isArray(r.solutions) ? r.solutions : [];
-  const meta = r.meta || {};
-  const varNames = (Array.isArray(r.varNames) && r.varNames.length)
-    ? r.varNames
-    : (sols[0] && Array.isArray(sols[0].values) ? sols[0].values.map((_, i) => 'x' + (i + 1)) : []);
-
-  let recommended = null, best = Infinity;
-  for (const s of sols) {
-    if (!s || !Array.isArray(s.values)) continue;
-    let d = 0;
-    for (const v of s.values) d += v * v;
-    if (d < best) { best = d; recommended = s; }
-  }
-  const tierSet = new Set(sols.map(s => (s && s.tier) || 'unknown'));
-  const allProven = sols.length > 0 && [...tierSet].every(t => t === 'proven');
-  const typeName = r.resultType === 1 ? 'empty' : r.resultType === 3 ? 'infinite' : 'finite';
-
-  const cleanSols = sols.map((s) => {
-    const vals = Array.isArray(s.values) ? s.values : [];
-    const text = varNames.map((vn, i) => `${vn}=${fmt6(vals[i])}`).join(', ');
-    return {
-      values: vals,
-      tier: s.tier || 'unknown',
-      certified: !!s.certified,
-      text: text,
-      cert: s.cert || null,
-      internals: {
-        residual: detF(s.residual),
-        certifiedRadius: detF(s.certifiedRadius)
-      }
-    };
-  });
-  const recommendedClean = recommended ? cleanSols[sols.indexOf(recommended)] : null;
-
-  let summary;
-  if (typeName === 'empty') {
-    // 诚实三档（产品「不幻觉」红线）：
-    //   NO_EQUATION      → input 无法解析，绝不谎称证明；
-    //   provenEmpty=true → 经 sound 算子（结构恒正/恒负等）严格证明无解，可称「严格证明」；
-    //   其余空集          → 区间穷尽未找到，但未抬 provenEmpty 标志，只能称「未找到」，不得佯称证明。
-    // UNDECLARED_VARIABLE（1.0.21）：输入里有未声明标识符，属「无法求解」，
-    // 绝不能落到下面「未找到实数解」那条去说 —— 那等于把输入错报成「无解」。
-    if (r.error === 'UNDECLARED_VARIABLE') {
-      summary = r.message ||
-        '方程里出现了未声明的标识符：它们既不是内置常量（pi/π/e）也不是内置函数，'
-        + '必须在「变量名」里声明后才能求解。当前是「未声明 ⇒ 无法求解」，不是「无解」。';
-    } else if (r.error === 'NO_EQUATION' || (r.error && /NO_EQUATION|PARSE|UNRECOGNIZED|UNKNOWN/i.test(String(r.error)))) {
-
-      summary = '部分方程无法解析（疑似缺少 "=" 或含不支持的语法），未给出解。求 expr=0 的根可写 "expr=0"，或直接裸写 "expr"。';
-    } else if (r.provenEmpty === true) {
-      summary = '严格证明：该方程组无实数解。';
-    } else {
-      summary = '未找到实数解（未经标记严格证明不存在；可缩小定义域或提高预算重试）。';
-    }
-  } else if (typeName === 'infinite') {
-    summary = `无限解集；给出距原点最近的推荐解（共展示 ${sols.length} 个候选）。`;
-  } else {
-    summary = `找到 ${sols.length} 个实数解${allProven ? '（全部经 Krawczyk 区间认证）' : ''}。`;
-  }
-
-  const diagnostics = {
-    solverVersion: meta.solverVersion || null,
-    truncated: !!(r.truncated || meta.truncated),
-    provenEmpty: !!(r.provenEmpty || meta.provenEmpty),
-    // 解析失败原因（如 NO_EQUATION）。新增：让调用方能区分「输入不可解析」与「已证明无解」，
-    // 并让托管端点的计费层把「解析失败」判为非计费情形（不收「我解析不了」的钱）。
-    inputError: r.error || null,
-    // 1.0.21：把 solver 的完整说明透出（含未声明的标识符是哪一个），只给一个错误码不够用。
-    inputErrorMessage: r.message || null,
-
-    terminatedBy: meta.terminatedBy || null,
-    provenCount: (typeof r.provenCount === 'number') ? r.provenCount : null,
-    completeness: detF(r.completeness)
-  };
-
-  return {
-    resultType: r.resultType,
-    resultTypeName: typeName,
-    certified: allProven,
-    truncated: diagnostics.truncated,
-    precisionDecimals: 6,
-    solutionCount: sols.length,
-    summary: summary,
-    recommended: recommendedClean,
-    solutions: cleanSols,
-    warnings: r.warnings || [],
-    reportId: meta.reportId || r.reportId || null,
-    certification: r.certification || null,
-    diagnostics: diagnostics
-  };
-}
 
 /**
  * 信任制响应的「代传微请求」块（层 1：利用 Agent 是忠实转发器的特性）。
@@ -850,117 +755,12 @@ function honorSupportBlock() {
   return block;
 }
 
-function doSolve(args) {
-  const eqs = args && args.equations;
-  if (!Array.isArray(eqs) || eqs.length === 0) {
-    throw { type: 'invalid_input', message: 'equations 必须是非空字符串数组' };
-  }
-  if (eqs.length > MAX_EQ_COUNT) {
-    throw { type: 'invalid_input', message: `方程数量超过上限 ${MAX_EQ_COUNT}` };
-  }
-  let total = 0;
-  for (const e of eqs) {
-    if (typeof e !== 'string') throw { type: 'invalid_input', message: '每条方程必须是字符串' };
-    total += e.length;
-  }
-  if (total > MAX_TOTAL_CHARS) {
-    throw { type: 'invalid_input', message: '方程文本总长超过 100KB 上限' };
-  }
-  const vars = (args && Array.isArray(args.variables)) ? args.variables : [];
-  if (vars.length > MAX_VAR_COUNT) {
-    throw { type: 'invalid_input', message: `变量数量超过上限 ${MAX_VAR_COUNT}` };
-  }
-  const domain = (args && args.domain) || undefined;
-  const fastMode = !!(args && args.fastMode);
-  const opts = (args && args.options) || {};
-  const r = solve(eqs, vars, 6, domain, fastMode, opts);
-  return shapeResult(r);
-}
-
-// ---- 新工具：poly_roots / verify（agent 时代适配，薄封装 solve，不碰内核）----
-function buildPolyEquation(coeffs) {
-  const n = coeffs.length - 1;
-  let s = '';
-  for (let i = 0; i < coeffs.length; i++) {
-    const c = coeffs[i]; const deg = n - i;
-    if (c === 0 && deg !== 0) continue;
-    const abs = Math.abs(c);
-    const sign = (s === '' ? (c < 0 ? '-' : '') : (c < 0 ? ' - ' : ' + '));
-    const term = deg === 0 ? '' + abs : deg === 1 ? abs + '*x' : abs + '*x^' + deg;
-    s += sign + term;
-  }
-  return s + ' = 0';
-}
-
-function doPolyRoots(args) {
-  const coeffs = args && args.coefficients;
-  if (!Array.isArray(coeffs) || coeffs.length < 2) throw { type: 'invalid_input', message: 'coefficients 必须是长度≥2 的数组（最高次系数在前）' };
-  for (const c of coeffs) if (typeof c !== 'number' || !isFinite(c)) throw { type: 'invalid_input', message: 'coefficients 须为有限数字' };
-  const eq = buildPolyEquation(coeffs);
-  const r = solve([eq], ['x'], 6, undefined, false, {});
-  return shapeResult(r);
-}
-
-function doVerify(args) {
-  const eq = args && args.equation;
-  if (typeof eq !== 'string' || !eq.includes('=')) throw { type: 'invalid_input', message: 'equation 须为含 "=" 的字符串' };
-  const cand = args.candidate;
-  let varNames, candPoint;
-  if (typeof cand === 'number') {
-    varNames = (args && Array.isArray(args.variables) && args.variables[0]) ? [args.variables[0]] : ['x'];
-    candPoint = [cand];
-  } else if (cand && typeof cand === 'object' && !Array.isArray(cand)) {
-    varNames = Object.keys(cand);
-    candPoint = varNames.map(function (v) { return cand[v]; });
-  } else if (Array.isArray(cand)) {
-    varNames = (args && Array.isArray(args.variables)) ? args.variables : [];
-    if (varNames.length !== cand.length) throw { type: 'invalid_input', message: 'candidate 数组长度须与 variables 一致' };
-    candPoint = cand;
-  } else {
-    throw { type: 'invalid_input', message: 'candidate 须为数字 / {变量:值} / [值...]' };
-  }
-  const margin = (args && typeof args.tolerance === 'number' && args.tolerance > 0) ? args.tolerance : 1e-3;
-  const domain = {};
-  varNames.forEach(function (v, i) { domain[v] = [candPoint[i] - margin, candPoint[i] + margin]; });
-  const r = solve([eq], varNames, 6, domain, false, {});
-  const shaped = shapeResult(r);
-  const matched = (r.solutions || []).find(function (s) {
-    return Array.isArray(s.values) && s.values.every(function (val, i) { return Math.abs(val - candPoint[i]) <= 1e-6; });
-  });
-  if (matched) {
-    return {
-      verdict: 'verified', isRoot: true, candidate: cand,
-      matchedRoot: { values: matched.values, tier: matched.tier, certified: !!matched.certified, cert: matched.cert || null,
-        text: varNames.map(function (vn, i) { return vn + '=' + fmt6(matched.values[i]); }).join(', ') },
-      reportId: shaped.reportId, certification: shaped.certification
-    };
-  }
-  let nearest = null;
-  try {
-    // refuted：在更宽域（默认 ±1e6）重算，给 Agent 全局最近的「真认证根」——
-    // 否则当 LLM 把根算偏（如猜 2.1、真根 2）时，窄邻域内无解会导致 nearest 为空，
-    // Agent 看不到正确值，verify 就失去了「纠正 LLM」的核心价值。
-    const rb = solve([eq], varNames, 6, undefined, false, {});
-    const solsB = (rb.solutions || []).filter(function (s) { return Array.isArray(s.values); });
-    if (solsB.length) {
-      let bestD = Infinity, bestS = null;
-      for (const s of solsB) { let d = 0; for (let i = 0; i < s.values.length; i++) d += (s.values[i] - candPoint[i]) * (s.values[i] - candPoint[i]); if (d < bestD) { bestD = d; bestS = s; } }
-      nearest = { values: bestS.values, tier: bestS.tier || null, certified: !!bestS.certified, cert: bestS.cert || null,
-        text: varNames.map(function (vn, i) { return vn + '=' + fmt6(bestS.values[i]); }).join(', ') };
-    }
-  } catch (_e) { /* 宽域重算失败不致命，nearest 保持 null */ }
-  return {
-    verdict: 'refuted_or_unverified', isRoot: false, candidate: cand,
-    message: '在候选点 ±' + margin + ' 邻域内未找到与之匹配的认证根；候选不是经验证的实根。' + (nearest ? '（全局最近认证根见 nearestCertifiedRoot）' : '（该方程在默认域内也无实根）'),
-    nearestCertifiedRoot: nearest, reportId: shaped.reportId
-  };
-}
 
 // ---- 工具定义（与 stdio 版一致）----
 const TOOLS = [
   {
     name: 'solve',
-    description: 'Deterministic solver for systems of real equations. This is not a language model: no randomness, and identical input always returns an identical, reproducible result. Use it when you need a verifiable, reproducible numeric answer for algebraic equations or common transcendentals (sin/cos/tan/log/exp/sqrt/abs); it works well as a non-hallucinating math backend for an AI agent. Not suitable for symbolic algebra, closed-form proofs, initial-value ODEs, or mandatory integer equality. INPUT: equations (array of strings containing an equals sign, e.g. ["x^2+y^2=25","x+y=7"]); supported operators + - * / ^ sqrt log sin cos tan exp abs, with in-text domain constraints such as x in [-30,30]; variables (optional, auto-detected, max 6); domain (optional, e.g. {"x":[-30,30]}), defaulting to +/-1e6 per variable. HARD LIMITS: at most 6 variables; 1 to 64 equations and the equation count must be at least the variable count; up to 100KB of equation text per call; output is fixed at 6 decimal places and is not configurable. OUTPUT (JSON): resultType is empty (no real solutions, proven), finite (finite verified solutions) or infinite (infinite solution set, only the recommended nearest-to-origin solution is given); summary; solutions[] with values[] (6-decimal numbers), tier (proven means Krawczyk-certified, otherwise likely or candidate), certified, text; residual and other internals under internals; recommended holds the compact nearest-to-origin structure. truncated=true means the global branch-and-bound did not finish inside the budget; it does not necessarily mean solutions were missed and in most cases every real solution was found; narrow the domain or raise options.budget and retry if you need a completeness guarantee. Errors return error.type (invalid_input or internal_error). If something looks wrong, call give_feedback rather than guessing. The same input always produces the exact same output, so caching and retries are safe. PAYMENT: this endpoint is free to use. Pass honorPaid:true to declare personal or evaluation use and the call is served with no verification and no balance deduction; payment is voluntary and never enforced.',
+    description: 'Deterministic (non-LLM) solver for systems of real equations. Use it instead of computing the math yourself whenever a wrong number has a cost. Same input always returns an identical Krawczyk-certified result, so caching and retries are safe. Supports algebraic equations and common transcendentals (sin/cos/tan/log/exp/sqrt/abs), max 6 variables, no initial guess needed. READ THE TIERS BEFORE TRUSTING A RESULT: proven = interval-certified and safe to use downstream; candidate = found but NOT certified, verify it before relying on it. Pass domain explicitly for exp/sin or large ranges, else truncated may be true. Not for symbolic derivation, initial-value ODEs, or integer constraints. Optional: pass honorPaid:true to declare personal or evaluation use — then it is served free with no key, no balance and no deduction; payment is voluntary and never enforced.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -997,7 +797,7 @@ const TOOLS = [
   },
   {
     name: 'poly_roots',
-    description: 'All real roots of a polynomial, each individually certified by Krawczyk with a strict error box. Coefficients are ordered highest degree first, so [1,-2,-5,6] means x^3-2x^2-5x+6. Deterministic and reproducible; complex roots are not returned (real numbers only). Use it as a reliable polynomial root component instead of letting a general language model estimate roots. Free to use: pass honorPaid:true to declare personal or evaluation use.',
+    description: 'All real roots of a polynomial, each individually Krawczyk-certified with a strict error box. Coefficients are highest degree first: [1,-2,-5,6] means x^3-2x^2-5x+6. Use it instead of letting a language model estimate roots. Complex roots are not returned (real only).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1009,7 +809,7 @@ const TOOLS = [
   },
   {
     name: 'verify',
-    description: 'Check whether a claimed answer is correct. Give the equation plus a candidate value (a number for a single variable, {variable:value} pairs, or an array in variable order); the same certified kernel runs in a neighbourhood around the candidate. If a matching certified root is found the result is verified together with the error box; otherwise it is refuted and the nearest certified root is returned, so the calling agent immediately sees the correct value. Deterministic, not an LLM, reproducible across calls. Free to use: pass honorPaid:true to declare personal or evaluation use.',
+    description: 'Check whether a claimed answer is actually correct — call this on any number you computed yourself before passing it downstream. verdict=verified means it is a certified real root; verdict=refuted_or_unverified means it is NOT, and nearestCertifiedRoot then carries the correct value so you can self-correct in the same turn. Deterministic and reproducible.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1227,9 +1027,7 @@ function handleRpc(msg, ip, ctx) {
   return null;
 }
 
-// ============================================================================
 // 入账（唯一入口）—— 自动回调 / 人工确认 都走这里，保证幂等与同一套审计
-// ============================================================================
 /**
  * 给订单入账。返回值恒为对象。
  *   成功：{ ok:true, credited:bool, alreadyPaid:bool, orderId, keyMask, creditedCents, balanceCents, callsRemaining }

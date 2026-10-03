@@ -1,0 +1,132 @@
+[
+ {
+  "name": "xy=6, x+y=5",
+  "eqs": [
+   "x*y - 6",
+   "x + y - 5"
+  ],
+  "sympy_solve_ms": 3.717,
+  "sympy_solve_n": 2,
+  "sympy_solve_valid": 2,
+  "sympy_solve_worst_res": 0.0,
+  "sympy_nroots_ms": 1.857,
+  "sympy_nroots_n": 2
+ },
+ {
+  "name": "circle x line",
+  "eqs": [
+   "x**2 + y**2 - 25",
+   "x + y - 1"
+  ],
+  "sympy_solve_ms": 3.67,
+  "sympy_solve_n": 2,
+  "sympy_solve_valid": 2,
+  "sympy_solve_worst_res": 0.0,
+  "sympy_nroots_ms": 1.769,
+  "sympy_nroots_n": 2
+ },
+ {
+  "name": "circle x hyperbola",
+  "eqs": [
+   "x**2 + y**2 - 4",
+   "x*y - 1"
+  ],
+  "sympy_solve_ms": 29.578,
+  "sympy_solve_n": 4,
+  "sympy_solve_valid": 4,
+  "sympy_solve_worst_res": 4.440892098500626e-16,
+  "sympy_nroots_ms": 4.351,
+  "sympy_nroots_n": 4
+ },
+ {
+  "name": "cubic x quad",
+  "eqs": [
+   "x**3 - 3*x - y",
+   "x**2 + y**2 - 4"
+  ],
+  "sympy_solve_ms": 61.491,
+  "sympy_solve_n": 6,
+  "sympy_solve_valid": 6,
+  "sympy_solve_worst_res": 8.881784197001252e-16,
+  "sympy_nroots_ms": 6.614,
+  "sympy_nroots_n": 6
+ },
+ {
+  "name": "deg3 x deg3",
+  "eqs": [
+   "x**3 - y",
+   "y**3 - x"
+  ],
+  "sympy_solve_ms": 38.735,
+  "sympy_solve_n": 3,
+  "sympy_solve_valid": 3,
+  "sympy_solve_worst_res": 0.0,
+  "sympy_nroots_ms": 9.91,
+  "sympy_nroots_n": 3
+ },
+ {
+  "name": "Watt curve",
+  "eqs": [
+   "x**2 + y**2 - 1",
+   "x**2 - y"
+  ],
+  "sympy_solve_ms": 6.952,
+  "sympy_solve_n": 2,
+  "sympy_solve_valid": 2,
+  "sympy_solve_worst_res": 1.1102230246251565e-16,
+  "sympy_nroots_ms": 3.866,
+  "sympy_nroots_n": 2
+ },
+ {
+  "name": "quartic x quad",
+  "eqs": [
+   "x**4 - 1",
+   "x**2 + y**2 - 5"
+  ],
+  "sympy_solve_ms": 5.94,
+  "sympy_solve_n": 4,
+  "sympy_solve_valid": 4,
+  "sympy_solve_worst_res": 0.0,
+  "sympy_nroots_ms": 43.224,
+  "sympy_nroots_n": 4
+ },
+ {
+  "name": "mixed 3/2",
+  "eqs": [
+   "x**3 - y**2",
+   "x + y - 1"
+  ],
+  "sympy_solve_ms": 380.144,
+  "sympy_solve_n": 1,
+  "sympy_solve_valid": 1,
+  "sympy_solve_worst_res": 5.551115123125783e-17,
+  "sympy_nroots_ms": 2.596,
+  "sympy_nroots_n": 1
+ },
+ {
+  "name": "no real sol",
+  "eqs": [
+   "x**2 + y**2 + 1",
+   "x - y"
+  ],
+  "sympy_solve_ms": 2.909,
+  "sympy_solve_n": 0,
+  "sympy_solve_valid": 0,
+  "sympy_solve_worst_res": 0.0,
+  "sympy_nroots_ms": 1.733,
+  "sympy_nroots_n": 0
+ },
+ {
+  "name": "6 bezsout",
+  "eqs": [
+   "x**3 - 3*x - y",
+   "y**3 - 3*y - x"
+  ],
+  "sympy_solve_ms": 36.954,
+  "sympy_solve_n": 9,
+  "sympy_solve_valid": 9,
+  "sympy_solve_worst_res": 2.220446049250313e-16,
+  "sympy_nroots_ms": 20.151,
+  "sympy_nroots_n": 9
+ }
+]

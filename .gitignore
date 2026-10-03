@@ -7,6 +7,10 @@
 !README.md
 !package.json
 !index.html
+# 合规备案图标（2026-09-25 纳入，ac7453f）：中国大陆网站运营主体备案凭证。
+# ⚠ 2026-10-03 差点被误删 —— 白名单式 gitignore 的通病：新文件若没补 !放行规则，
+# 一次 `git add -A` 就会把它当「该删的未跟踪文件」处理掉。恢复方法是补回下面这行。
+!beian.png
 !solver-core.js
 !mcp-server.js
 !http-mcp-server.js
@@ -43,6 +47,14 @@ ios-app/*.pem
 !SKILL.md
 !examples/
 !examples/**
+!services/
+!services/**
+!src/
+!src/**
+!scripts/
+!scripts/**
+!dist/
+!dist/**
 !test/
 !test/**
 !docs/
@@ -63,3 +75,25 @@ server.out
 !pay/index.html
 !pay/en.html
 !pay/qr.png
+
+# 原型实验脚本（2026-10-03 移出）：42 个一次性 CJS/Python 探针共 977K，
+# 内容是 suan55..61 各阶段的中间产物（_p9.cjs / _dbg55.cjs / _s60_body.txt 之类），
+# 全部带 _ 前缀、全部已被 src/engine 正式实现取代。进仓库只会让 diff 噪音淹没真改动。
+# 规则：只有 _ 前缀的历史实验文件，不入产品仓库。
+prototypes/
+# golden 基线生成过程中的一次性补丁/拆分脚本（2026-10-03 移出，11 个）：
+# _patch.mjs / _patch2.mjs / _split.mjs / _shape.mjs / _g013.mjs / _gen_dbg.mjs /
+# _update_domain_baseline.mjs / _verify_domain_change.mjs / _layout.json / _chunks.json。
+# 逐个核过引用图：全部是孤岛，没有一个被 verify 链或 capture.mjs/diff.mjs 引用。
+# 基线本身在 baseline.json（要入库），生成器在 capture.mjs（要入库），其余是过程垃圾。
+# 保留 _gen.mjs（scripts/simplify-comments.mjs 会引用它）。
+test/golden/_patch.mjs
+test/golden/_patch2.mjs
+test/golden/_split.mjs
+test/golden/_shape.mjs
+test/golden/_g013.mjs
+test/golden/_gen_dbg.mjs
+test/golden/_update_domain_baseline.mjs
+test/golden/_verify_domain_change.mjs
+test/golden/_layout.json
+test/golden/_chunks.json
