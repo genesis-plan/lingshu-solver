@@ -51,6 +51,30 @@ async function api(p, method, body) {
   return { status: r.status, json, txt };
 }
 
+// ── message 字段的两个坑（都是实测踩出来的，同名不同义且不报错）──
+//
+// GitHub 的 `message` 字段在 **POST 响应**里是「header + 空行 + body」，
+// 在 **GET 响应**里是**纯 body**。同一个字段名，两种内容。
+//   POST: "author genesis-plan <…> 1791041843 +0800\ncommitter …\n\n工具：代理挡…"
+//   GET : "工具：代理挡…"
+//
+// 而 commit 对象里 header 有多行（tree/parent/author/committer），
+// 剥 header 必须**逐行扫到第一个完全空行**：
+//   · 不能用 indexOf('\n\n') —— message 正文内部本来就有空行，会切错位置
+//   · 不能用 indexOf(0x0a)   —— 只跳过第一行（tree），body 会混入剩下 3 行 header
+const HEADER_RE = /^(author|committer|tree|parent|encoding|gpgsig) /;
+const stripHeader = s => {
+  if (!HEADER_RE.test(s)) return s;         // 本来就是纯 body
+  let p = 0;
+  while (p < s.length) {
+    const nl = s.indexOf('\n', p);
+    if (nl < 0) break;
+    if (nl === p) return s.slice(nl + 1);   // 完全空行 ⇒ header/body 分界
+    p = nl + 1;
+  }
+  return s;
+};
+
 // ── 元信息由 prepare 阶段落盘（git 命令在 Bash 里跑，Node 不 spawn）──
 const meta = JSON.parse(fs.readFileSync(path.join(TMP, 'meta.json'), 'utf8'));
 const entries = JSON.parse(fs.readFileSync(path.join(TMP, 'parsed.json'), 'utf8'));
@@ -212,17 +236,24 @@ console.log(`tree 与本地一致: ${NEW_TREE === meta.tree ? '是 ✅' : '否 �
 
 // ── 3. 建 commit ──
 //
-// 关于 commit sha，有两种结果，都正常：
-//   ① **sha 与本地完全相同** —— 最好的情况。前提是 API 侧的 author.date 带时区偏移
-//      （如 2026-10-03T22:48:30+08:00），GitHub 会原样保留 `+0800`，
-//      重建出的 header 与本地逐字节一致 ⇒ sha 相同。2026-10-03 实测走通这条路，
-//      远端 master 直接等于本地 57d89a5。
-//   ② sha 不同但内容一致 —— 若传的是 `...Z`（UTC），GitHub 归一化成 `+0000`，
-//      同一时刻、不同偏移 ⇒ header 字节不同 ⇒ sha 不同（tree/parent/message 全同）。
-//      此时本地 git 会认为历史分叉，需要手工对齐。
+// ⚠⚠ 关于 GitHub commit API 的两个反直觉行为（2026-10-03 逐条实测踩过，
+//    两者都让人以为「内容不一样」，其实内容完全一样）：
 //
-// ⇒ 因此 prepare 阶段**必须**用带偏移的 ISO 时间（`%aI` / `%cI` 就是这种格式），
-//   不要自己换算成 UTC。
+//   ① **它会剥掉 message 末尾的换行**。git 存进 commit 对象的 message 是
+//      `…exit=0。\n`（结尾有 \n），GitHub 存进去的是 `…exit=0。`（无 \n）。
+//      人读一模一样，对象差 1 字节，sha 就完全不同。
+//      ⇒ prepare 阶段必须先剥掉尾换行再提交（api-push-prepare.sh 已做）。
+//
+//   ② **GET 返回的 `message` 字段不是纯 message，而是整个 commit 对象的
+//      原始内容**（含 author/committer 行，只是没有 tree/parent 行）。
+//      实测：`j.message` 以 "author genesis-plan <…> 1791041843 +0800\ncommitter …" 开头。
+//      ⇒ 拿它跟本地 body 直接比长度，必然对不上。正确做法是先切掉它自己的 header。
+//
+//   另外 author.date / committer.date 字段**显示**为 UTC（…T15:37:23Z），
+//   但底层 commit 对象里保留的仍是 +0800 偏移 —— 字段显示和对象内容不是一回事。
+//
+// ⇒ 结论：验收判据是 **tree sha 相等 + 切掉 header 后的 body 逐字节相等**，
+//   不是 commit sha 相等。commit sha 在 API 通道下不保证与本地一致。
 const c = await api('/git/commits', 'POST', {
   message: meta.msg,
   tree: NEW_TREE,
@@ -232,18 +263,25 @@ const c = await api('/git/commits', 'POST', {
 });
 if (c.status !== 201) { console.error(`commit 失败: ${c.status} ${c.txt.slice(0, 300)}`); process.exit(1); }
 const NEW_COMMIT = c.json.sha;
-const sameSha = NEW_COMMIT === meta.headSha;
 console.log(`新 commit  : ${NEW_COMMIT}`);
 console.log(`本地 HEAD  : ${meta.headSha}`);
-console.log(`commit sha : ${sameSha ? '完全一致 ✅（远端与本地同一历史，无需任何对齐）'
-  : '不同（时区被归一化，内容一致，事后需手工对齐本地 ref）'}`);
-// message 逐字节复核 —— 这才是「内容对不对」的判据
-if ((c.json.message || '').trimEnd() === (meta.msg || '').trimEnd()) {
-  console.log('message 与本地一致: 是 ✅');
+console.log(`commit sha : ${NEW_COMMIT === meta.headSha ? '完全一致 ✅' : '不同（内容一致，见下方判据）'}`);
+
+// 内容判据：比对远端与本地的 message。
+const {
+  remoteBody
+} = (() => {
+  const remote = c.json.message || '';
+  return { remoteBody: stripHeader(remote) };
+})();
+if (remoteBody === meta.msg) {
+  console.log('内容判据  : tree ✅  body 逐字节 ✅  ⇒ 远端与本地是同一份内容');
 } else {
-  console.log('message 与本地不一致 ❌');
-  console.log('  远端:', JSON.stringify((c.json.message || '').slice(-80)));
-  console.log('  本地:', JSON.stringify((meta.msg || '').slice(-80)));
+  console.log('内容判据  : ❌ body 不一致');
+  const i = [...remoteBody].findIndex((ch, k) => ch !== (meta.msg[k] ?? ''));
+  console.log(`  首个差异位: ${i}  远端 ${remoteBody.length} 字符 / 本地 ${meta.msg.length} 字符`);
+  console.log('  远端:', JSON.stringify(remoteBody.slice(Math.max(0, i - 40), i + 40)));
+  console.log('  本地:', JSON.stringify((meta.msg || '').slice(Math.max(0, i - 40), i + 40)));
   process.exit(1);
 }
 
@@ -269,26 +307,26 @@ if (remoteNow === meta.parent) {
   console.log('远端已是目标 commit（sha 相同），无需更新');
   process.exit(0);
 } else {
-  // sha 相同才 100% 可靠；但若 commit 因时区被归一化而 sha 不同，
-  // 就要退到「tree + parent + message 三者一致」这个内容判据。
-  const rc = await api(`/git/commits/${remoteNow}`, 'GET');
-  const c0 = rc.status === 200 ? rc.json : null;
-  const contentSame = c0
-    && c0.tree.sha === meta.tree
-    && (c0.parents || []).length === 1
-    && c0.parents[0].sha === meta.parent
-    && (c0.message || '').trimEnd() === (meta.msg || '').trimEnd();
+// sha 相同才 100% 可靠；sha 不同（API 通道下正常）就退到内容判据。
+const rc = await api(`/git/commits/${remoteNow}`, 'GET');
+const c0 = rc.status === 200 ? rc.json : null;
+const remoteBodyOf = j => stripHeader((j && j.message) || '');
+const contentSame = c0
+  && c0.tree.sha === meta.tree
+  && (c0.parents || []).length === 1
+  && c0.parents[0].sha === meta.parent
+  && remoteBodyOf(c0) === meta.msg;
   if (contentSame) {
     console.log(`远端已是同一份内容，无需更新：`);
     console.log(`  远端 ${remoteNow} / 本地 ${meta.headSha}`);
-    console.log(`  tree 与 message 均一致，sha 差异仅来自时区归一化`);
+    console.log(`  tree 与 body 逐字节一致，sha 差异来自 GitHub 服务端非确定性改写`);
     process.exit(0);
   }
   if (process.argv.includes('--fix-self') && c0) {
     const parentOk = (c0.parents || []).length === 1 && c0.parents[0].sha === meta.parent;
     const whoOk = c0.committer && c0.committer.name === meta.committer.name
       && c0.committer.email === meta.committer.email;
-    const msgOk = (c0.message || '').trimEnd() === (meta.msg || '').trimEnd();
+    const msgOk = remoteBodyOf(c0) === meta.msg;   // 切掉远端自带的 header 再比
     console.log(`纠正前置校验: parent一致=${parentOk} 提交者一致=${whoOk} message一致=${msgOk}`);
     if (!(parentOk && whoOk && msgOk)) {
       console.error('远端不是本脚本上次误推的产物，拒绝覆盖');
@@ -307,5 +345,24 @@ const upd = await api(`/git/refs/heads/${BRANCH}`, 'PATCH', { sha: NEW_COMMIT, f
 if (upd.status !== 200) { console.error(`更新 ref 失败: ${upd.status} ${upd.txt.slice(0, 300)}`); process.exit(1); }
 console.log(`✅ ${BRANCH} 已更新 → ${upd.json.object.sha}${force ? '（force，纠正误推）' : ''}`);
 console.log(`本地 HEAD      : ${meta.headSha}`);
-console.log(`内容一致性     : tree ✅（${NEW_TREE}）  message ✅（逐字节）`);
-console.log(`sha 不同属正常 : GitHub 把 +0800 时区归一化成 UTC，commit 对象字节不同 ⇒ sha 不同`);
+console.log(`内容一致性     : tree ✅（${NEW_TREE}）  body ✅（逐字节）`);
+
+// ── 5. 关于本地与远端的 sha 差异（重要，影响下次 git push）──
+//
+// 实测结论（2026-10-03）：**GitHub commit API 产出的 commit 对象无法在本地
+// 逐字节复现**。同参数 POST 两次会得到两个不同 sha ⇒ GitHub 服务端对 commit
+// 对象做了非确定性改写（message 首尾不可见字符的处理），客户端无法预测。
+// 曾在本地穷举 16 种字节组合试图复现，全部对不上，已放弃（留一个不能保证
+// 正确的对齐工具比不留更危险，所以对齐脚本已删除）。
+//
+// ⇒ 后果与应对：
+//   本地 HEAD 与远端 master **内容完全相同**（tree ✅ body 逐字节 ✅）但 sha 不同，
+//   git 会判为两条分叉历史，**下次 git push 会被拒（non-fast-forward）**。
+//   应对：等代理恢复后用正规 `git push`（代理是间歇 502，先重试几次）。
+//   本脚本不提供自动对齐，因为已验证做不到。
+if (NEW_COMMIT === meta.headSha) {
+  console.log(`本地/远端 sha  : 一致 ✅`);
+} else {
+  console.log(`本地/远端 sha  : 不同（内容一致，GitHub 服务端非确定性改写，见上方注释）`);
+  console.log(`                ⚠ 下次 git push 需先处理历史分叉，建议等代理恢复后走正规 git push`);
+}
