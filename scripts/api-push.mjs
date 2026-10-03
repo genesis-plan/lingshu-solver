@@ -75,6 +75,21 @@ const stripHeader = s => {
   return s;
 };
 
+// 远端是否已有这个 commit
+async function commitExists(sha) {
+  if (!sha) return true;
+  const r = await api(`/git/commits/${sha}`, 'GET');
+  return r.status === 200;
+}
+
+// 读本地 commit 对象的 tree/parent/body/署名 —— 供自举远端缺失的 parent 用。
+// 只解析 .push-tmp/commit-raw.bin（当前 HEAD）不够，parent 可能是更早的 commit，
+// 所以按 sha 从 blobs.raw 之外单独取：commit 对象不进 cat-file --batch 的 blob 流，
+// 这里改为读 prepare 阶段落的 commit-raw.bin 加上 git 已有对象由 Bash 预先导出。
+const LOCAL_COMMITS = fs.existsSync(path.join(TMP, 'commits.json'))
+  ? JSON.parse(fs.readFileSync(path.join(TMP, 'commits.json'), 'utf8')) : {};
+function readLocalCommit(sha) { return LOCAL_COMMITS[sha] || null; }
+
 // ── 元信息由 prepare 阶段落盘（git 命令在 Bash 里跑，Node 不 spawn）──
 const meta = JSON.parse(fs.readFileSync(path.join(TMP, 'meta.json'), 'utf8'));
 const entries = JSON.parse(fs.readFileSync(path.join(TMP, 'parsed.json'), 'utf8'));
@@ -234,30 +249,49 @@ const NEW_TREE = rootTree.json.sha;
 console.log(`新 tree: ${NEW_TREE}（本地 ${meta.tree}）`);
 console.log(`tree 与本地一致: ${NEW_TREE === meta.tree ? '是 ✅' : '否 ❌ —— 排序或 mode 有偏差'}`);
 
+// 实际用作 parent 的远端 sha。正常情况 = meta.parent；
+// 若远端缺这个 commit，第 3 步会自举出一个远端等价 sha 并写在这里。
+let PARENT_SHA = meta.parent;
+let force = false;
+
 // ── 3. 建 commit ──
 //
-// ⚠⚠ 关于 GitHub commit API 的两个反直觉行为（2026-10-03 逐条实测踩过，
-//    两者都让人以为「内容不一样」，其实内容完全一样）：
+// parent 必须在**远端存在**（GitHub 会校验 "Parent SHA does not exist"）。
+// 前一次 API 推送产出的 commit sha 与本地不同，所以本地 HEAD 的 sha 远端没有；
+// 此时直接建 commit 会 422。正解：把缺失的 commit 在远端逐个重建出来。
 //
-//   ① **它会剥掉 message 末尾的换行**。git 存进 commit 对象的 message 是
-//      `…exit=0。\n`（结尾有 \n），GitHub 存进去的是 `…exit=0。`（无 \n）。
-//      人读一模一样，对象差 1 字节，sha 就完全不同。
-//      ⇒ prepare 阶段必须先剥掉尾换行再提交（api-push-prepare.sh 已做）。
-//
-//   ② **GET 返回的 `message` 字段不是纯 message，而是整个 commit 对象的
-//      原始内容**（含 author/committer 行，只是没有 tree/parent 行）。
-//      实测：`j.message` 以 "author genesis-plan <…> 1791041843 +0800\ncommitter …" 开头。
-//      ⇒ 拿它跟本地 body 直接比长度，必然对不上。正确做法是先切掉它自己的 header。
-//
-//   另外 author.date / committer.date 字段**显示**为 UTC（…T15:37:23Z），
-//   但底层 commit 对象里保留的仍是 +0800 偏移 —— 字段显示和对象内容不是一回事。
-//
-// ⇒ 结论：验收判据是 **tree sha 相等 + 切掉 header 后的 body 逐字节相等**，
-//   不是 commit sha 相等。commit sha 在 API 通道下不保证与本地一致。
+// ⚠ 重建时必须用**递归**：commit A 的 parent 是 B，B 也要重建，
+//   而重建 B 时它的 parent 是 C …… 逐个建但只带**远端已存在**的 parent sha。
+//   我第一版写成「先循环建祖先、再单独建自己」，
+//   建自己时又用了**本地**的 parent sha（远端不存在）⇒ 又 422。
+//   递归写法天然正确：ensure(sha) 返回该 commit 在远端的等价 sha。
+async function ensure(sha) {
+  if (!sha) return null;
+  if (await commitExists(sha)) return sha;              // 远端已有，直接用
+  const info = readLocalCommit(sha);
+  if (!info) { console.error(`自举链断在 ${sha.slice(0, 7)}：该 commit 不在本地 commits.json`); process.exit(1); }
+  console.log(`  重建 ${sha.slice(0, 7)} …`);
+  const parentRemote = await ensure(info.parent);      // ★ 递归：先把父链搞定
+  const r = await api('/git/commits', 'POST', {
+    message: info.msg, tree: info.tree,
+    parents: parentRemote ? [parentRemote] : [],
+    author: info.author, committer: info.committer
+  });
+  if (r.status !== 201) { console.error(`重建 ${sha.slice(0,7)} 失败: ${r.status} ${r.txt.slice(0, 200)}`); process.exit(1); }
+  console.log(`    ⇒ 远端 sha ${r.json.sha.slice(0, 7)}`);
+  return r.json.sha;
+}
+
+if (!(await commitExists(meta.parent))) {
+  console.log(`远端没有 parent ${meta.parent.slice(0, 7)}，开始自举重建`);
+  PARENT_SHA = await ensure(meta.parent);
+  console.log(`  ✅ parent 远端 sha = ${PARENT_SHA}`);
+}
+
 const c = await api('/git/commits', 'POST', {
   message: meta.msg,
   tree: NEW_TREE,
-  parents: [meta.parent],
+  parents: [PARENT_SHA],
   author: meta.author,
   committer: meta.committer
 });
@@ -298,10 +332,9 @@ const cur = await api(`/git/refs/heads/${BRANCH}`, 'GET');
 if (cur.status !== 200) { console.error(`读 ref 失败: ${cur.status} ${cur.txt.slice(0, 200)}`); process.exit(1); }
 const remoteNow = cur.json.object.sha;
 console.log(`远端当前  : ${remoteNow}`);
-console.log(`预期父提交: ${meta.parent}`);
+console.log(`预期父提交: ${PARENT_SHA}`);
 
-let force = false;
-if (remoteNow === meta.parent) {
+if (remoteNow === PARENT_SHA) {
   // 正常快进
 } else if (remoteNow === meta.headSha) {
   console.log('远端已是目标 commit（sha 相同），无需更新');
@@ -314,7 +347,7 @@ const remoteBodyOf = j => stripHeader((j && j.message) || '');
 const contentSame = c0
   && c0.tree.sha === meta.tree
   && (c0.parents || []).length === 1
-  && c0.parents[0].sha === meta.parent
+  && c0.parents[0].sha === PARENT_SHA
   && remoteBodyOf(c0) === meta.msg;
   if (contentSame) {
     console.log(`远端已是同一份内容，无需更新：`);
@@ -323,16 +356,20 @@ const contentSame = c0
     process.exit(0);
   }
   if (process.argv.includes('--fix-self') && c0) {
-    const parentOk = (c0.parents || []).length === 1 && c0.parents[0].sha === meta.parent;
+    // 远端可能是「上一次误推的版本」：内容对应本地 HEAD 或本地 parent，
+    // 但 commit 对象不是同一个（GitHub 服务端非确定性改写）。两种都算可纠正。
+    const localParent = readLocalCommit(meta.parent);
+    const matchesParentContent = localParent
+      && c0.tree.sha === localParent.tree
+      && remoteBodyOf(c0) === localParent.msg;
     const whoOk = c0.committer && c0.committer.name === meta.committer.name
       && c0.committer.email === meta.committer.email;
-    const msgOk = remoteBodyOf(c0) === meta.msg;   // 切掉远端自带的 header 再比
-    console.log(`纠正前置校验: parent一致=${parentOk} 提交者一致=${whoOk} message一致=${msgOk}`);
-    if (!(parentOk && whoOk && msgOk)) {
+    console.log(`纠正前置校验: 内容==本地parent=${matchesParentContent} 提交者一致=${whoOk}`);
+    if (!(matchesParentContent && whoOk)) {
       console.error('远端不是本脚本上次误推的产物，拒绝覆盖');
       process.exit(1);
     }
-    console.log(`⚠ 远端 tree=${c0.tree.sha} 与本地 ${meta.tree} 不同 ⇒ 确为错误 tree，允许覆盖`);
+    console.log(`⚠ 远端 ${remoteNow.slice(0, 7)} 是上次误推的 parent 版本，允许覆盖为正确链`);
     force = true;
   } else {
     console.error('远端既不是父提交、也不是同一份内容，为防覆盖已中止。');

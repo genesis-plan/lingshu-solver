@@ -154,4 +154,64 @@ console.log("headSha =", m.headSha);
 console.log("author  =", JSON.stringify(m.author));
 '
 echo "准备完成：$(wc -c < .push-tmp/blobs.raw) 字节原始内容"
+
+# ── 4. 祖先 commit 元信息（供 api-push.mjs 自举远端缺失的 parent）──
+# API 推送产出的 commit sha 与本地不同 ⇒ 本地 HEAD 的 sha 远端没有 ⇒
+# 直接建 commit 会 422「Parent SHA does not exist」。此时要把 parent 在远端
+# 重建一遍，而重建需要它的 tree/parent/body/署名，所以把 HEAD 往回 20 个祖先
+# 的 commit 对象原始字节导出来（base64 落盘，Node 侧再解析）。
+git log -20 --format=%H > .push-tmp/anc.txt
+git cat-file --batch < .push-tmp/anc.txt > .push-tmp/anc-raw.bin
+node -e '
+const fs=require("fs");
+const raw=fs.readFileSync(".push-tmp/anc-raw.bin");
+const out={};
+let off=0;
+while(off<raw.length){
+  const nl=raw.indexOf(0x0a,off);
+  if(nl<0) break;
+  const parts=raw.slice(off,nl).toString("utf8").split(" ");
+  if(parts.length<3) break;
+  const [sha,type,sizeStr]=parts;
+  const size=parseInt(sizeStr,10);
+  const body=raw.slice(nl+1,nl+1+size);
+  off=nl+1+size+1;
+  if(type==="commit") out[sha]=body.toString("base64");
+}
+fs.writeFileSync(".push-tmp/commits-raw.json",JSON.stringify(out));
+console.log("祖先 commit 对象:",Object.keys(out).length,"个");
+'
+
+# ── 4. 祖先 commit 元信息（供 api-push.mjs 自举远端缺失的 parent）──
+# API 推送产出的 commit sha 与本地不同 ⇒ 本地 HEAD 的 sha 远端没有 ⇒
+# 直接建 commit 会 422「Parent SHA does not exist」。此时需要把 parent 在远端
+# 重建一遍，而重建需要它的 tree/parent/body/署名，所以这里把 HEAD 最近 20 个
+# 祖先的元信息一并落盘。
+node -e '
+const fs=require("fs");
+// 从 commit-raw.bin 切 body：逐行扫到第一个完全空行
+function parseCommit(buf){
+  let p=0,he=-1;
+  while(p<buf.length){const nl=buf.indexOf(0x0a,p);if(nl<0)break;if(nl===p){he=p;break;}p=nl+1;}
+  const hdr=buf.slice(0,he).toString("utf8");
+  let body=buf.slice(he+1).toString("utf8");
+  if(body.endsWith("\n")) body=body.slice(0,-1);
+  const g=(k)=>{const m=hdr.match(new RegExp("^"+k+" (.*)$","m"));return m?m[1]:null;};
+  const parents=(hdr.match(/^parent (.*)$/gm)||[]).map(s=>s.slice(7));
+  // ⚠ ISO 8601 的时区偏移必须写成 +08:00（带冒号），不能是 +0800。
+  //   GitHub commit API 报 "2026-10-03T15:37:23+0800 is not a valid date-time"（422）。
+  const iso=(m)=>{const d=new Date(parseInt(m[3],0)*1000);
+    const off=m[4];const sign=off[0]==="-"?"-":"+";const hh=off.slice(1,3),mm=off.slice(3,5);
+    return d.toISOString().replace(/\.\d+Z$/,"")+sign+hh+":"+mm;};
+  const a=(g("author")||"").match(/^(.*) <(.*)> (\d+) ([+-]\d+)$/);
+  const c=(g("committer")||"").match(/^(.*) <(.*)> (\d+) ([+-]\d+)$/);
+  return {tree:g("tree"),parent:parents[0]||null,parents,msg:body,
+    author:{name:a[1],email:a[2],date:iso(a)},
+    committer:{name:c[1],email:c[2],date:iso(c)}};
+}
+const out=JSON.parse(fs.readFileSync(".push-tmp/commits-raw.json","utf8"));
+for(const [sha,b64] of Object.entries(out)) out[sha]=parseCommit(Buffer.from(b64,"base64"));
+fs.writeFileSync(".push-tmp/commits.json",JSON.stringify(out));
+console.log("祖先元信息:",Object.keys(out).length,"条");
+'
 echo "下一步：export TOK=<token> && node scripts/api-push.mjs"
