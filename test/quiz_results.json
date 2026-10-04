@@ -1,0 +1,873 @@
+[
+  {
+    "id": "A1",
+    "tag": "无理根",
+    "note": "x^2=2 ⇒ ±1.41421356",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 2,
+    "vals": [
+      [
+        -1.4142135623731626
+      ],
+      [
+        1.4142135623731626
+      ]
+    ],
+    "tiers": [
+      "proven",
+      "proven"
+    ],
+    "proven": 2,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 41.965,
+    "bytes": 1289
+  },
+  {
+    "id": "A2",
+    "tag": "正维流形",
+    "note": "x²+y²+z²=6 & xy=1 ⇒ 1 维曲线（rank 2<3），给 1 代表点 + truncated",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        -1.0000000000000002,
+        -1.0000000000000002,
+        -2.0000000000000004
+      ]
+    ],
+    "tiers": [
+      "candidate"
+    ],
+    "proven": 0,
+    "trust": "budget_exhausted",
+    "comp": "unknown",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 59.441,
+    "bytes": 1302
+  },
+  {
+    "id": "A3",
+    "tag": "高次",
+    "note": "x^5-x-1=0 ⇒ 唯一实根≈1.1673（SymPy 只能 RootOf）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        1.1673039782614196
+      ]
+    ],
+    "tiers": [
+      "proven"
+    ],
+    "proven": 1,
+    "trust": "verified",
+    "comp": "incomplete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 3.267,
+    "bytes": 1103
+  },
+  {
+    "id": "A4",
+    "tag": "分式",
+    "note": "1/x=2 ⇒ x=0.5（零次幂=负指数）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        0.5
+      ]
+    ],
+    "tiers": [
+      "proven"
+    ],
+    "proven": 1,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 6.248,
+    "bytes": 1074
+  },
+  {
+    "id": "A5",
+    "tag": "交叉",
+    "note": "x^2+y^2=1, x*y=0 ⇒ 4 解（轴上四点）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 4,
+    "vals": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    "tiers": [
+      "proven",
+      "proven"
+    ],
+    "proven": 2,
+    "trust": "complete_but_shown_partially",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 9.388,
+    "bytes": 1491
+  },
+  {
+    "id": "B1",
+    "tag": "超越",
+    "note": "sin(x)=x ⇒ x=0（唯一实根，|x|≤1 可证）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        0
+      ]
+    ],
+    "tiers": [
+      "candidate"
+    ],
+    "proven": 0,
+    "trust": "candidates_only",
+    "comp": "unknown",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 5.762,
+    "bytes": 1039
+  },
+  {
+    "id": "B2",
+    "tag": "超越",
+    "note": "x*cos(x)-x=0",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 16,
+    "vals": [
+      [
+        0
+      ],
+      [
+        -999956.375267007
+      ]
+    ],
+    "tiers": [
+      "candidate",
+      "proven"
+    ],
+    "proven": 1,
+    "trust": "budget_exhausted",
+    "comp": "unknown",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 79.001,
+    "bytes": 1398
+  },
+  {
+    "id": "B3",
+    "tag": "超越",
+    "note": "x^2-sin(x)=0",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 2,
+    "vals": [
+      [
+        0
+      ],
+      [
+        0.8767262153951202
+      ]
+    ],
+    "tiers": [
+      "proven",
+      "proven"
+    ],
+    "proven": 2,
+    "trust": "budget_exhausted",
+    "comp": "unknown",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 1501.873,
+    "bytes": 1336
+  },
+  {
+    "id": "B4",
+    "tag": "超越",
+    "note": "exp(x)-x^2-2=0",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        1.3190736768574476
+      ]
+    ],
+    "tiers": [
+      "proven"
+    ],
+    "proven": 1,
+    "trust": "verified",
+    "comp": "unknown",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 5.515,
+    "bytes": 1098
+  },
+  {
+    "id": "C1",
+    "tag": "无解",
+    "note": "x^2+y^2+1=0 ⇒ 严格证无实解",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 0,
+    "vals": [],
+    "tiers": [],
+    "proven": 0,
+    "trust": "verified_empty",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 3.562,
+    "bytes": 878
+  },
+  {
+    "id": "C2",
+    "tag": "无解",
+    "note": "x^2+1=0 ⇒ 严格证无实解（univariate）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 0,
+    "vals": [],
+    "tiers": [],
+    "proven": 0,
+    "trust": "verified_empty",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 0.685,
+    "bytes": 878
+  },
+  {
+    "id": "C3",
+    "tag": "无解",
+    "note": "x^2+y^2=1, x^2+y^2=2 ⇒ 矛盾",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 0,
+    "vals": [],
+    "tiers": [],
+    "proven": 0,
+    "trust": "verified_empty",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 6.209,
+    "bytes": 880
+  },
+  {
+    "id": "D1",
+    "tag": "正维",
+    "note": "x=y ⇒ 无限解集（completeness 必须 unknown）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        0,
+        0
+      ]
+    ],
+    "tiers": [
+      "candidate"
+    ],
+    "proven": 0,
+    "trust": "candidates_only",
+    "comp": "unknown",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 2.229,
+    "bytes": 1102
+  },
+  {
+    "id": "D2",
+    "tag": "正维",
+    "note": "x^3=y ⇒ 无界（域证不出）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        0,
+        0
+      ]
+    ],
+    "tiers": [
+      "candidate"
+    ],
+    "proven": 0,
+    "trust": "budget_exhausted",
+    "comp": "unknown",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 4.229,
+    "bytes": 1144
+  },
+  {
+    "id": "D3",
+    "tag": "显式域",
+    "note": "x^2=2 + domain[1,2] ⇒ 漏负根（只找到 1 个）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        1.4142135623731626
+      ]
+    ],
+    "tiers": [
+      "proven"
+    ],
+    "proven": 1,
+    "trust": "verified",
+    "comp": "incomplete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 1.205,
+    "bytes": 1108
+  },
+  {
+    "id": "E1",
+    "tag": "边界-已知超限",
+    "note": "6 变量 6 稠密二次（超出能力天花板：8s 预算耗尽 ⇒ 0 解 + truncated，须诚实）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 0,
+    "vals": [],
+    "tiers": [],
+    "proven": 0,
+    "trust": "undecidable",
+    "comp": "unknown",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 7902.619,
+    "bytes": 872
+  },
+  {
+    "id": "E1b",
+    "tag": "边界-稀疏6元",
+    "note": "6 变量但稀疏（x*y=1 链式）⇒ 164ms 解出，不是所有 6 变量都超时",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 3,
+    "vals": [
+      [
+        0.9999721040000029,
+        1.000027895999999,
+        0.9999721039999981,
+        1.0000278960000006,
+        0.9999721039999966,
+        1.0000278960000022
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    ],
+    "tiers": [
+      "candidate",
+      "candidate"
+    ],
+    "proven": 0,
+    "trust": "complete_but_shown_partially",
+    "comp": "incomplete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 2175.635,
+    "bytes": 1798
+  },
+  {
+    "id": "E2",
+    "tag": "超限",
+    "note": "7 变量 ⇒ 必须 fail-closed（抛错不给近似）",
+    "error": "变量数量 7 超过硬上限 6",
+    "errorType": "unsupported",
+    "shape": "none",
+    "n": null,
+    "vals": null,
+    "tiers": null,
+    "proven": null,
+    "trust": null,
+    "comp": null,
+    "du": null,
+    "verdict": null,
+    "corrected": null,
+    "ms": 0.079,
+    "bytes": null
+  },
+  {
+    "id": "F1",
+    "tag": "大系数",
+    "note": "x=1e11 ⇒ 根在旧域外（真 bug 回归）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        100000000000
+      ]
+    ],
+    "tiers": [
+      "proven"
+    ],
+    "proven": 1,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 1.61,
+    "bytes": 1122
+  },
+  {
+    "id": "F2",
+    "tag": "大系数",
+    "note": "x^2=1e13 ⇒ ±3162277.66",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 2,
+    "vals": [
+      [
+        -3162277.660168379
+      ],
+      [
+        3162277.6601683795
+      ]
+    ],
+    "tiers": [
+      "proven",
+      "proven"
+    ],
+    "proven": 2,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 94.674,
+    "bytes": 1428
+  },
+  {
+    "id": "F3",
+    "tag": "大系数",
+    "note": "100000*x=1 ⇒ x=1e-5（小系数也证）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        0.00001
+      ]
+    ],
+    "tiers": [
+      "proven"
+    ],
+    "proven": 1,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 0.757,
+    "bytes": 1090
+  },
+  {
+    "id": "F4",
+    "tag": "大系数",
+    "note": "x^2-2*1e8*x+1e16=0 ⇒ (x-1e8)^2",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        100000000
+      ]
+    ],
+    "tiers": [
+      "candidate"
+    ],
+    "proven": 0,
+    "trust": "candidates_only",
+    "comp": "incomplete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 2980.902,
+    "bytes": 1127
+  },
+  {
+    "id": "G1",
+    "tag": "认证",
+    "note": "x^3-2=0 ⇒ 立方根，Krawczyk 应能证",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        1.2599210498948752
+      ]
+    ],
+    "tiers": [
+      "proven"
+    ],
+    "proven": 1,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 1.067,
+    "bytes": 1101
+  },
+  {
+    "id": "G2",
+    "tag": "认证",
+    "note": "x^6-1=0 ⇒ ±1 各 2 重根",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 2,
+    "vals": [
+      [
+        1
+      ],
+      [
+        -1
+      ]
+    ],
+    "tiers": [
+      "proven",
+      "proven"
+    ],
+    "proven": 2,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 1.246,
+    "bytes": 1232
+  },
+  {
+    "id": "G3",
+    "tag": "认证",
+    "note": "x^4+x+1=0 ⇒ 无实根",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 0,
+    "vals": [],
+    "tiers": [],
+    "proven": 0,
+    "trust": "verified_empty",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 0.747,
+    "bytes": 859
+  },
+  {
+    "id": "G4",
+    "tag": "认证",
+    "note": "x^5-1=0 ⇒ 唯一实根 x=1（应能证）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        1
+      ]
+    ],
+    "tiers": [
+      "proven"
+    ],
+    "proven": 1,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 1.089,
+    "bytes": 1067
+  },
+  {
+    "id": "P1",
+    "tag": "poly_roots",
+    "note": "[1,0,-2] ⇒ ±1.4142",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 2,
+    "vals": [
+      [
+        -1.4142135623731626
+      ],
+      [
+        1.4142135623731626
+      ]
+    ],
+    "tiers": [
+      "proven",
+      "proven"
+    ],
+    "proven": 2,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 1.145,
+    "bytes": 1289
+  },
+  {
+    "id": "P2",
+    "tag": "poly_roots",
+    "note": "[1,-3,2] ⇒ 1,2",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 2,
+    "vals": [
+      [
+        1
+      ],
+      [
+        2
+      ]
+    ],
+    "tiers": [
+      "proven",
+      "proven"
+    ],
+    "proven": 2,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 1.151,
+    "bytes": 1234
+  },
+  {
+    "id": "P3",
+    "tag": "poly_roots",
+    "note": "[1,0,0,-1] ⇒ x=1",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 1,
+    "vals": [
+      [
+        1
+      ]
+    ],
+    "tiers": [
+      "proven"
+    ],
+    "proven": 1,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 0.868,
+    "bytes": 1067
+  },
+  {
+    "id": "P4",
+    "tag": "poly_roots",
+    "note": "4 阶 [1,-10,35,-50,24] ⇒ 1,2,3,4（4 个实根）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 4,
+    "vals": [
+      [
+        1
+      ],
+      [
+        2
+      ]
+    ],
+    "tiers": [
+      "proven",
+      "proven"
+    ],
+    "proven": 2,
+    "trust": "complete_but_shown_partially",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 2.775,
+    "bytes": 1447
+  },
+  {
+    "id": "P5",
+    "tag": "poly_roots",
+    "note": "4 阶 [1,0,0,0,-1] ⇒ x=1（其余 3 个复根）",
+    "error": null,
+    "errorType": null,
+    "shape": "solve",
+    "n": 2,
+    "vals": [
+      [
+        1
+      ],
+      [
+        -1
+      ]
+    ],
+    "tiers": [
+      "proven",
+      "proven"
+    ],
+    "proven": 2,
+    "trust": "verified",
+    "comp": "complete",
+    "du": false,
+    "verdict": null,
+    "corrected": null,
+    "ms": 0.735,
+    "bytes": 1232
+  },
+  {
+    "id": "V1",
+    "tag": "verify",
+    "note": "√2 正确值 ⇒ verified",
+    "error": null,
+    "errorType": null,
+    "shape": "verify",
+    "n": null,
+    "vals": null,
+    "tiers": null,
+    "proven": null,
+    "comp": null,
+    "du": null,
+    "verdict": "verified",
+    "corrected": null,
+    "ms": 0.724,
+    "bytes": 603
+  },
+  {
+    "id": "V2",
+    "tag": "verify",
+    "note": "√2 错值 ⇒ refuted + 给纠正值",
+    "error": null,
+    "errorType": null,
+    "shape": "verify",
+    "n": null,
+    "vals": null,
+    "tiers": null,
+    "proven": null,
+    "comp": null,
+    "du": null,
+    "verdict": "refuted_or_unverified",
+    "corrected": null,
+    "ms": 0.65,
+    "bytes": 771
+  },
+  {
+    "id": "V3",
+    "tag": "verify",
+    "note": "1 确是 x^2-1 根 ⇒ verified",
+    "error": null,
+    "errorType": null,
+    "shape": "verify",
+    "n": null,
+    "vals": null,
+    "tiers": null,
+    "proven": null,
+    "comp": null,
+    "du": null,
+    "verdict": "verified",
+    "corrected": null,
+    "ms": 0.37,
+    "bytes": 505
+  },
+  {
+    "id": "V4",
+    "tag": "verify",
+    "note": "2 不是 x^2-1 根 ⇒ refuted",
+    "error": null,
+    "errorType": null,
+    "shape": "verify",
+    "n": null,
+    "vals": null,
+    "tiers": null,
+    "proven": null,
+    "comp": null,
+    "du": null,
+    "verdict": "refuted_or_unverified",
+    "corrected": null,
+    "ms": 0.495,
+    "bytes": 658
+  }
+]

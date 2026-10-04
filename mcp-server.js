@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const { shapeResult, doSolve, doPolyRoots, doVerify, MAX_TOTAL_CHARS, MAX_EQ_COUNT, MAX_VAR_COUNT } = require('./services/solver-service.js'); // 求解域共享层（2026-10-03：与 HTTP 端同口径）
 const { buildTools } = require('./services/tool-metadata.js');   // 工具元数据共享层：与 HTTP 端同一份描述，杜绝文案分叉
+const { doGeometry } = require('./services/geometry/index.js');  // 几何域共享层（2026-10-04：1D/2D/3D 闭式解）
 /**
  * 灵数求解器 · MCP stdio 服务端（零依赖）
  *
@@ -88,6 +89,8 @@ function handle(msg) {
         result = doPolyRoots(args);
       } else if (name === 'verify') {
         result = doVerify(args);
+      } else if (name === 'geometry') {
+        result = doGeometry(args);
       } else {
         throw { type: 'unknown_tool', message: '未知工具: ' + name };
       }
@@ -95,7 +98,12 @@ function handle(msg) {
       appendLog({
         ts: new Date().toISOString(), tool: name, status: 'ok',
         dtMs: dt, resultType: result.resultType, nSol: result.solutionCount,
-        truncated: result.truncated
+        truncated: result.truncated,
+        // 4 态决策标记（2026-10-04）：本地排查日志原来只记 resultType（1/2/3），
+        // 看到「resultType=2」无法区分「找全了」「只找到部分」「资源耗尽」——
+        // 而这三者的处置完全不同。加 conclusion 让日志能直接回答「这次到底算不算数」。
+        // ⚠ 只进本地日志，不进 MCP 返回体（返回体第一字段已是 conclusion，无重复理由）。
+        conclusion: result.conclusion || null
       });
       send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] } });
     } catch (e) {

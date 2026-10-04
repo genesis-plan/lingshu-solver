@@ -16,14 +16,73 @@
  * 实测成本：四工具描述合计 2867 字符 ≈ 796 token（改造前 4659 字符 ≈ 1294 token）。
  */
 
-/** solve 工具描述（stdio 与 HTTP 共用同一字符串） */
-const SOLVE_DESC = 'Deterministic (non-LLM) solver for systems of real equations. Use it instead of computing the math yourself whenever a wrong number has a cost. Same input always returns an identical Krawczyk-certified result, so caching and retries are safe. Supports algebraic equations and common transcendentals (sin/cos/tan/log/exp/sqrt/abs), max 6 variables, no initial guess needed. READ THE TIERS BEFORE TRUSTING A RESULT: proven = interval-certified and safe to use downstream; candidate = found but NOT certified, verify it before relying on it. Pass domain explicitly for exp/sin or large ranges, else truncated may be true. Not for symbolic derivation, initial-value ODEs, or integer constraints.';
+/**
+ * solve 工具描述（stdio 与 HTTP 共用同一字符串）
+ *
+ * ⚠⚠ 长度是**硬预算**（tools-parity 守 <1000 且余量 ≥30 字符，每轮对话都收这份描述的税）。
+ *   2026-10-04 加分页说明时被迫砍掉四处纯修辞/重复，每处都记下判据：
+ *     ① "Use it instead of computing the math yourself whenever a wrong number has a cost."（82B）
+ *     ② "so caching and retries are safe"（36B，同输入同输出已由 reportId 承载）
+ *   ③ "when more exist the response carries …"（30B，nextOffset 这个键名自带语义）
+ *    ④ "initial-value "（9B，「不支持 ODE」这个信息没丢，只丢限定词）
+ *    ⑤ "BEFORE TRUSTING A RESULT"（27B，"READ THE TIERS" 已含警告语气）
+ *   —— 砍它们的判据是：**不含任何可判定信息**（既没说输入什么、也没说输出什么、
+ *   也没说结果可不可信），纯劝告。而下面每一句都有 Agent 可据此行动的事实。
+ *   ⇒ 以后再加内容，只能从「不含可判定信息」的那一类里砍，别去砍 tier / 分页 / 完备性。
+ */
+const SOLVE_DESC = 'Deterministic (non-LLM) solver for systems of real equations. Same input always returns an identical Krawczyk-certified result. Supports algebraic equations and common transcendentals (sin/cos/tan/log/exp/sqrt/abs), max 6 variables, no initial guess needed. READ THE TIERS: proven = interval-certified and safe to use downstream; candidate = found but NOT certified, verify it before relying on it. Pass domain explicitly for exp/sin or large ranges, else truncated may be true. Not for symbolic derivation, ODEs, or integer constraints. '
+  // completeness（2026-10-04）：解数上界来自 Newton 多胞形的混合体积（BKK）/ Bézout。
+  // Agent 真正要的是「能不能收工」，不是「有几个数」，所以这条必须写进工具级描述 ——
+  // 否则 Agent 不知道返回体里有这个字段，会永远靠猜（猜错就是漏解或空转）。
+  // ⚠ 长度受 tools-parity 的 <1000 字符红线约束（每轮对话都收这份描述的税），
+  //   所以只留「三态怎么行动」+「(C*)^n 的坑」，定理细节进 SKILL.md 与使用指南。
+  + 'trust.completeness.status: complete = found count equals a proven bound, safe to claim you found them all; incomplete/unknown = do not. scope \'(C*)^n\' excludes zero-coordinate solutions. '
+  // 分页（2026-10-04）：**必须**写进工具级描述，否则 Agent 永远发现不了 n 这个参数 ——
+  //   参数在 inputSchema 里只是「一个可选数字」，它没有理由猜到那是翻页用。
+  //   实测 16 解场景 solutions 只有 2 个，不教它分页它就会拿 2 个当全部 ⇒ 漏解。
+  //
+  // ⚠⚠ 这段是 tools-parity <1000 字符红线的最后 200 字符预算，写它时必须**同时**满足：
+  //   ① Agent 看得懂「怎么取回剩下的」；② Agent 分得清「已算完」与「没算完」——
+  //   这两件事分别对应「漏解」与「假指令（去加预算）」两种真实事故。
+  //   所以 budget_exhausted 的对照不能砍：它 2026-10-04 才修掉一个 P0
+  //   （引擎已找全却报 budget_exhausted，Agent 照做假指令重试一百次）。
+  //   已砍的三处修辞/重复（各带判据，见文件头）：
+  //     "Use it instead of computing the math yourself…"(82B)、"so caching and retries are safe"(36B)、
+  //     "the response carries nextOffset and trust.moreAvailable" 里的后者(30B，数字在字段里自带)
+  + 'At most 2 solutions are listed; call again with n=nextOffset for the rest. trust.trustLevel=complete_but_shown_partially means the search already finished (raising the budget will NOT help); budget_exhausted means it did not.';
 
 const FEEDBACK_DESC = 'Report a problem to the operator when solve hits a dead end, returns an error, or produces something you believe is wrong. The text is written to a local log only and is never transmitted anywhere else.';
 
-const POLY_DESC = 'All real roots of a polynomial, each individually Krawczyk-certified with a strict error box. Coefficients are highest degree first: [1,-2,-5,6] means x^3-2x^2-5x+6. Use it instead of letting a language model estimate roots. Complex roots are not returned (real only).';
+const POLY_DESC = 'All real roots of a polynomial, each individually Krawczyk-certified with a strict error box. Coefficients are highest degree first: [1,-2,-5,6] means x^3-2x^2-5x+6. Use it instead of letting a language model estimate roots. Complex roots are not returned (real only). At most 2 roots are listed per call; when more exist the response carries nextOffset and trust.moreAvailable — call again with n=nextOffset to get the rest, otherwise you will report an incomplete root set.';
+
+'use strict';
+
+const { opList } = require('./geometry/index.js');   // op 清单从几何层动态取，杜绝「加了 op 忘了写进描述」
 
 const VERIFY_DESC = 'Check whether a claimed answer is actually correct — call this on any number you computed yourself before passing it downstream. verdict=verified means it is a certified real root; verdict=refuted_or_unverified means it is NOT, and nearestCertifiedRoot then carries the correct value so you can self-correct in the same turn. Deterministic and reproducible.';
+
+/**
+ * geometry 工具描述。
+ *
+ * 为什么是「一个工具 + op 分派」而不是 87 个独立工具：
+ *   tools/list 的结果**每轮对话都在上下文里**。87 个工具 × 各约 200 字符
+ *   description+schema ≈ 4000 token/轮的固定开销；一个工具 + op 名字清单
+ *   只有约 600 token。完整签名**按需**在 op 错误时返回（一次性成本）。
+ *
+ * op 清单由几何层动态生成 —— 新增 op 时描述自动跟上，不会出现
+ * 「代码里有但 Agent 看不见」的静默遗漏（这类遗漏没有任何测试能发现）。
+ */
+const GEOM_OP_LIST = (function () {
+  const by = opList();
+  return ['1D', '2D', '3D', 'any']
+    .map(k => k + ': ' + by[k].join(','))
+    .join(' | ');
+})();
+
+const GEOMETRY_DESC = 'Deterministic 1D/2D/3D geometry: distances, intersections, areas, volumes, angles, convex hull, point-in-polygon, rotations. Closed-form (not iterative), exact up to floating-point rounding, identical output for identical input. Use it instead of doing geometry yourself. Pass {op, ...args} with op one of: '
+  + GEOM_OP_LIST
+  + '. The remaining args are passed flat and depend on op (p, q, a, b, c, d, r, poly, pts, angle, lambda, center, axis, segment, a1,b1,c1,a2,b2,c2, ...). Send an unknown op to receive the full catalog with every signature. '
+  + 'READ trust.trustLevel: exact = safe to use directly; definitely_none = computed proof that there is NO intersection, safe to state as a conclusion; degenerate = the INPUT is degenerate (parallel / collinear / coplanar / coincident), do NOT invent a value — report the degeneracy instead.';
 
 /** solve 的输入 schema 描述片段 */
 const SCHEMA = {
@@ -32,6 +91,7 @@ const SCHEMA = {
   domain: 'Search domain per variable, e.g. {"x":[-30,30],"y":[-30,30]}. Defaults to +/-1e6 each. Set it for exp/sin/large ranges: a too-wide default domain may fail to prune and set truncated=true.',
   fastMode: 'Skip the expensive certification layers. Faster but tiers degrade to candidate. Default false.',
   options: 'Advanced: {budget, maxDepth}. Raise budget when truncated=true and you need completeness.',
+  offset: 'Pagination offset for the solution list. Omit for the first page. When a response carries nextOffset, pass it back as n to get the remaining solutions — the response shows at most 2 at a time.',
   coefficients: 'Highest degree first, e.g. [1,-2,-5,6] means x^3-2x^2-5x+6.',
   polyTolerance: 'Root-decision tolerance (optional; internal precision by default).',
   equation: 'A single equation with "=", e.g. "x^2 = 4".',
@@ -53,12 +113,13 @@ const HONOR_PAID_DISCLAIMER = ' Optional: pass honorPaid:true to declare persona
  */
 function buildTools(opts) {
   const isHttp = !!(opts && opts.http);
-  const solveProps = {
+    const solveProps = {
     equations: { type: 'array', items: { type: 'string' }, description: SCHEMA.equations },
     variables: { type: 'array', items: { type: 'string' }, description: SCHEMA.variables },
     domain: { type: 'object', description: SCHEMA.domain },
     fastMode: { type: 'boolean', description: SCHEMA.fastMode },
-    options: { type: 'object', description: SCHEMA.options }
+    options: { type: 'object', description: SCHEMA.options },
+    n: { type: 'number', description: SCHEMA.offset }
   };
   if (isHttp) solveProps.honorPaid = { type: 'boolean', description: HONOR_PAID_DESC };
 
@@ -87,7 +148,8 @@ function buildTools(opts) {
         type: 'object',
         properties: {
           coefficients: { type: 'array', items: { type: 'number' }, description: SCHEMA.coefficients },
-          tolerance: { type: 'number', description: SCHEMA.polyTolerance }
+          tolerance: { type: 'number', description: SCHEMA.polyTolerance },
+          n: { type: 'number', description: SCHEMA.offset }
         },
         required: ['coefficients']
       }
@@ -105,8 +167,33 @@ function buildTools(opts) {
         },
         required: ['equation', 'candidate']
       }
-    }
+    },
+    GEOMETRY_TOOL
   ];
 }
 
-module.exports = { buildTools, SOLVE_DESC, FEEDBACK_DESC, POLY_DESC, VERIFY_DESC, SCHEMA };
+/**
+ * geometry 工具定义（单独导出，供 HTTP 端那一份尚未迁移到 buildTools 的
+ * TOOLS 数组直接引用 —— 两端仍是同一个对象，不是两份文案）。
+ *
+ * 87 个 op 共用一个工具（理由见 GEOMETRY_DESC 上方注释）。
+ * additionalProperties:true 是**必须的**：各 op 的签名不同（p,q / a,b,c / poly / r ...），
+ * 无法在一份静态 schema 里穷举，只能允许平铺的额外键，由几何层自己校验。
+ */
+const GEOMETRY_TOOL = {
+  name: 'geometry',
+  description: GEOMETRY_DESC,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      op: { type: 'string', description: 'Geometry operation name. See the tool description for the full list, or send an unknown value to receive the catalog with signatures.' }
+    },
+    required: ['op'],
+    additionalProperties: true
+  }
+};
+
+module.exports = {
+  buildTools, GEOMETRY_TOOL,
+  SOLVE_DESC, FEEDBACK_DESC, POLY_DESC, VERIFY_DESC, GEOMETRY_DESC, GEOM_OP_LIST, SCHEMA
+};

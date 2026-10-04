@@ -105,6 +105,8 @@ Open the link → type equations (one per line, or separated by `,`) → press s
 
 ```json
 {
+  "conclusion": "全部解",
+  "canAssert": { "noSolution": false, "allSolutions": true, "hasSolution": true },
   "resultType": 2,
   "resultTypeName": "finite",
   "certified": true,
@@ -115,24 +117,33 @@ Open the link → type equations (one per line, or separated by `,`) → press s
     "trustLevel": "verified", "safeToUse": true,
     "agentAction": "All 2 solution(s) are interval-certified. Safe to use directly.",
     "provenCount": 2, "candidateCount": 0,
-    "meaningOfEmpty": null, "mustNotClaim": "no_solution"
+    "meaningOfEmpty": null, "mustNotClaim": "no_solution",
+    "completeness": {
+      "status": "complete", "bound": 2, "scope": "C^n",
+      "boundsConsidered": "bezout=2 of 4", "bestFrom": "bezout"
+    }
   },
   "summary": "Found 2 real solutions (all Krawczyk-interval certified).",
   "recommended": {
-    "values": [2, 3], "tier": "proven", "certified": true,
-    "text": "x=2.0000, y=3.0000",
-    "cert": { "status": "proven", "method": "krawczyk_newton", "enclosure": [[2,2],[3,3]], "backwardError": 0, "krawczykRadius": 0 }
+    "values": [4, 3], "tier": "proven", "certified": true,
+    "text": "x=4.0000, y=3.0000", "recommendedIndex": 0
   },
-  "solutions": [ { "values": [2, 3], "tier": "proven", "certified": true, "text": "x=2.0000, y=3.0000", "cert": { "status": "proven", "method": "krawczyk_newton", "enclosure": [[2,2],[3,3]], "backwardError": 0, "krawczykRadius": 0 } } ],
-  "warnings": [],
+  "solutions": [
+    { "values": [4, 3], "tier": "proven", "certified": true, "text": "x=4.0000, y=3.0000",
+      "cert": { "status": "proven", "method": "krawczyk_newton", "backwardError": "ok", "krawczykRadius": "ok" } },
+    { "values": [3, 4], "tier": "proven", "certified": true, "text": "x=3.0000, y=4.0000",
+      "cert": { "status": "proven", "method": "krawczyk_newton", "backwardError": "ok", "krawczykRadius": "ok" } }
+  ],
   "reportId": "ls1-...",
-  "certification": { "proven": 2, "candidate": 0, "structural": 0, "emptyProof": null, "certifiedCoverage": 1 },
+  "certification": { "proven": 2, "certifiedCoverage": 1 },
   "diagnostics": { "inputError": null, "inputErrorMessage": null, "truncated": false }
 }
 ```
 
 | Field | Meaning |
 |---|---|
+| `conclusion` | **The four-state decision tag (read this first)**: `全部解` (all solutions) / `部分解` (partial) / `无解` (none) / `计算资源不足` (out of budget). It answers "**what does the agent hold right now**", not "how well did the engine compute" — so it degrades from `全部解` to `部分解` when results are paginated, while `trust.completeness.status` stays `complete` (the engine really did finish). The two fields answer **different questions; they are not in conflict.** |
+| `canAssert` | **Programmatic assertion flags (no need to parse the Chinese)**: `{noSolution, allSolutions, hasSolution}`. Degrades together with `conclusion`: on pagination `allSolutions` is always `false`; for `无解`, `noSolution=true` (and `allSolutions` is also `true`, meaning "the full solution set is empty" — not a contradiction). ⚠ **If your agent writes `if (canAssert.allSolutions) assert("found them all")`, read this field directly** instead of pattern-matching `conclusion` — a boolean has no ambiguity to resolve. |
 | `resultType` | `1=empty` (**proven** to have no real solution) / `2=finite` / `3=infinite` (infinite set; only the recommended solution is given) |
 | `certified` | Whether every returned solution is certified |
 | `truncated` | `true` = exhaustion was not proven within budget (**does not mean solutions were missed**); narrow `domain` or raise `budget` and retry |
@@ -141,15 +152,45 @@ Open the link → type equations (one per line, or separated by `,`) → press s
 | `recommended` | The solution nearest the origin (smallest norm) |
 | `solutions[]` | Per solution: `values` (full float), `tier`, `certified`, `text` (4-decimal display string), `cert` (certification block: status / method / enclosure / backwardError). **No `internals`** — residuals were removed on 2026-10-03: an agent's decision rests on `tier` + `cert` (interval certification), not on a residual magnitude. Residuals remain in the web build and the regression suite for debugging. |
 | `tier` | `proven` (Krawczyk certified) / `candidate` (not proven but plausible) / `structural` (derived structurally) |
-| `precisionDecimals` | Always `4` (agent-facing display digits since 2026-10-03; **internal computation stays at 6** — see the FAQ) |
-| `trust` | **The agent decision block (read this first)**: `trustLevel` (verified / verified_empty / partially / candidates_only / budget_exhausted / unverified / undecidable), `safeToUse`, `agentAction` (what to do this time), `mustNotClaim` (when `no_solution`, you **must not** claim there is no solution — branch on this enum instead of parsing English), `meaningOfEmpty` (why there is nothing — `null` whenever `solutions[]` is non-empty) |
-| `certification` | Certification summary: per-tier counts + `certifiedCoverage` |
+| `precisionDecimals` | Always `4` (agent-facing display digits since 2026-10-03). ⚠ **Internal computation is 6 digits** (`COMPUTE_DECIMALS`) — the two must stay separate: for more significant digits read `solutions[].values` (full-precision floats), do not rely on `text` or `precisionDecimals`. |
+| `trust` | **The agent decision block (read this first)**: `trustLevel` (verified / verified_empty / partially / candidates_only / **complete_but_shown_partially** / budget_exhausted / unverified / undecidable), `safeToUse`, `agentAction` (what to do this time), `mustNotClaim` (when `no_solution`, you **must not** claim there is no solution — branch on this enum instead of parsing English), `meaningOfEmpty` (why there is nothing — `null` whenever `solutions[]` is non-empty) |
+| `trust.completeness` | **The completeness block (new 2026-10-04)**: `status` = `complete` (found count == a theorem-proven upper bound ⇒ safe to claim you found them all) / `incomplete` (found < bound ⇒ **do not claim completeness**) / `unknown` (no bound available ⇒ claim nothing); plus `bound` and `scope` |
+| `nextOffset` | **Present only when the deduplicated solution count exceeds the display cap** (2 per call). It is the starting index of the next page — pass it back as the `n` input to retrieve it. Omitting this field would hand the agent an **unfulfillable contract** (the description says "All real roots" but only half are given and there is no way to get the rest). It disappears on the last page. |
+| `certification` | Certification summary: **only** `proven` (certified count) + `certifiedCoverage` (coverage ratio 0..1). `candidate` / `structural` / `emptyProof` were **removed on 2026-10-04** — their information already lives in `trust.candidateCount`, in the web build`s own computation, and in `trust.meaningOfEmpty`; they were zero-consumer fields wasting tokens. |
 | `reportId` | Deterministic reproducibility credential (same input ⇒ same reportId) |
 | `diagnostics` | Diagnostics; a non-null `inputError` means this call was rejected as invalid input — **no charge is made in that case** |
 
 > **No top-level `instructions` field** (removed 2026-10-03, 162 B). It duplicated the tool description's "READ THE TIERS" section; its one non-redundant hard rule ("must not claim no-solution unless `trustLevel` is `verified_empty`") now lives in `trust.mustNotClaim` as an enum.
 >
 > `mustNotClaim` is a **positive whitelist**: only `verified_empty` returns `null`; all six other levels return `"no_solution"`. If a new `trustLevel` is ever added it is forbidden from claiming no-solution by default, so a future level can never silently lose this guarantee.
+
+#### 4.1.1 `trust.completeness` — "did you find them all?"
+
+This block is what separates a *sampler* from a *solver*. Without it the solver can only say "I found 2 solutions"; with it, it can say "I found 2, and a theorem guarantees there are at most 2."
+
+The bound comes from geometry: the **mixed volume of the Newton polytopes** (the BKK theorem of Bernstein–Kushnirenko–Khovanskii). A purely geometric quantity (a volume) becomes a purely algebraic one (an upper bound on the number of isolated solutions), and it is tight for generic coefficients. The module also takes the minimum with Bézout (total degree), multi-homogeneous Bézout (per-variable blocks), Milnor–Thom (a topological invariant: connected components of the real zero set) and Descartes / fewnomial (number of terms).
+
+| `status` | Meaning | What the agent should do |
+|---|---|---|
+| `complete` | found count **==** the bound | **Safe to claim you found them all.** Stop. |
+| `incomplete` | found count **<** the bound | Solutions may be missing. **Do not claim completeness**; use `bound - solutionCount` to decide whether raising the budget is worth it. |
+| `unknown` | No bound could be derived (non-polynomial / underdetermined / over budget / infinite solution set) | Claim nothing; trust only the listed solutions. |
+
+`scope` says which space the bound covers. It is a **closed enum** — do not read it as free text:
+
+| `scope` | Meaning |
+|---|---|
+| `C^n` | All of complex n-space, including solutions with a zero coordinate |
+| `(C*)^n` | The torus: counts **only** solutions where every variable is non-zero |
+| `R^n` | Connected components of the real zero set (multiplicities not distinguished) |
+| `R` | All real roots |
+| `R>0` | Positive roots / connected components in the positive orthant only |
+
+> ⚠ **The `(C*)^n` trap**: BKK and Kushnirenko count only solutions where *every* variable is non-zero. If a solution has a variable equal to 0, it is outside the count. So `status: "complete"` together with `scope: "(C*)^n"` can still miss solutions — do not read it as an absolute guarantee.
+>
+> Why `complete` is a theorem and not an estimate: the bound counts **complex** isolated solutions *with multiplicity*. Every distinct solution has multiplicity ≥ 1, so #distinct complex solutions ≤ bound; real solutions are a subset of complex ones. Hence `found` distinct real solutions == bound ⇒ there is no room for a (found+1)-th solution even over C ⇒ all of them were found.
+>
+> When `status !== "complete"` you **must not** claim completeness. That is a different rule from `mustNotClaim`, which governs "you must not claim there is no solution".
 
 ### 4.2 `give_feedback` — feedback
 

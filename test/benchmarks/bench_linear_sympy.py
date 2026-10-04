@@ -1,178 +1,150 @@
 # -*- coding: utf-8 -*-
-"""6 变量线性系统：灵数(suan60 精确+presolve) vs SymPy linsolve/solve 同题同机对测
+"""6 变量线性系统：SymPy 1.14.0 侧 —— 与灵数同题同机对测
 
-严格口径：
-  · 只比【同题】线性方程组（n ≤ 6），双方拿到完全相同的系数矩阵与 rhs
-  · 计时前预热（WARMUP 轮），避免 JIT / import 首次调用偏差
-  · 解的正确性由第三方独立判定：把解代回原方程算残差，不采信任一方自报
-  · 内存用 tracemalloc / resource 记录（对测方各自口径，在 JSON 里分开标注）
-  · 覆盖 4 类：稀疏带状（Markowitz 友好）/ 稠密随机 / 过定 / 三角
-输出：results JSON 供 node 侧读取
+严格口径（两次返工后定稿，理由都写在注释里）：
+  ① 题面【只读】linear_cases.json，绝不自己造题。
+     初版本文件用 random.seed(20261003) 造 sparse-rand6，而 node 侧用手写 LCG ——
+     两侧序列不同 ⇒ 那一题根本不是同一道题，对测结论全是废的（实测才发现）。
+  ② 残差由本文件独立算（不采信对侧自报），且解保留【精确 Rational】。
+     初版把解转成 float 再比，会掩盖 SymPy 的大系数精度问题；
+     改成保留 Rational 后，才能和裁决器的精确解逐位对照。
+  ③ 预热 WARMUP 轮后才计时；双方 REPEAT 必须相同。
+  ④ 内存用 tracemalloc 峰值（与 node 侧 heapUsed 口径不同，JSON 里分开标注，不直接相减）。
 """
 import json, time, sys, tracemalloc
-from sympy import Matrix, linsolve, Rational, sympify, Float
+from sympy import Matrix, linsolve, Rational, Symbol, Float
+from fractions import Fraction
 
+HERE = 'D:/Projects/genesis-plan/lingshu-solver/test/benchmarks/'
 WARMUP = 3
 REPEAT = 20
 
-def build_cases():
-    """题目：[name, A(list of rows), b(list), kind]"""
-    cases = []
 
-    # ① 稀疏带状 6×6（Markowitz 最优序可命中 ⇒ 应零 fill-in）
-    A = []
-    for i in range(6):
-        r = [0.0] * 6
-        r[i] = 4.0 + i
-        if i + 1 < 6: r[i + 1] = -1.0
-        if i > 0:   r[i - 1] = -1.0
-        A.append(r)
-    cases.append(("banded6", A, [1.0] * 6, "sparse-banded"))
-
-    # ② 三角（下三角 ⇒ presolve singletonRow 全消）
-    L = [[2.0,0,0,0,0,0],[1.0,3.0,0,0,0,0],[2.0,-1.0,4.0,0,0,0],
-         [0,1.0,2.0,5.0,0,0],[0,0,1.0,-1.0,6.0,0],[0,0,0,1.0,2.0,7.0]]
-    x0 = [1,2,3,4,5,6]
-    b = [sum(L[i][j]*x0[j] for j in range(6)) for i in range(6)]
-    cases.append(("triangular6", L, [float(v) for v in b], "triangular"))
-
-    # ③ 稠密随机 6×6（整数，保证可精确有理化）
-    cases.append(("dense-int6",
-                  [[3,-1,2,0,1,-2],[1,4,0,2,-1,1],[2,0,-3,1,2,0],
-                   [0,1,1,5,-2,1],[1,-1,0,2,3,1],[2,1,1,0,-1,4]],
-                  [5,6,7,8,9,10], "dense-int"))
-
-    # ④ 过定不相容 6×6（额外两行制造矛盾）
-    cases.append(("overdet-incon6",
-                  [[3,-1,2,0,1,-2],[1,4,0,2,-1,1],[2,0,-3,1,2,0],
-                   [0,1,1,5,-2,1],[1,-1,0,2,3,1],[2,1,1,0,-1,4],
-                   [3,-1,2,0,1,-2],[1,4,0,2,-1,1]],
-                  [5,6,7,8,9,10,99,98], "overdet-inconsistent"))
-
-    # ⑤ 循环对角占优 6×6（⇒ 唯一解，diagDominant 提前定论）
-    C = []
-    for i in range(6):
-        r = [-1.0]*6; r[i] = 12.0; C.append(r)
-    cases.append(("cyc-dom6", C, [1.0]*6, "diag-dominant"))
-
-    # ⑥ 稀疏随机（80% 零）⇒ 检验 Markowitz fill-in 缩减
-    import random
-    random.seed(20261003)
-    S = []
-    for i in range(6):
-        r = [0.0]*6
-        for j in range(6):
-            r[j] = float(random.randint(-8, 8)) if random.random() < 0.45 else 0.0
-        if all(v == 0 for v in r): r[i] = 5.0
-        S.append(r)
-    bS = [float(random.randint(-20, 20)) for _ in range(6)]
-    cases.append(("sparse-rand6", S, bS, "sparse-rand"))
-
-    # ⑦ 对角阵（⇒ singletonRow 全消，零消元）
-    D = []
-    for i in range(6):
-        r = [0.0]*6; r[i] = 10.0; D.append(r)
-    cases.append(("diagonal6", D, [1.0]*6, "diagonal"))
-
-    # ⑧ 有理系数 6×6（1/3, 1/7, 1/5 …）
-    cases.append(("rational6",
-                  [[1/3,1/7,0,0,0,0],[0,2/3,1/5,0,0,0],[0,0,3/7,1/3,0,0],
-                   [0,0,0,4/9,1/5,0],[0,0,0,0,5/3,1/7],[1/5,0,0,0,0,6/11]],
-                  [1,1,1,1,1,1], "rational"))
-
-    # ⑨ 欠定 4方程6未知
-    cases.append(("underdet6",
-                  [[1,2,0,0,0,0],[0,1,3,0,0,0],[0,0,1,4,0,0],[0,0,0,1,5,0]],
-                  [1,2,3,4], "underdetermined"))
-
-    # ⑩ 重复行 + 单例行的混合（presolve 应大量命中）
-    cases.append(("presolve-heavy6",
-                  [[1,0,0,0,0,0],[0,2,0,0,0,0],[0,0,3,0,0,0],
-                   [1,0,0,0,0,0],[2,4,0,0,0,0],[0,0,0,7,1,1]],
-                  [2,4,6,2,12,5], "presolve-heavy"))
-
-    return cases
+def load_cases():
+    with open(HERE + 'linear_cases.json', encoding='utf-8') as f:
+        return json.load(f)['cases']
 
 
-def exact_rat(v):
-    """float → sympy Rational（分母 ≤ 1e9），用于让 SymPy 走精确路径"""
-    return Rational(str(v)) if not float(v).is_integer() else Rational(int(v))
+def to_exact(v):
+    """题面编码 → sympy Rational。数字 → 整数；字符串 "p/q" → 有理数。
+    ⚠ 不经过 float：1/3 若先变 0.333… 再有理化就丢了原值。"""
+    if isinstance(v, str):
+        p, q = v.split('/')
+        return Rational(int(p), int(q))
+    return Rational(int(v))
 
 
-def sympy_solve(A, b, use_linsolve=True):
-    M = Matrix([[exact_rat(A[i][j]) for j in range(len(A[0]))] for i in range(len(A))])
-    rhs = Matrix([exact_rat(v) for v in b])
-    aug = M.row_join(rhs)
-    if use_linsolve:
-        s = linsolve((M, rhs))
-        tup = next(iter(s))
-        return [float(v) for v in tup]
-    else:
-        sol = M.inv() * rhs if M.rows == M.cols else None
-        if sol is None: return None
-        return [float(v) for v in sol]
+def sympy_linsolve(A, b):
+    """返回 (精确解列表, 状态)。状态 ∈ {'unique','family','nosol'}。
+
+    ⚠ 三次返工的记录（都写在这，因为都是「误把 SymPy 的表达方式当成它的错误」）：
+    ① 初版 next(iter(s)) 遇无解抛 StopIteration ⇒ 两例不相容题被误记成「SymPy 报错」。
+       实际上 linsolve 返回空集，SymPy 判对了，只是没给可读输出。
+    ② 修好后 family 题又报 TypeError: invalid input: 120*tau0 - 81 ——
+       这不是 SymPy 的错，是它对欠定系统返回【参数化表达式】而非数值向量，
+       Rational(expr) 转换不了。必须先令自由参数为 0 求值。
+    ③ 令参数为 0 时不能自己造 Symbol('t0')：SymPy 内部符号叫 tau0/tau1，
+       名字对不上 subs 静默不替换 ⇒ 会拿到还带符号的表达式还以为求过值了。
+       必须用 e.free_symbols 把它自己造的符号抓出来。
+    """
+    M = Matrix([[to_exact(A[i][j]) for j in range(len(A[0]))] for i in range(len(A))])
+    rhs = Matrix([to_exact(v) for v in b])
+    s = linsolve((M, rhs))
+    # 无解 ⇒ linsolve 是空集，迭代它直接 StopIteration（这是 SymPy 的正确结论，不是失败）
+    if len(s) == 0:
+        return [], 'nosol'
+    tup = next(iter(s))
+    vals = []
+    has_free = False
+    for e in tup:
+        # ⚠ 顺序有讲究：必须先判 free_symbols 再化简。
+        #   Rational('120*tau0 - 81') 直接抛 TypeError: invalid input ——
+        #   它不接受未代入的符号表达式。所以「先试转换」这条路是走不通的。
+        syms = getattr(e, 'free_symbols', set())
+        if syms:
+            has_free = True
+            # 令 SymPy 自己的自由参数为 0（用 free_symbols 抓符号名，不能自己造 Symbol）
+            zeroed = e.subs({sym: 0 for sym in syms})
+            vals.append(Fraction(int(zeroed.p), int(zeroed.q)))
+        else:
+            rv = Rational(e)
+            vals.append(Fraction(int(rv.p), int(rv.q)))
+    return vals, ('family' if has_free else 'unique')
 
 
-def independent_residual(A, b, x):
-    """第三方校验：残差 = max |Ax - b|"""
-    if x is None: return None
+def exact_residual(A, b, x):
+    """第三方校验：全精确的 max |Ax - b|（Fraction 算术，不经 float）"""
+    if x is None:
+        return None
     n = len(x)
-    worst = 0.0
+    worst = Fraction(0)
     for i in range(len(A)):
-        s = 0.0
+        s = Fraction(0)
         for j in range(n):
-            s += A[i][j] * x[j]
-        worst = max(worst, abs(s - b[i]))
+            c = to_exact(A[i][j])
+            if x[j] is None:
+                # 自由分量：跳过无法唯一确定的坐标（family 题的残差无意义，另行标注）
+                return None
+            s += Fraction(int(c.p), int(c.q)) * x[j]
+        e = abs(s - Fraction(to_exact(b[i]).p, to_exact(b[i]).q))
+        if e > worst:
+            worst = e
     return worst
 
 
 def main():
     out = {"tool": "sympy", "version": __import__("sympy").__version__, "cases": []}
 
-    # 预热（不算入计时）
+    # 预热（不计时）
     for _ in range(WARMUP):
-        try: sympy_solve([[2.0,1.0],[1.0,3.0]], [1.0,2.0])
-        except Exception: pass
+        try:
+            sympy_linsolve([[2, 1], [1, 3]], [1, 2])
+        except Exception:
+            pass
 
-    for name, A, b, kind in build_cases():
+    for c in load_cases():
+        A, b = c['A'], c['b']
         n = len(A[0])
-        rec = {"name": name, "kind": kind, "n": n, "m": len(A)}
+        rec = {"name": c['name'], "kind": c['kind'], "n": n, "m": len(A)}
 
-        # ---- linsolve（SymPy 默认精确路径）----
         try:
             t0 = time.perf_counter()
             for _ in range(REPEAT):
-                x = sympy_solve(A, b, use_linsolve=True)
+                x, kind = sympy_linsolve(A, b)
             dt = (time.perf_counter() - t0) / REPEAT
             rec["linsolve_ms"] = dt * 1000.0
-            rec["linsolve_resid"] = independent_residual(A, b, x)
-            rec["linsolve_x"] = x
             rec["linsolve_ok"] = True
+            rec["linsolve_kind"] = kind        # unique / family / nosol（与灵数 kind 同名可比）
+            rec["linsolve_n"] = len(x)
+            rec["linsolve_x"] = [None if v is None else str(v) for v in x]
+            r = exact_residual(A, b, x)
+            rec["linsolve_resid"] = None if r is None else str(r)
         except Exception as e:
             rec["linsolve_ok"] = False
-            rec["linsolve_err"] = type(e).__name__ + ": " + str(e)[:120]
+            rec["linsolve_err"] = type(e).__name__ + ": " + str(e)[:160]
 
-        # ---- inv*solve（方阵专用，绕开 linsolve 的参数化返回）----
+        # 方阵的 inv()*b 路线（与灵数的 presolve/Markowitz 路线对照）
         if len(A) == n:
             try:
+                M = Matrix([[to_exact(A[i][j]) for j in range(n)] for i in range(n)])
+                rhs = Matrix([to_exact(v) for v in b])
                 t0 = time.perf_counter()
                 for _ in range(REPEAT):
-                    x = sympy_solve(A, b, use_linsolve=False)
+                    sol = M.inv() * rhs
                 dt = (time.perf_counter() - t0) / REPEAT
                 rec["inv_ms"] = dt * 1000.0
-                rec["inv_resid"] = independent_residual(A, b, x)
                 rec["inv_ok"] = True
+                rec["inv_x"] = [str(Rational(v)) for v in sol]
             except Exception as e:
                 rec["inv_ok"] = False
-                rec["inv_err"] = type(e).__name__ + ": " + str(e)[:120]
+                rec["inv_err"] = type(e).__name__ + ": " + str(e)[:160]
         else:
             rec["inv_ok"] = False
             rec["inv_err"] = "not-square"
 
-        # ---- 内存（单次，tracemalloc 峰值）----
         try:
             tracemalloc.start()
-            sympy_solve(A, b, use_linsolve=True)
+            sympy_linsolve(A, b)
             _, peak = tracemalloc.get_traced_memory()
             tracemalloc.stop()
             rec["linsolve_peak_bytes"] = peak
@@ -181,8 +153,12 @@ def main():
 
         out["cases"].append(rec)
 
-    print(json.dumps(out))
+    with open(HERE + 'sympy_linear.json', 'w', encoding='utf-8') as f:
+        json.dump(out, f, ensure_ascii=False)
+    print(json.dumps({"tool": out["tool"], "version": out["version"], "cases": len(out["cases"])},
+                     ensure_ascii=False))
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

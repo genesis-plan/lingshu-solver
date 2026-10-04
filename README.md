@@ -18,9 +18,20 @@ and checkable by substitution. Three things matter to a calling agent, and all t
 
 | What an agent needs | What this tool does |
 |---|---|
-| **A verdict it can branch on without guessing** | every result carries a `trust` block — a 7-level `trustLevel`, `safeToUse`, and `provenCount` / `candidateCount` so you never have to count solutions yourself |
+| **A verdict it can branch on without guessing** | every result carries a `conclusion` — exactly one of **全部解 / 部分解 / 无解 / 计算资源不足** (all / partial / none / budget-exhausted) — plus `canAssert` for programmatic use, so you never have to re-derive completeness yourself |
+| **An 8-level `trust` block for the "how much do I believe it" question** | `trustLevel` (8 values, incl. `complete_but_shown_partially` — search *finished*, only the page was capped), `safeToUse`, and `provenCount` / `candidateCount` so you never have to count solutions yourself |
 | **Honesty about "no answer"** | an empty result is never silently "no real solution" — `meaningOfEmpty` distinguishes *proven* empty / not found within budget / input not solvable |
+| **A proof of completeness when one exists** | `trust.completeness` compares the number of solutions found against a **theorem-proven upper bound** (BKK mixed volume of the Newton polytopes, Bézout, multi-homogeneous Bézout, Milnor–Thom, Descartes/fewnomial). `complete` = the count hits the bound, so you may say "these are all of them". Anything else says so instead of guessing |
+| **Inequality constraints that are actually enforced** | `x^2=0, x>0` returns **no solution**, not `x=0` — a final gate substitutes every candidate back into the problem's own inequalities (open endpoints included) and drops the violators |
 | **A way to fix its own mistake** | `verify` returns the certified corrected value and how far off the original was, so a wrong number becomes a repair, not a retry loop |
+
+It also does **1D/2D/3D geometry** through one `geometry` tool (130 closed-form ops: distance, intersection,
+area, volume, angle, convex hull, point-in-polygon, rotation, bounding box, plus the classical triangle and
+circle theorems — five centres, Euler line and `OI² = R(R−2r)`, Heron, Stewart, Ceva, Menelaus, Ptolemy,
+Miquel, Napoleon, Pick, pole/polar, Brahmagupta, plus a tropical/convex bridge (Newton polytope, BKK mixed-volume bound, regular-subdivision multiplicities) — and 3D tetrahedron/Monge point). Same contract as the solver: a
+`trust` block tells the agent whether the value is `exact`, whether the computation *proved* there is
+`definitely_none`, or whether the input itself is `degenerate` (parallel / collinear / coplanar) — and in the
+last case the correct move is to report the degeneracy, never to invent a number.
 
 Humans can use the web page too (zero install) — but the design target is the agent: compact tool
 descriptions, structured errors that say what to change, and no prose the model has to pay for on every turn.
@@ -33,7 +44,7 @@ candidate value. Thirty seconds is enough to see why "an LLM will mis-compute th
 | | |
 |---|---|
 | **Yes** | a deterministic (non-LLM) **numerical** engine for systems of real equations; algebraic equations and common transcendentals (`sin/cos/tan/log/exp/sqrt/abs`) all work |
-| **No** | a symbolic CAS (no analytic derivation), an ODE solver, an integer-programming solver, and it does **not** claim guaranteed completeness |
+| **No** | a symbolic CAS (no analytic derivation), an ODE solver, an integer-programming solver, and it does **not** claim completeness it did not prove — the completeness block is a theorem-backed bound where one exists, and `unknown` everywhere else |
 
 ---
 
@@ -82,7 +93,8 @@ node test/regression.js     # standing regression suite
 | Dimension | What it means |
 |---|---|
 | Verified solutions | every reported solution is Krawczyk-certified (`tier=proven`); error is within the certified radius; mathematically faithful |
-| Completeness | **best effort** at finding all solutions; when exhaustiveness could not be proven within budget it says so explicitly with `truncated=true` — it never claims completeness it did not prove |
+| Completeness | **proved where a bound exists**. For polynomial systems the engine derives a rigorous upper bound on the number of isolated solutions (BKK mixed volume of the Newton polytopes, Bézout, multi-homogeneous Bézout, Milnor–Thom, Descartes/fewnomial) and reports `trust.completeness`. `complete` means the number found equals that bound, so "these are all the solutions" is a theorem, not a guess. `incomplete` / `unknown` never pretends otherwise |
+| `scope` caveat | the bound's `scope` is a closed enum. `"(C*)^n"` (BKK) counts only solutions where **every** variable is non-zero, so a solution with a zero coordinate is outside the count — `complete` there means "all non-zero solutions found" |
 | `truncated` semantics | only means "the global branch search did not finish inside the budget"; it does **not** mean solutions were missed. In most cases every real solution was found |
 | Variables | ≤ 6 |
 | Equations | 1–64 (server-side guard), and the count must be ≥ the variable count |

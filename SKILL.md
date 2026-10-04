@@ -1,6 +1,6 @@
 ---
 name: lingshu-solver
-description: Use this skill when you must solve a system of real equations numerically and need a result you can prove is correct — algebraic equations or common transcendentals (sin/cos/tan/log/exp/sqrt/abs), up to 6 variables and 64 equations, no initial guess required. Choose this instead of computing the math yourself or asking a language model to calculate, because every solution is Krawczyk-interval certified and the same input always returns the same output. Also use it to double-check a number you already computed, via verify. Do NOT use it for symbolic algebra, closed-form derivation, ODE/PDE initial-value problems, integer-forced constraints, or hyperbolic/inverse-trigonometric functions — it is a numeric solver with a fixed 6-decimal grid.
+description: Use this skill when you must solve a system of real equations numerically and need a result you can prove is correct — algebraic equations or common transcendentals (sin/cos/tan/log/exp/sqrt/abs), up to 6 variables and 64 equations, no initial guess required. Choose this instead of computing the math yourself or asking a language model to calculate, because every solution is Krawczyk-interval certified and the same input always returns the same output. Also use it to double-check a number you already computed, via verify. Also use it for 1D/2D/3D geometry — distance, intersection, area, volume, angle, convex hull, point-in-polygon — via the geometry tool, instead of computing those yourself. Do NOT use it for symbolic algebra, closed-form derivation, ODE/PDE initial-value problems, integer-forced constraints, or hyperbolic/inverse-trigonometric functions — it is a numeric solver with a fixed 6-decimal grid.
 ---
 
 # Lingshu Solver
@@ -27,10 +27,15 @@ single most common way an agent misuses this tool.
 | `unverified` | engine only *failed to find* a solution | **do not** claim "no solution" — narrow `domain` or raise `budget`, or report it as undecided |
 | `undecidable` | input was not solvable (undeclared variable, parse failure) | fix the input and retry; this is never "no solution" |
 | `budget_exhausted` | search truncated by the budget | listed solutions are valid but may be incomplete |
+| `complete_but_shown_partially` | search **finished**; the response body simply holds only the first page | the listed solutions are certified and safe to use; call again with `n=nextOffset` to page through the rest. **Raising `budget` will NOT help** — raising `n` will |
 
-Two of these rows exist specifically to stop a failure mode: `unverified` and `undecidable` both look
+Three of these rows exist specifically to stop a failure mode. `unverified` and `undecidable` both look
 empty, and both are *not* evidence of unsolvability. `trust.meaningOfEmpty` names which one you got
-(`proven_no_real_solution` / `not_found_within_budget` / `input_not_solvable`).
+(`proven_no_real_solution` / `not_found_within_budget` / `input_not_solvable`). And
+`budget_exhausted` vs `complete_but_shown_partially` are two different truncations that look identical
+in the solution list: the first means the *search* stopped (raise `budget`), the second means the search
+*completed* and only the *display* was capped (raise `n`). Telling an agent to raise `budget` for the
+second one wastes a call and teaches it that instructions are unreliable.
 
 `trust.safeToUse` is the boolean form of the same decision. `trust.agentAction` is the instruction in prose.
 
@@ -74,7 +79,20 @@ https://hongchenlingjing.com/mcp
 | `solve` | Solves a system of real equations. Returns `trust` (read this first), `solutions[]` with per-solution `tier`, `recommended`, `diagnostics` |
 | `verify` | Checks a claimed answer; on failure returns the correct value in `trust.corrected` |
 | `poly_roots` | All real roots of one polynomial, each certified by Krawczyk |
+| `geometry` | 1D/2D/3D geometry in closed form — 130 ops: distance, midpoint, line/segment/plane/sphere intersection, area, volume, angle, convex hull, point-in-polygon, rotation, bounding box, plus classical triangle/circle theorems (five centres, Euler line and Euler's `OI²=R(R−2r)`, Heron, Stewart, Ceva, Menelaus, Ptolemy, Miquel, Napoleon, Pick, pole/polar, Brahmagupta) and 3D tetrahedron/Monge point, plus a tropical/convex bridge (Newton polytope, BKK mixed-volume bound, regular-subdivision multiplicities, concyclicity), plus a geometry-to-algebra bridge (`circumcircle` computes the circle TWICE — closed form and a Krawczyk-certified linear system — and reports whether the two agree; `sphere_equation` / `polynomial_equation` export a geometry as an equation string you can pass straight to `solve`). Pass `{op, ...args}`; an unknown `op` returns the full catalog with signatures. Its `trustLevel` uses three values of its own — see below |
 | `give_feedback` | Reports a suspect result; stays local, never transmitted |
+
+### `geometry` has its own `trust.trustLevel` values
+
+| `trust.trustLevel` | What happened | What you do |
+|---|---|---|
+| `exact` | closed-form result, exact up to rounding | use the value directly |
+| `definitely_none` | computed proof that there is **no** intersection | you may state "no intersection" — this is a result, not a failure |
+| `degenerate` | the *input* is degenerate: parallel / collinear / coplanar / coincident | **do not invent a value** — report the degeneracy, or re-ask with non-degenerate input |
+
+The distinction that matters: `definitely_none` is an answer (there is nothing to find), while
+`degenerate` means the question itself has no ordinary unique answer at that input. Conflating them is
+how agents end up reporting a garbage intersection point for two parallel lines.
 
 ## How to call `solve`
 
@@ -101,10 +119,13 @@ Rules that matter, because getting them wrong looks like "the solver is broken":
 - `tier` — `proven` means Krawczyk-certified; `candidate` means not proven though plausible.
 - Display is 4 decimals (`text`, `precisionDecimals`); internal computation is 6 and `values` keep full float precision. Residual tolerance has three tiers (Balanced 1e-6 default, Precise 1e-9, Fast 1e-3).
 - Branch on `trust.mustNotClaim`: when it is `"no_solution"` you must **not** claim the system has no solution. Only `trustLevel: "verified_empty"` permits that claim.
+- Read `trust.completeness` before you claim anything about how many solutions exist. `status: "complete"` means the number found equals a theorem-proven upper bound, so you **may** say "these are all the solutions" and stop. `incomplete` or `unknown` means you must **not** say that.
+- `completeness.scope` is a closed enum and matters: `"(C*)^n"` counts only solutions where every variable is non-zero, so a solution with a zero coordinate would be missing from the count. `C^n`, `R^n`, `R`, `R>0` are the other values. When `scope` is `"(C*)^n"` treat `complete` as "all non-zero solutions found", not "all solutions found".
 - If `diagnostics.inputError` is non-null, the input was rejected and **nothing was charged**.
 - MCP errors come back as `isError: true` with HTTP 200 — always check `isError`, not just "is there a result".
 
 ## Boundaries worth stating to the user
 
 It is a numeric tool, not a CAS and not a substitute for a licensed professional judgement. It reports `truncated`
-rather than hiding incompleteness, and it will not pretend to guarantee that nothing was missed — say so too.
+rather than hiding incompleteness, and when it cannot prove a bound it says `completeness.status: "unknown"` rather
+than guessing — say so too.

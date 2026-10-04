@@ -67,7 +67,22 @@ console.log('【② 端到端：宽域不得退化（这正是 suan56 要修的�
     // ── 2026-10-03 新增：两个曾经的静默失败点 ──
     // 症状都是「看起来跑了、其实没跑」，不写断言就会静默回潮。
     check('不再报 HARD_TIMEOUT（投影抢救已接线）', r.error !== 'HARD_TIMEOUT', String(r.error));
-    check('truncated 已改回 false（拿到了真解就不是「没算完」）', r.truncated === false, String(r.truncated));
+    // ⚠⚠ 2026-10-04 断言改向：原断言是 `r.truncated === false`，理由写的是
+    //   「拿到了真解就不是『没算完』」。**这个推理是错的**，本轮实测推翻：
+    //
+    //   投影法只证明「至少存在一个解」—— 那是**存在性**，不是**完备性**。
+    //   它只在主求解失败后才跑，主求解为何失败（超时/未收敛/预算耗尽）并不可知。
+    //   把 truncated 清掉 = 对外宣称「这就是全部解」，而 Agent 客群靠这个字段
+    //   判断能否收工。x*y*z=6 & x+y+z=6 是**正维流形**（无穷多解），
+    //   报「结果完整」在语义上根本不成立。
+    //
+    //   与域门控、displayCapped 门控同源一条纪律：**存在性 ≠ 完备性，
+    //   宁可 unknown / truncated，绝不谎称找全**（比慢严重得多）。
+    check('truncated 保持 true（只证存在性，未证完备性）', r.truncated === true, String(r.truncated));
+    check('不再报「8 秒预算被中止」（欠定路径没进主求解，该文案是误报）',
+      String(r.message || '').indexOf('8 秒') < 0, String(r.message));
+    check('warnings 不含误报的「8 秒预算被中止」',
+      !(r.warnings || []).some(w => String(w).indexOf('8 秒') >= 0), JSON.stringify(r.warnings));
     check('执行路径标记为投影抢救', String(r.executionPath || '').indexOf('投影') >= 0, String(r.executionPath));
     // 独立验算：投影自报的 residual 不可信，必须回代原方程
     const vm = { x: s.values[0], y: s.values[1], z: s.values[2] };

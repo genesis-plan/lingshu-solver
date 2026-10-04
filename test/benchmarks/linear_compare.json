@@ -1,0 +1,299 @@
+{
+ "generated": "linear_compare.mjs",
+ "arbiter": "independent-bigint-rref",
+ "arbiterSelfTest": {
+  "passed": 4,
+  "total": 4,
+  "checks": [
+   {
+    "name": "identity3",
+    "want": 3,
+    "got": 3,
+    "ok": true
+   },
+   {
+    "name": "dup-row-consistent",
+    "want": "rank1/rank1/consistent",
+    "got": "1/1/true",
+    "ok": true
+   },
+   {
+    "name": "contradictory",
+    "want": "rank1/rank2/inconsistent",
+    "got": "1/2/false",
+    "ok": true
+   },
+   {
+    "name": "presolve-heavy6-regression",
+    "want": "rank4/rank4/consistent",
+    "got": "4/4/true",
+    "ok": true
+   }
+  ]
+ },
+ "rows": [
+  {
+   "name": "banded6",
+   "kind": "sparse-banded",
+   "n": 6,
+   "m": 6,
+   "lingshu_ms": 0.11461500000000022,
+   "lingshu_kind": "unique",
+   "lingshu_rank": 6,
+   "lingshu_resid": 2.220446049250313e-16,
+   "sympy_ms": 3.2560100000409875,
+   "sympy_kind": "unique",
+   "sympy_resid": "0",
+   "truth": "unique",
+   "truth_rankA": 6,
+   "truth_dim": 0,
+   "speedup": 28.408236269606782,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "triangular6",
+   "kind": "triangular",
+   "n": 6,
+   "m": 6,
+   "lingshu_ms": 0.08014499999999955,
+   "lingshu_kind": "unique",
+   "lingshu_rank": 6,
+   "lingshu_resid": 0,
+   "sympy_ms": 2.543609999884211,
+   "sympy_kind": "unique",
+   "sympy_resid": "0",
+   "truth": "unique",
+   "truth_rankA": 6,
+   "truth_dim": 0,
+   "speedup": 31.737600597469903,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "dense-int6",
+   "kind": "dense-int",
+   "n": 6,
+   "m": 6,
+   "lingshu_ms": 0.08277999999999963,
+   "lingshu_kind": "unique",
+   "lingshu_rank": 6,
+   "lingshu_resid": 8.881784197001252e-16,
+   "sympy_ms": 3.679614999964542,
+   "sympy_kind": "unique",
+   "sympy_resid": "0",
+   "truth": "unique",
+   "truth_rankA": 6,
+   "truth_dim": 0,
+   "speedup": 44.450531528926774,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "overdet-incon6",
+   "kind": "overdet-inconsistent",
+   "n": 6,
+   "m": 8,
+   "lingshu_ms": 0.30893000000000015,
+   "lingshu_kind": "nosol",
+   "lingshu_rank": 6,
+   "lingshu_resid": 0,
+   "sympy_ms": 3.9428350000889623,
+   "sympy_kind": "nosol",
+   "sympy_resid": "99",
+   "truth": "nosol",
+   "truth_rankA": 6,
+   "truth_dim": -1,
+   "speedup": 12.762875085258669,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "cyc-dom6",
+   "kind": "diag-dominant",
+   "n": 6,
+   "m": 6,
+   "lingshu_ms": 0.06145500000000013,
+   "lingshu_kind": "unique",
+   "lingshu_rank": 6,
+   "lingshu_resid": 2.220446049250313e-16,
+   "sympy_ms": 3.997365000032005,
+   "sympy_kind": "unique",
+   "sympy_resid": "0",
+   "truth": "unique",
+   "truth_rankA": 6,
+   "truth_dim": 0,
+   "speedup": 65.04539907301272,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "sparse-rand6-incon",
+   "kind": "sparse-rand-inconsistent",
+   "n": 6,
+   "m": 6,
+   "lingshu_ms": 0.13993499999999984,
+   "lingshu_kind": "nosol",
+   "lingshu_rank": 5,
+   "lingshu_resid": 0,
+   "sympy_ms": 3.139970000120229,
+   "sympy_kind": "nosol",
+   "sympy_resid": "20",
+   "truth": "nosol",
+   "truth_rankA": 5,
+   "truth_dim": -1,
+   "speedup": 22.43877514646252,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "sparse-rand6-solvable",
+   "kind": "sparse-rand-solvable",
+   "n": 6,
+   "m": 6,
+   "lingshu_ms": 0.07352000000000061,
+   "lingshu_kind": "unique",
+   "lingshu_rank": 6,
+   "lingshu_resid": 0,
+   "sympy_ms": 3.1411750000188476,
+   "sympy_kind": "unique",
+   "sympy_resid": "0",
+   "truth": "unique",
+   "truth_rankA": 6,
+   "truth_dim": 0,
+   "speedup": 42.72544885770976,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "diagonal6",
+   "kind": "diagonal",
+   "n": 6,
+   "m": 6,
+   "lingshu_ms": 0.0492049999999999,
+   "lingshu_kind": "unique",
+   "lingshu_rank": 6,
+   "lingshu_resid": 0,
+   "sympy_ms": 1.9969150000179068,
+   "sympy_kind": "unique",
+   "sympy_resid": "0",
+   "truth": "unique",
+   "truth_rankA": 6,
+   "truth_dim": 0,
+   "speedup": 40.58357890494687,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "rational6",
+   "kind": "rational",
+   "n": 6,
+   "m": 6,
+   "lingshu_ms": 0.07734499999999969,
+   "lingshu_kind": "unique",
+   "lingshu_rank": 6,
+   "lingshu_resid": 1.1102230246251565e-16,
+   "sympy_ms": 2.64060999998037,
+   "sympy_kind": "unique",
+   "sympy_resid": "0",
+   "truth": "unique",
+   "truth_rankA": 6,
+   "truth_dim": 0,
+   "speedup": 34.140668433387816,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "underdet6",
+   "kind": "underdetermined",
+   "n": 6,
+   "m": 4,
+   "lingshu_ms": 0.10665499999999994,
+   "lingshu_kind": "family",
+   "lingshu_rank": 4,
+   "lingshu_resid": 0,
+   "sympy_ms": 3.036170000086713,
+   "sympy_kind": "family",
+   "sympy_resid": "0",
+   "truth": "family",
+   "truth_rankA": 4,
+   "truth_dim": 2,
+   "speedup": 28.467207351617034,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "presolve-heavy6",
+   "kind": "presolve-heavy",
+   "n": 6,
+   "m": 6,
+   "lingshu_ms": 0.11188499999999948,
+   "lingshu_kind": "family",
+   "lingshu_rank": 4,
+   "lingshu_resid": 0,
+   "sympy_ms": 2.6963799999066396,
+   "sympy_kind": "family",
+   "sympy_resid": "0",
+   "truth": "family",
+   "truth_rankA": 4,
+   "truth_dim": 2,
+   "speedup": 24.099566518359495,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  },
+  {
+   "name": "illcond-bigcoef",
+   "kind": "ill-conditioned-big-coef",
+   "n": 6,
+   "m": 6,
+   "lingshu_ms": 0.06384499999999989,
+   "lingshu_kind": "unique",
+   "lingshu_rank": 6,
+   "lingshu_resid": 0,
+   "sympy_ms": 1.8884400000388268,
+   "sympy_kind": "unique",
+   "sympy_resid": "0",
+   "truth": "unique",
+   "truth_rankA": 6,
+   "truth_dim": 0,
+   "speedup": 29.578510455616417,
+   "arbiter_agrees": {
+    "lingshu": true,
+    "sympy": true
+   }
+  }
+ ],
+ "summary": {
+  "win": 12,
+  "loss": 0,
+  "total": 12,
+  "lingshu_ms_total": 1.2703149999999992,
+  "sympy_ms_total": 35.95909500018024,
+  "speedup": 28.30722694778875,
+  "agreeL": 12,
+  "agreeRank": 12,
+  "agreeS": 12
+ }
+}

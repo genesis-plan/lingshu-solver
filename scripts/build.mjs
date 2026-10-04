@@ -25,11 +25,12 @@ const ENGINE = 'src/engine';
 const RANK = {
   constants: 1, lex: 2, 'ast/basic': 3, 'interval/core': 4, 'interval/affine': 5,
   'algebra/exact': 6, 'algebra/multivar': 7, 'algebra/resultant': 8, 'algebra/simplex': 9,
-  'numeric/polynomial': 10, 'numeric/linear': 11, 'numeric/root': 12, ode: 13, certify: 14,
-  'operators/setup': 15, 'operators/pre': 16, 'operators/screen': 17, 'operators/support': 18,
-  'operators/geometry': 19, 'operators/contract': 20, 'operators/numeric': 21, 'operators/post': 22,
-  'operators/branch': 23, 'operators/ineq': 24, 'operators/output': 25, 'operators/registry': 26,
-  'pipeline/scheduler': 27, 'pipeline/solver': 28, 'pipeline/report': 29, 'pipeline/output': 30, ui: 31,
+  'numeric/polynomial': 10, 'numeric/linear': 11, 'numeric/root': 12, ode: 13,
+  'rootbound-poly': 14, certify: 15, conclusion: 16,
+  'operators/setup': 17, 'operators/pre': 18, 'operators/screen': 19, 'operators/support': 20,
+  'operators/geometry': 21, 'operators/contract': 22, 'operators/numeric': 23, 'operators/post': 24,
+  'operators/branch': 25, 'operators/ineq': 26, 'operators/output': 27, 'operators/registry': 28,
+  'pipeline/scheduler': 29, 'pipeline/solver': 30, 'pipeline/report': 31, 'pipeline/output': 32, ui: 33,
 };
 
 // 递归收集 src/engine 下**所有** .js（RANK 里写的是相对路径，如 'operators/setup'）。

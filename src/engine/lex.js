@@ -1,10 +1,23 @@
 /* 模块 lex：构建期拼接区块（内部标识符保持原样，裸名引用保留）。改这个模块只动本文件，不要动 index.html。 */
-function tokenize(str) {
+function tokenize(str, declaredVars) {
     const tokens = [];
     let i = 0;
     const funcs = ['sin', 'cos', 'tan', 'ln', 'exp', 'sqrt', 'log', 'log10', 'abs', 'diff', 'int', 'ode', 'lim',
                   'cot', 'sec', 'csc', 'arcsin', 'arccos', 'arctan', 'sinh', 'cosh', 'tanh',
                   'floor', 'ceil', 'gamma', 'log2', 'mod'];
+    // 🔴 2026-10-04 修 P0 数学正确性 bug：调用方声明过的变量名一律当变量，【不得】被当成数学常数。
+    //   起因（实测）：方程组 a+b+c+d+e+f-60=0, a-b=1, b-c=1, c-d=1, d-e=1, e-f=1 的真解是
+    //   (12.5, 11.5, 10.5, 9.5, 8.5, 7.5)（和=60 ✓），但 evalAST 算出第 1 个方程残差 −5.78。
+    //   逐层打印 AST 才发现：tokenize 把变量名 `e` 识别成了欧拉数 2.718281828459045，
+    //   于是 `a+b+c+d+e` 被解析成 `a+b+c+d+2.718...`。
+    //   **这是静默错误**（不抛异常、直接算错），对「数学正确性」是致命的 ——
+    //   单字母变量名 e / i / f 这类最常见的建模命名会中招，且用户完全无从察觉。
+    //   修法：调用方（setup 解析层 + 未声明标识符门禁）把自己知道的 varNames 传进来，
+    //   声明过的优先当变量；未声明时保持旧行为（e 仍是欧拉数）⇒ 向后兼容零回归。
+    // ⚠ 只在「调用方明确声明了变量名」时才改变行为；不要在此处猜。
+    // declaredVars 允许是数组或 Set（内部用 has()/new Set() 两种形式，见 solver.js 的 _lsEntryProt 是 Set）。
+    const declared = (declaredVars && (declaredVars.length !== undefined || declaredVars.size !== undefined))
+        ? new Set(declaredVars) : null;
 
     while (i < str.length) {
         const ch = str[i];
@@ -61,7 +74,10 @@ function tokenize(str) {
                 i++;
             }
             // 检查 pi / π 和 e 常量
-            if (name === 'pi' || name === 'π') {
+            // ⚠ declared 优先：调用方声明过这个名字 ⇒ 它是变量，不是常数（见函数头注释的 P0 说明）
+            if (declared && declared.has(name)) {
+                tokens.push({ type: 'var', name: name });
+            } else if (name === 'pi' || name === 'π') {
                 tokens.push({ type: 'num', value: Math.PI });
             } else if (name === 'e' && !funcs.includes(name)) {
                 tokens.push({ type: 'num', value: Math.E });
@@ -430,6 +446,11 @@ function parseCondition(str) {
     var m1 = s.match(/^([a-zA-Z_\u0370-\u03FF]\w*)\u2208[\[\(]([^,\]]+),([^,\]]+)[\]\)]$/);
     if (m1) {
         var vn = m1[1], lo = m1[2], hi = m1[3];
+        // 2026-10-04：括号形态决定端点开闭（[a,b] 闭、(a,b) 开、(a,b] 半开）。
+        // 过去一律按闭区间处理，与模式2 是同一类信息丢失（见模式2 的 P0 注释）。
+        // 数值搜索域仍用闭区间（保守不漏），但约束校验必须按真实开闭判。
+        var _loOpen = m1[0].indexOf('\uFF08') >= 0 || m1[0].indexOf('(') >= 0;
+        var _hiOpen = m1[0].lastIndexOf('\uFF09') >= 0 || m1[0].lastIndexOf(')') >= 0;
         if (lo === '-\u221E' || lo === '-∞' || lo === '-inf') lo = -Infinity;
         if (hi === '\u221E' || hi === '∞' || hi === 'inf' || hi === '+∞') hi = Infinity;
         // 处理 π 边界
@@ -437,31 +458,39 @@ function parseCondition(str) {
         if (hi === 'π') hi = Math.PI;
         var loNum = parseFloat(lo), hiNum = parseFloat(hi);
         if (isFinite(loNum) && isFinite(hiNum) && loNum < hiNum) {
-            return { type: 'domain', varName: vn, min: loNum, max: hiNum };
+            return { type: 'domain', varName: vn, min: loNum, max: hiNum, minStrict: _loOpen, maxStrict: _hiOpen };
         }
         if (isFinite(loNum) && isFinite(hiNum) && loNum >= hiNum) {
             return { type: 'warn', message: '无效区间: ' + vn + '∈[' + lo + ',' + hi + '] 下界≥上界，将被忽略' };
         }
         if (isFinite(loNum) && !isFinite(hiNum)) {
-            return { type: 'domain', varName: vn, min: loNum };
+            return { type: 'domain', varName: vn, min: loNum, minStrict: _loOpen };
         }
         if (isFinite(hiNum) && !isFinite(loNum)) {
-            return { type: 'domain', varName: vn, max: hiNum };
+            return { type: 'domain', varName: vn, max: hiNum, maxStrict: _hiOpen };
         }
     }
 
     // ---- 模式2: x>a, x<a, x>=a, x<=a, x≥a, x≤a ----
-    // 注意：严格 > / < 在数值计算中转为 >= / <=
+    //
+    // 🔴 2026-10-04 修 P0：严格性过去在这里被**丢弃**（原注释：「严格 > / < 在数值计算中转为 >= / <=」）。
+    //   实测后果：`x^2=0` + `x>0` 返回解 `x=0` —— x=0 **违反** x>0，真解集是空集。
+    //   病根链条（实测追出）：本函数把 `x>0` 归一成 domain{min:0}（无严格标志）
+    //   → setup.js:27 只能写 op >= → 终态不等式闸门看到的是 x>=0
+    //   → x=0 「满足」 ⇒ 闸门放行。
+    //   根因是**信息在词法层就被抹掉了**，下游任何一道闸门都救不回来。
+    //   ⇒ 现在显式带出 minStrict / maxStrict。数值搜索域仍按闭区间处理（保守，不会漏），
+    //     但「这个点是否满足原约束」必须按严格语义判 —— 二者本就是两件事。
     // 正则说明：[><\u2265\u2264]=? 已覆盖 >, >=, <, <=, ≥, ≤
     var m2 = s.match(/^([a-zA-Z_\u0370-\u03FF]\w*)([><\u2265\u2264]=?)(-?\d+\.?\d*(?:[eE][+-]?\d+)?)$/);
     if (m2) {
         var vn = m2[1], op = m2[2], val = parseFloat(m2[3]);
         if (!isNaN(val) && isFinite(val)) {
             if (op === '>' || op === '>=' || op === '\u2265') {
-                return { type: 'domain', varName: vn, min: val };
+                return { type: 'domain', varName: vn, min: val, minStrict: (op === '>') };
             }
             if (op === '<' || op === '<=' || op === '\u2264') {
-                return { type: 'domain', varName: vn, max: val };
+                return { type: 'domain', varName: vn, max: val, maxStrict: (op === '<') };
             }
         }
     }
@@ -471,7 +500,7 @@ function parseCondition(str) {
     if (m3) {
         var loVal = parseFloat(m3[1]), vn = m3[3], hiVal = parseFloat(m3[5]);
         if (!isNaN(loVal) && !isNaN(hiVal) && isFinite(loVal) && isFinite(hiVal) && loVal < hiVal) {
-            return { type: 'domain', varName: vn, min: loVal, max: hiVal };
+            return { type: 'domain', varName: vn, min: loVal, max: hiVal, minStrict: (m3[2] === '>'), maxStrict: (m3[4] === '<') };
         }
     }
 

@@ -256,6 +256,75 @@ function evalAST(node, vars) {
 }
 
 
+/**
+ * evalAST 的「伴随尺度」函数：估算表达式在给定点求值时的**条件数尺度**
+ * —— 即 Σ|terms|，各项绝对值之和。
+ *
+ * 为什么必须有它（2026-10-04 修 P0 时踩出来的坑）：
+ *   双精度下 f(x) 的求值误差上界是 eps · Σ|terms|（Higham 标准结论，
+ *   向后稳定的相对误差界）。所以「残差是否真的为 0」这件事，
+ *   **没有绝对阈值可判** —— 必须与表达式自身的量纲挂钩。
+ *
+ *   实测反例：x^2 − 1e13 = 0 的真根 x = 3162277.6601683795，
+ *   代回得 x^2 − 1e13 = 0.001953125（纯属 3162277.66 这个 double 自身的舍入）。
+ *   若用固定容差 1e-6 判「残差为 0」，**真根会被当伪解杀掉**。
+ *
+ * 实现口径（刻意保守，宁可尺度偏大 ⇒ 容差偏宽）：
+ *   · num/var        → 绝对值
+ *   · 加减           → 左右尺度之和
+ *   · 乘             → 左右尺度之积（|a·b| 精确等于 |a|·|b|，这不是估计）
+ *   · 除             → 左尺度 + 右尺度（商的数量级不确定，取保守上界）
+ *   · 幂 a^b         → 实在算不出就退回「和」这一最坏情形
+ *   · 一元负号       → 不改尺度
+ *   · 函数/未知节点  → **不计入**（无法可靠估计 ⇒ 宁可让尺度偏小、判据偏严）
+ *
+ * ⚠ 最后一条是刻意的反向保守：函数节点（sin/exp/log…）的数量级无法静态估计，
+ *   这里选择不计入。这样含函数的表达式会拿到偏小的尺度、更严的容差，
+ *   属于「宁可少给解」的 fail-closed 方向，不会放过伪解。
+ */
+function evalASTScale(node, vars) {
+    if (!node) return 0;
+
+    switch (node.type) {
+        case 'num':
+            return Math.abs(node.value);
+
+        case 'var':
+            if (vars[node.name] === undefined) return 0;
+            return Math.abs(vars[node.name]);
+
+        case 'unary':
+            return evalASTScale(node.operand, vars);
+
+        case 'binop': {
+            const l = evalASTScale(node.left, vars);
+            const r = evalASTScale(node.right, vars);
+            switch (node.op) {
+                case '+': case '-': return l + r;
+                case '*': return l * r;
+                // 商：取「和」作保守上界（除数接近 0 时商会爆炸，但那时值本身已非有限，被上层拦掉）
+                case '/': return l + r;
+                case '^': {
+                    // |a^b| ≈ |a|^|b|。仅当两侧尺度都有限且底数非 0 时才敢用，否则退回和。
+                    const av = evalAST(node.left, vars);
+                    const bv = evalAST(node.right, vars);
+                    if (isFinite(av) && isFinite(bv) && av !== 0) {
+                        const p = Math.pow(Math.abs(av), Math.abs(bv));
+                        if (isFinite(p)) return p;
+                    }
+                    return l + r;
+                }
+                default: return l + r;
+            }
+        }
+
+        default:
+            // 函数节点与未知节点：按上面的说明不计入尺度
+            return 0;
+    }
+}
+
+
 function evalLimit(expr, varName, target, direction, vars) {
     // 策略1: 短路检测 — 已知极限模式
     // 这些模式在极限计算中频繁出现，且数值逼近精度有限
@@ -1370,7 +1439,7 @@ function _symmetryExpand(sols, varNames, eqStrs, D0) {
         for (var _e = 0; _e < eqStrs.length; _e++) {
             try {
                 var _i = eqStrs[_e].indexOf('=');
-                _eqASTs.push(parse(tokenize(fuzzyFix('(' + eqStrs[_e].slice(0, _i) + ')-(' + eqStrs[_e].slice(_i + 1) + ')', _lsSymProt))));
+                _eqASTs.push(parse(tokenize(fuzzyFix('(' + eqStrs[_e].slice(0, _i) + ')-(' + eqStrs[_e].slice(_i + 1) + ')', _lsSymProt), _lsSymProt)));
             } catch (err) { _eqASTs.push(null); }
         }
     }

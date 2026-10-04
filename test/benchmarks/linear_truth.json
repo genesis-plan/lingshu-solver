@@ -1,0 +1,468 @@
+{
+ "arbiter": "independent-bigint-rref",
+ "selfTest": {
+  "passed": 4,
+  "total": 4,
+  "checks": [
+   {
+    "name": "identity3",
+    "want": 3,
+    "got": 3,
+    "ok": true
+   },
+   {
+    "name": "dup-row-consistent",
+    "want": "rank1/rank1/consistent",
+    "got": "1/1/true",
+    "ok": true
+   },
+   {
+    "name": "contradictory",
+    "want": "rank1/rank2/inconsistent",
+    "got": "1/2/false",
+    "ok": true
+   },
+   {
+    "name": "presolve-heavy6-regression",
+    "want": "rank4/rank4/consistent",
+    "got": "4/4/true",
+    "ok": true
+   }
+  ]
+ },
+ "cases": [
+  {
+   "name": "banded6",
+   "kind": "sparse-banded",
+   "n": 6,
+   "m": 6,
+   "rankA": 6,
+   "rankAug": 6,
+   "consistent": true,
+   "dim": 0,
+   "contradictionRow": -1,
+   "pivots": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "freeCols": [],
+   "solStr": [
+    "17223/52331",
+    "16561/52331",
+    "13251/52331",
+    "10614/52331",
+    "8716/52331",
+    "6783/52331"
+   ],
+   "solNum": [
+    0.3291165848158835,
+    0.31646633926353407,
+    0.2532151115017867,
+    0.20282432974718617,
+    0.16655519672851657,
+    0.1296172440809463
+   ],
+   "residExact": "0",
+   "truth": "unique"
+  },
+  {
+   "name": "triangular6",
+   "kind": "triangular",
+   "n": 6,
+   "m": 6,
+   "rankA": 6,
+   "rankAug": 6,
+   "consistent": true,
+   "dim": 0,
+   "contradictionRow": -1,
+   "pivots": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "freeCols": [],
+   "solStr": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6"
+   ],
+   "solNum": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "residExact": "0",
+   "truth": "unique"
+  },
+  {
+   "name": "dense-int6",
+   "kind": "dense-int",
+   "n": 6,
+   "m": 6,
+   "rankA": 6,
+   "rankAug": 6,
+   "consistent": true,
+   "dim": 0,
+   "contradictionRow": -1,
+   "pivots": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "freeCols": [],
+   "solStr": [
+    "4537/1973",
+    "-103/1973",
+    "342/1973",
+    "3061/1973",
+    "1351/1973",
+    "2942/1973"
+   ],
+   "solNum": [
+    2.29954384186518,
+    -0.05220476431829701,
+    0.17334009123162697,
+    1.5514445007602635,
+    0.6847440446021288,
+    1.4911302584896098
+   ],
+   "residExact": "0",
+   "truth": "unique"
+  },
+  {
+   "name": "overdet-incon6",
+   "kind": "overdet-inconsistent",
+   "n": 6,
+   "m": 8,
+   "rankA": 6,
+   "rankAug": 7,
+   "consistent": false,
+   "dim": -1,
+   "contradictionRow": 6,
+   "pivots": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "freeCols": [],
+   "solStr": null,
+   "solNum": null,
+   "residExact": null,
+   "truth": "nosol"
+  },
+  {
+   "name": "cyc-dom6",
+   "kind": "diag-dominant",
+   "n": 6,
+   "m": 6,
+   "rankA": 6,
+   "rankAug": 6,
+   "consistent": true,
+   "dim": 0,
+   "contradictionRow": -1,
+   "pivots": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "freeCols": [],
+   "solStr": [
+    "1/7",
+    "1/7",
+    "1/7",
+    "1/7",
+    "1/7",
+    "1/7"
+   ],
+   "solNum": [
+    0.14285714285714285,
+    0.14285714285714285,
+    0.14285714285714285,
+    0.14285714285714285,
+    0.14285714285714285,
+    0.14285714285714285
+   ],
+   "residExact": "0",
+   "truth": "unique"
+  },
+  {
+   "name": "sparse-rand6-incon",
+   "kind": "sparse-rand-inconsistent",
+   "n": 6,
+   "m": 6,
+   "rankA": 5,
+   "rankAug": 6,
+   "consistent": false,
+   "dim": -1,
+   "contradictionRow": 5,
+   "pivots": [
+    0,
+    1,
+    3,
+    4,
+    5,
+    6
+   ],
+   "freeCols": [
+    2
+   ],
+   "solStr": null,
+   "solNum": null,
+   "residExact": null,
+   "truth": "nosol"
+  },
+  {
+   "name": "sparse-rand6-solvable",
+   "kind": "sparse-rand-solvable",
+   "n": 6,
+   "m": 6,
+   "rankA": 6,
+   "rankAug": 6,
+   "consistent": true,
+   "dim": 0,
+   "contradictionRow": -1,
+   "pivots": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "freeCols": [],
+   "solStr": [
+    "3339/4615",
+    "-107/65",
+    "10158/4615",
+    "249/355",
+    "-1972/4615",
+    "6653/4615"
+   ],
+   "solNum": [
+    0.723510292524377,
+    -1.646153846153846,
+    2.201083423618635,
+    0.7014084507042253,
+    -0.4273022751895991,
+    1.4416034669555797
+   ],
+   "residExact": "0",
+   "truth": "unique"
+  },
+  {
+   "name": "diagonal6",
+   "kind": "diagonal",
+   "n": 6,
+   "m": 6,
+   "rankA": 6,
+   "rankAug": 6,
+   "consistent": true,
+   "dim": 0,
+   "contradictionRow": -1,
+   "pivots": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "freeCols": [],
+   "solStr": [
+    "1/10",
+    "1/10",
+    "1/10",
+    "1/10",
+    "1/10",
+    "1/10"
+   ],
+   "solNum": [
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+   ],
+   "residExact": "0",
+   "truth": "unique"
+  },
+  {
+   "name": "rational6",
+   "kind": "rational",
+   "n": 6,
+   "m": 6,
+   "rankA": 6,
+   "rankAug": 6,
+   "consistent": true,
+   "dim": 0,
+   "contradictionRow": -1,
+   "pivots": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "freeCols": [],
+   "solStr": [
+    "171645/69901",
+    "88802/69901",
+    "160495/209703",
+    "986436/489307",
+    "254455/489307",
+    "195646/209703"
+   ],
+   "solNum": [
+    2.455544269752936,
+    1.2703967039098154,
+    0.7653443203006156,
+    2.0159858738992087,
+    0.5200313913350922,
+    0.93296710109059
+   ],
+   "residExact": "0",
+   "truth": "unique"
+  },
+  {
+   "name": "underdet6",
+   "kind": "underdetermined",
+   "n": 6,
+   "m": 4,
+   "rankA": 4,
+   "rankAug": 4,
+   "consistent": true,
+   "dim": 2,
+   "contradictionRow": -1,
+   "pivots": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "freeCols": [
+    4,
+    5
+   ],
+   "solStr": [
+    "-81",
+    "41",
+    "-13",
+    "4",
+    "0",
+    "0"
+   ],
+   "solNum": [
+    -81,
+    41,
+    -13,
+    4,
+    0,
+    0
+   ],
+   "residExact": "0",
+   "truth": "family"
+  },
+  {
+   "name": "presolve-heavy6",
+   "kind": "presolve-heavy",
+   "n": 6,
+   "m": 6,
+   "rankA": 4,
+   "rankAug": 4,
+   "consistent": true,
+   "dim": 2,
+   "contradictionRow": -1,
+   "pivots": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "freeCols": [
+    4,
+    5
+   ],
+   "solStr": [
+    "2",
+    "2",
+    "2",
+    "5/7",
+    "0",
+    "0"
+   ],
+   "solNum": [
+    2,
+    2,
+    2,
+    0.7142857142857143,
+    0,
+    0
+   ],
+   "residExact": "0",
+   "truth": "family"
+  },
+  {
+   "name": "illcond-bigcoef",
+   "kind": "ill-conditioned-big-coef",
+   "n": 6,
+   "m": 6,
+   "rankA": 6,
+   "rankAug": 6,
+   "consistent": true,
+   "dim": 0,
+   "contradictionRow": -1,
+   "pivots": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "freeCols": [],
+   "solStr": [
+    "1/10000001",
+    "1/10000001",
+    "1/10000001",
+    "1/10000001",
+    "1/10000001",
+    "1/10000001"
+   ],
+   "solNum": [
+    9.9999990000001e-8,
+    9.9999990000001e-8,
+    9.9999990000001e-8,
+    9.9999990000001e-8,
+    9.9999990000001e-8,
+    9.9999990000001e-8
+   ],
+   "residExact": "0",
+   "truth": "unique"
+  }
+ ]
+}

@@ -1,7 +1,7 @@
 {
   "src/engine/algebra/exact.js": {
-    "hash": "41833273a0aea917",
-    "lines": 664
+    "hash": "743c70b038c4f02a",
+    "lines": 677
   },
   "src/engine/algebra/multivar.js": {
     "hash": "4f88d8191a56d50e",
@@ -16,16 +16,20 @@
     "lines": 117
   },
   "src/engine/ast/basic.js": {
-    "hash": "535b00822fda422e",
-    "lines": 1166
+    "hash": "5e0e3396af8bc9af",
+    "lines": 1199
   },
   "src/engine/certify.js": {
-    "hash": "9aa861f285f355a3",
-    "lines": 445
+    "hash": "a7e237b5dc984c9a",
+    "lines": 1002
+  },
+  "src/engine/conclusion.js": {
+    "hash": "7a7fe23c1205801e",
+    "lines": 173
   },
   "src/engine/constants.js": {
-    "hash": "ab4b2b80a96378dd",
-    "lines": 87
+    "hash": "45498057b40dc786",
+    "lines": 90
   },
   "src/engine/input/recognize.js": {
     "hash": "fcbf09dd4daaa235",
@@ -40,16 +44,16 @@
     "lines": 384
   },
   "src/engine/lex.js": {
-    "hash": "e37583d2fc100401",
-    "lines": 425
+    "hash": "0a5311f6a89f8345",
+    "lines": 431
   },
   "src/engine/numeric/linear.js": {
-    "hash": "0d6cc305ae6b901b",
-    "lines": 380
+    "hash": "63ff1cf11527d2cb",
+    "lines": 453
   },
   "src/engine/numeric/polynomial.js": {
-    "hash": "3af6abf88d069890",
-    "lines": 381
+    "hash": "c11f6ece68ac1ead",
+    "lines": 446
   },
   "src/engine/numeric/root.js": {
     "hash": "c34fde1230c9bd7a",
@@ -60,12 +64,12 @@
     "lines": 230
   },
   "src/engine/operators/algebra.js": {
-    "hash": "d5f5767cf7161ac7",
-    "lines": 1321
+    "hash": "77ec42e1136ea647",
+    "lines": 1442
   },
   "src/engine/operators/branch.js": {
-    "hash": "815cd7b9d3b83058",
-    "lines": 124
+    "hash": "8d5b8adfbb980e62",
+    "lines": 172
   },
   "src/engine/operators/contract.js": {
     "hash": "c97c4f3decc7d435",
@@ -76,7 +80,7 @@
     "lines": 329
   },
   "src/engine/operators/ineq.js": {
-    "hash": "4efc48d3c2325c31",
+    "hash": "64ae4635c747fed1",
     "lines": 187
   },
   "src/engine/operators/numeric.js": {
@@ -100,12 +104,12 @@
     "lines": 73
   },
   "src/engine/operators/screen.js": {
-    "hash": "8350e42c7ea95687",
-    "lines": 355
+    "hash": "c3bbf5c1a7fcf053",
+    "lines": 367
   },
   "src/engine/operators/setup.js": {
-    "hash": "4a75cbffa8e08f88",
-    "lines": 146
+    "hash": "5cf56a02af5d4718",
+    "lines": 178
   },
   "src/engine/operators/support.js": {
     "hash": "f4a86da60f3ee65c",
@@ -120,32 +124,88 @@
     "lines": 52
   },
   "src/engine/pipeline/scheduler.js": {
-    "hash": "b6c2a87aa38e6ae0",
-    "lines": 233
+    "hash": "e425500e393bb3c6",
+    "lines": 235
   },
   "src/engine/pipeline/solver.js": {
-    "hash": "041fd00909809135",
-    "lines": 761
+    "hash": "4b237508ef112b89",
+    "lines": 1155
+  },
+  "src/engine/rootbound-poly.js": {
+    "hash": "9caea2be0c923dc5",
+    "lines": 145
   },
   "src/engine/ui.js": {
-    "hash": "763daa9781140ee3",
+    "hash": "7462f11e210c5d81",
     "lines": 404
   },
+  "services/bounds.js": {
+    "hash": "e282b7ea5b71a25c",
+    "lines": 376
+  },
+  "services/geometry/common.js": {
+    "hash": "c9156087d45fedd0",
+    "lines": 143
+  },
+  "services/geometry/geom1.js": {
+    "hash": "2120791818237479",
+    "lines": 130
+  },
+  "services/geometry/geom2.js": {
+    "hash": "110d69ba04cd496d",
+    "lines": 497
+  },
+  "services/geometry/geom3.js": {
+    "hash": "f37ef32aa8f27237",
+    "lines": 364
+  },
+  "services/geometry/geom_theorems.js": {
+    "hash": "9ba8fecc5e7e6141",
+    "lines": 1044
+  },
+  "services/geometry/index.js": {
+    "hash": "2dacb425f7153e86",
+    "lines": 397
+  },
+  "services/geometry/vec.js": {
+    "hash": "12a44d3d32cce652",
+    "lines": 120
+  },
+  "services/geometry_bridge.js": {
+    "hash": "5b4e81688137246e",
+    "lines": 219
+  },
+  "services/polynomial.js": {
+    "hash": "a3ec9e1a8fabd678",
+    "lines": 314
+  },
+  "services/polytope.js": {
+    "hash": "251d527847d2a69c",
+    "lines": 580
+  },
+  "services/rootbound.js": {
+    "hash": "c1b411aecb662029",
+    "lines": 304
+  },
   "services/solver-service.js": {
-    "hash": "8a1f18427a0faaa2",
-    "lines": 295
+    "hash": "d2c4343e6ed6978e",
+    "lines": 449
   },
   "services/tool-metadata.js": {
-    "hash": "df44e5983b8f3c53",
-    "lines": 78
+    "hash": "1f665f91c12a66ef",
+    "lines": 111
+  },
+  "services/tropical.js": {
+    "hash": "b1e5a88cde80542f",
+    "lines": 525
   },
   "mcp-server.js": {
-    "hash": "d87ef9c80224f134",
-    "lines": 102
+    "hash": "766c7e7a892b4d11",
+    "lines": 106
   },
   "http-mcp-server.js": {
-    "hash": "6086ba857ccb8bda",
-    "lines": 1348
+    "hash": "1084336cc24abef2",
+    "lines": 1354
   },
   "solver-core.js": {
     "hash": "9743468703799524",

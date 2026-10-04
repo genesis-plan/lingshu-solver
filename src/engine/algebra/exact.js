@@ -294,23 +294,45 @@ function _s60nullspace(A0, n) {
 
 function _s60sampleAffine(xp, basis, box, n, maxPer) {
     const out = [];
+    // ⚠ 总量硬上限（真 bug 修复，本轮实测抓到）：
+    //   原实现 push() 是 O(|out|) 的线性去重，且【没有总量上限】——
+    //   每个零空间方向生成 CAP+1 = 257 个点，方向数 k ⇒ |out| 可达 257^k。
+    //   加上 push 的 O(|out|) 扫描，整体退化到 O(N²)。
+    //   实测触发：E2（4 方程 6 未知、欠定 2 维解流形、域 [-1e6,1e6]）
+    //     CPU profile 显示 90.8% ticks 烧在 _s60sampleAffine 里，
+    //     60 秒被外部 kill 仍未返回（8 秒硬预算也兜不住 ——
+    //     预算检查在【算子粒度】，而这是单个算子内部的死循环）。
+    //   这是生产事故级缺陷：Agent 调用会永久挂起。
+    // 现在：① 总量封顶（与展示上限同一量级即可，超了就是采样而非解集）；
+    //        ② 去重改用量化 key 的 Set，把 push 从 O(N) 降到 O(1)。
+    const CAP = maxPer || 256;
+    const TOTAL_CAP = 512;               // 总量上限：够画出解流形的形状，又不会爆炸
+    const seen = new Set();
+    // 量化 key：按 1e-9 网格取整，避免浮点噪声导致去重失效
+    const keyOf = (arr) => {
+        let s = '';
+        for (let i = 0; i < n; i++) s += Math.round(arr[i] * 1e9) + ',';
+        return s;
+    };
     const push = (arr) => {
-        for (const o of out) {
-            let same = true;
-            for (let i = 0; i < n; i++) if (Math.abs(o[i] - arr[i]) > 1e-9) { same = false; break; }
-            if (same) return;
-        }
+        const k = keyOf(arr);
+        if (seen.has(k)) return false;
+        if (out.length >= TOTAL_CAP) return false;
+        seen.add(k);
         out.push(arr);
+        return true;
     };
     push(xp.map(v => _s60num(v)));
 
     let frontier = [xp.map(v => _s60num(v))];   // 当前已有点（double）
-    const CAP = maxPer || 256;
 
     for (const vRaw of basis) {
+        // 总量已封顶 ⇒ 无需继续扩方向（否则白跑）
+        if (out.length >= TOTAL_CAP) break;
         const v = vRaw.map(q => _s60num(q));
         const next = [];
         for (const p of frontier) {
+            if (out.length >= TOTAL_CAP) break;
             // 解 x(t) = p + t·v 落在 box 内的 t 区间
             let tMin = -Infinity, tMax = Infinity, dead = false;
             for (let i = 0; i < n; i++) {
@@ -347,6 +369,7 @@ function _s60sampleAffine(xp, basis, box, n, maxPer) {
                 for (let s = 0; s <= CAP; s++) cand.push(tMin + (tMax - tMin) * (s / CAP));
             }
             for (let ci = 0; ci < cand.length; ci++) {
+                if (out.length >= TOTAL_CAP) break;
                 const t = cand[ci];
                 const pt = new Array(n);
                 for (let i = 0; i < n; i++) pt[i] = p[i] + t * v[i];
@@ -605,8 +628,15 @@ function _s60exactConfirmOrExact(rows, n, o, T0, why, T1) {
     const pre = _s60presolve(RA, RB, n, o);
     const ms0 = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - T0;
     if (pre.infeasible) {
+        // ⚠ 这条 fail-closed 路径原先【不返回 rank 字段】（实测抓到：零行矛盾
+        //   [[1,0,0|1],[0,0,0|0],[0,0,0|5]] 得到 {kind:'nosol', reason:'zeroRow'}
+        //   而没有 rank），破坏输出契约 —— 同一条 nosol 结论，另一条路径
+        //   （rank-inconsistent）却带 rank，调用方没法统一取值。
+        //   修法：拿原矩阵 A 做一次精确消元把 rank(A) 算出来，而不是留空或猜。
+        //   rhs 传全零：这样只做行阶梯化、不会误触矛盾判定，得到的正是 rank(A)。
+        const rankA = _s60rankOnly(RA, n);
         return {
-            ok: true, kind: 'nosol', provenEmpty: true, reason: pre.reason,
+            ok: true, kind: 'nosol', provenEmpty: true, reason: pre.reason, rank: rankA,
             stats: pre.stats, ms: ms0, path: 'exact-presolve', why: why
         };
     }
@@ -623,11 +653,12 @@ function _s60exactConfirmOrExact(rows, n, o, T0, why, T1) {
         const r = _s60bareissExact(A, b);
         if (r.failed) return { ok: false, reason: 'bareiss-fail' };
         if (r.consistent === false) {
-            // 无解时系统被消到矛盾行，但原系统的秩仍 = 活动列数 + 已被精确固定的变量数
-            const fullRank = r.rank + (n - act.length);
+            // 无解时系统被消到矛盾行。rank 语义 = 【原系数矩阵 A 的秩】。
+            // 换算见下方 fullRank 处的推导：rank(原A) = rank(剩余) + singletonRow 次数。
             return {
                 ok: true, kind: 'nosol', provenEmpty: true, reason: 'rank-inconsistent',
-                rank: fullRank, stats: pre.stats, ms: ms0, path: 'exact-bareiss', why: why
+                rank: r.rank + (pre.stats.singletonRow || 0),
+                stats: pre.stats, ms: ms0, path: 'exact-bareiss', why: why
             };
         }
         if (r.unique) res = { kind: 'unique', core: r.x, rank: r.rank, det: r.det };
@@ -645,18 +676,34 @@ function _s60exactConfirmOrExact(rows, n, o, T0, why, T1) {
     }
 
     const x = new Array(n).fill(null);
-    let nFixed = 0;
     for (let k = 0; k < act.length; k++) x[act[k]] = res.core[k];
     for (let j = 0; j < n; j++) {
-        if (x[j] === null) {
-            x[j] = fixed[j] != null ? fixed[j] : _s60R0();
-            if (fixed[j] != null) nFixed++;
-        }
+        if (x[j] === null) x[j] = fixed[j] != null ? fixed[j] : _s60R0();
     }
-    // rank 语义必须是【原系统的秩】，不是裁剪后剩余系统的秩：
-    // presolve 消掉的列（singletonRow / zeroCol / dupCol）是【精确固定】了一个变量，
-    // 不是「丢失了一个自由度」⇒ 原秩 = 剩余系统秩 + 被精确固定的变量数。
-    const fullRank = (res.rank || 0) + nFixed;
+    // rank 语义 = 【原系数矩阵 A 的秩】。换算公式（推导经过两轮返工，见下）：
+    //
+    //   rank(原A) = rank(presolve 后的剩余系统) + stats.singletonRow
+    //
+    // 推导：singletonRow 消元取一个「只有一个非零元」的 pivot 行 i、列 t，
+    //   把列 t 从【所有其他行】里消成 0，然后同时删掉行 i 与列 t。
+    //   于是变换后的矩阵形如 [[pivot, *…], [0, A′]]，pivot ≠ 0
+    //   ⇒ 秩 = 1 + rank(A′)。即【每做一次 singletonRow，秩恰好降 1】。
+    //   其余三种裁剪都不改变秩：
+    //     zeroRow  — 删的是零行，不贡献秩；
+    //     dupRow   — 删的是成比例重复行，与被保留的那行线性相关；
+    //     zeroCol  — 删的是零列，零列本就不在列空间里。
+    //
+    // ⚠ 这里连着两个错误的修正，都已删除，记录下来防止重犯：
+    //   ① 曾写 `fullRank = res.rank + nFixed`，nFixed = presolve 固定的变量个数。
+    //      错在把「消元固定了变量」当成了「秩会增加 1」。实测反例：underdet6 是 4×6
+    //      矩阵（第 6 列整列为 0），rank(4×6)=4，加 nFixed=1 后内核报 rank=5 ——
+    //      而 4×6 矩阵的秩上限是 min(4,6)=4，报 5 数学上不可能。
+    //   ② 修成 `fullRank = res.rank`（假定秩不变）也是错的。实测反例：presolve-heavy6
+    //      真相 rank=4，presolve 后只剩 1 行 1 秩（singletonRow=3）—— 秩明明降了。
+    //   教训：「消元固定了变量」⇒ 自由度 = 变量数 − 秩，但【秩本身要单独算】。
+    //     两次都是凭直觉猜修正、没做推导，第一次甚至靠"数学上不可能"才抓到。
+    //   独立核验手段：test/benchmarks/linear_arbiter.mjs（BigInt 精确 RREF + 4 项自检）。
+    const fullRank = (res.rank || 0) + (pre.stats.singletonRow || 0);
 
     const T2 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     // 零空间基是在 presolve 后的【活动列空间】（长度 act.length）算的，要映射回原 n 维：
@@ -680,6 +727,17 @@ function _s60exactConfirmOrExact(rows, n, o, T0, why, T1) {
         stats: pre.stats, presolveMs: ms0, ms: T2 - T0,
         path: 'exact-bareiss', why: why, exactUnique: !!pre.exactUnique
     };
+}
+
+
+// 只算 rank(A)（不带 rhs 语义）。给 infeasible 路径补 rank 字段用。
+// rhs 传全零 ⇒ _s60bareissExact 只做行阶梯化、不会判矛盾，返回的 rank 就是 rank(A)。
+// 失败（分母爆掉等）时返回 null —— 调用方据此知道「秩未证明」，而不是拿一个假值糊过去。
+function _s60rankOnly(A, n) {
+    if (!A.length || !n) return 0;
+    const zero = new Array(A.length).fill(_s60R0());
+    const r = _s60bareissExact(A.map(row => row.slice()), zero);
+    return r.failed ? null : r.rank;
 }
 
 
@@ -763,3 +821,5 @@ function _s60floatMarkowitzSolve(A0, b0, n, u) {
     }
     return { kind: 'unique', x: x, rank: rank };
 }
+
+// 故意改动

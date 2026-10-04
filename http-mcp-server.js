@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 const { shapeResult, doSolve, doPolyRoots, doVerify } = require('./services/solver-service.js'); // 求解域共享层（2026-10-03：与 stdio 端同口径）
+const { GEOMETRY_TOOL } = require('./services/tool-metadata.js');  // geometry 工具定义与 stdio 端同一个对象
+const { doGeometry } = require('./services/geometry/index.js');    // 几何域共享层（2026-10-04：1D/2D/3D 闭式解）
 /**
  * 灵数求解器 · MCP 远程服务端（HTTP / Streamable HTTP，零依赖）
  *
@@ -821,6 +823,10 @@ const TOOLS = [
       required: ['equation', 'candidate']
     }
   },
+  // geometry：与 stdio 端共用同一个 GEOMETRY_TOOL 对象（不是复制一份文案）。
+  // HTTP 端的 TOOLS 数组还没整体迁到 buildTools()，先把 geometry 接进共享层，
+  // 避免「两端各写一份描述」这个已经踩过的坑再犯一次。
+  GEOMETRY_TOOL,
   {
     name: 'pay',
     description: "Optional voluntary-support only. The hosted endpoint is no per-call charge today (metering off) (metering off: no credential required, no call limit, no per-call charge), so no payment is needed at all. This tool records a support contribution of any amount: the channel is a corporate static collection code (UnionPay aggregate QR) settling into a corporate bank account, and no payment-platform merchant API is used. AFTER PAYING: nothing to do — there is no self-crediting step and no waiting for reconciliation; the operator reconciles against the corporate bank statement, and any positive amount counts as support, not a bill. If the server has no payment method configured the order is still created but payIntent.payTo is null; in that case just keep calling the endpoint with no credential at all.",
@@ -910,6 +916,9 @@ function handleRpc(msg, ip, ctx) {
           // 只有成功产出结果、且不是「解析失败」才扣
           chargedCents = (meter.free || !isBillable(result)) ? 0 : meterCharge(ctx);
         }
+      } else if (name === 'geometry') {
+        // 几何是闭式解，成本与 poly_roots/verify 同级，走免费路径（不进计费分支）。
+        result = doGeometry(args);
       } else if (name === 'give_feedback') {
         const msg_fb = redactSensitive((args.message || '').toString().slice(0, 2000));
         const ctx_fb = args.context ? redactSensitive(String(args.context)).slice(0, 2000) : null;
@@ -1006,6 +1015,9 @@ function handleRpc(msg, ip, ctx) {
         ts: new Date().toISOString(), ip: ip, tool: name, status: 'ok',
         dtMs: dt, resultType: result.resultType, nSol: result.solutionCount,
         truncated: result.truncated,
+        // 4 态决策标记（2026-10-04）：与 stdio 端同口径（两端日志字段必须一致，
+        // 否则拿 stdio 日志排查托管端问题会缺一维）。只进本地日志，不进返回体。
+        conclusion: result.conclusion || null,
         key: ctx.keyMask, chargedCents: chargedCents, freeCall: freeCall, honorClaimed: honorClaimed
       });
       return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] } };

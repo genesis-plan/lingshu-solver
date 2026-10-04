@@ -7,11 +7,19 @@
 //   1. 两端现在共用同一个 shapeResult ⇒ 同引擎原始结果必得字节级同构输出（不可能再分叉）
 //   2. 空集必须按诚实三档措辞（provenEmpty=false ⇒ 只说「未找到」；=true 才敢说「严格证明」）
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
 const require = createRequire(import.meta.url);
 const svc = require('../services/solver-service.js');
 
 let pass = 0, fail = 0;
 const ok = (cond, name, extra) => {
+  if (typeof name !== 'string') {
+    // ⭐ 元护栏：断言名必须是字符串。踩过的坑 —— 我自己写护栏时把实参写成
+    //   ok('断言名', 条件, 详情)（与本文件其余 60 余条相反的顺序），
+    //   结果 cond 收到名字、name 收到布尔，输出变成 '✅ true' 而 pass 照样 +1：
+    //   一条**看起来通过、实际没断言任何东西**的护栏，比没护栏更危险。
+    throw new Error('ok(cond, name, extra) 参数顺序被破坏：name=' + String(name));
+  }
   if (cond) { pass++; console.log('  ✅ ' + name); }
   else { fail++; console.log('  ❌ ' + name + (extra ? '  → ' + extra : '')); }
 };
@@ -41,7 +49,39 @@ const shaped = svc.shapeResult(raw);
 const again = svc.shapeResult(raw);
 ok(JSON.stringify(shaped) === JSON.stringify(again), '同输入两次整形输出完全一致（确定性）');
 ok(typeof shaped.summary === 'string' && shaped.summary.length > 0, 'summary 非空');
-ok(shaped.solutions.length === 4, '解数=4（x^2+y^2=4 与 x*y=1 有 4 组实解）', String(shaped.solutions.length));
+// ⚠ 2026-10-04 拆开断言：原写法 `shaped.solutions.length === 4` 实际测的是
+//   **展示数组长度**，而 AGENT_MAX_SOLUTIONS=2 起展示会被截断（本例 4 解只展示 2）。
+//   那不是「解数错了」—— 解数报在 solutionCount（引擎找到的总数），是**如实**的。
+//   真正要守的不变式有两条，分开断言才不会互相掩盖：
+//     ① solutionCount === 4        —— 引擎确实找到了 4 组实解（没漏）
+//     ② 展示 < 总数 ⇒ Agent 看得见「还有更多」且**能取回**
+//
+// ⚠⚠ 2026-10-04 改口径（🔴 这条断言原来在钉一个 P0）：
+//   原断言要求「展示被截断 ⇒ truncated=true」。而 truncated 的语义是
+//   「**引擎**被预算/时间中止」，不是「返回体装不下」。
+//   两者混为一谈的实测后果：引擎明明找全了 4 个解，却报
+//   trustLevel="budget_exhausted" + agentAction「加预算或缩 domain」
+//   ⇒ Agent 照做假指令，重试一百次都是同一结果。
+//   ⇒ 现在拆成两条独立不变式：
+//      · truncated 只在**引擎真中止**时为 true（本例引擎算完了 ⇒ false）
+//      · 展示不足由 trust.moreAvailable / 顶层 nextOffset 表达（Agent 据此分页取回）
+const fourRoots = svc.doSolve({ equations: ['x^2+y^2=4', 'x*y=1'], variables: ['x', 'y'] });
+ok(fourRoots.solutionCount === 4, '解数=4（x^2+y^2=4 与 x*y=1 有 4 组实解，solutionCount 报总数）', String(fourRoots.solutionCount));
+ok(fourRoots.solutions.length < fourRoots.solutionCount,
+  '展示被截断（4 根只列前 ' + fourRoots.solutions.length + '）',
+  { shown: fourRoots.solutions.length, total: fourRoots.solutionCount });
+ok(fourRoots.truncated === false,
+  '展示截断 **不** 置 truncated（引擎已算完；那是输出层容量问题，不是求解被中止）',
+  { truncated: fourRoots.truncated, trust: fourRoots.trust.trustLevel });
+ok(fourRoots.trust.trustLevel === 'complete_but_shown_partially',
+  '展示截断 ⇒ 独立 trustLevel（可行动作是分页，不是加预算）', fourRoots.trust.trustLevel);
+ok(fourRoots.trust.moreAvailable === fourRoots.solutionCount - fourRoots.solutions.length
+   && typeof fourRoots.nextOffset === 'number',
+  '展示截断 ⇒ 给出 moreAvailable 与 nextOffset（Agent 有可执行的取回路径）',
+  { more: fourRoots.trust.moreAvailable, next: fourRoots.nextOffset });
+ok(fourRoots.trust.completeness.displayCapped === true,
+  '展示截断在 completeness 里留痕（displayCapped=true，Agent 看得见这一页不是全部）',
+  JSON.stringify(fourRoots.trust.completeness));
 ok(shaped.diagnostics.inputError === null, '正常解出时 inputError=null');
 
 console.log('── 3. 三工具经共享层可用（两端同一份）──');
@@ -292,6 +332,370 @@ ok(lean2.certification && lean2.certification.reproducibility === undefined
 // 体积护栏：防止将来字段回潮
 const lean2Bytes = JSON.stringify(lean2).length;
 ok(lean2Bytes < 1600, '返回体 < 1600B（当前 ' + lean2Bytes + 'B，瘦身红线）', lean2Bytes);
+// 余量护栏：只卡 <1600 的话，1585B 就算「过」，再加一个字段就撞线而无人察觉。
+// 实测 2026-10-04 就是这样：1585B 时只剩 15B 余量。给出 ≥50B 的余量要求。
+ok(lean2Bytes < 1550, '返回体余量 ≥ 50B（当前 ' + (1600 - lean2Bytes) + 'B 余量，防撞线）', lean2Bytes);
+// ⚠⚠ 多解场景的体积护栏（2026-10-04 补）：上面两条只测了 **1~2 解**的样例。
+//   实测 x*cos(x)-x=0 在默认域 ±1e6 内返回 16 解 / **4627B** —— 红线的 2.9 倍，
+//   而真解是 x=2kπ，±1e6 里有约 **31.8 万个**。原来 solutions[] 没有任何数量上限，
+//   「多解」这一整类场景压根没被体积红线覆盖 ⇒ 对 AI 客群是实打实的 token 炸弹。
+// 现在有 AGENT_MAX_SOLUTIONS 封顶，这条断言守住它不回潮。
+{
+  const many = svc.doSolve({ equations: ['x*cos(x)-x=0'], variables: ['x'] });
+  const manyBytes = JSON.stringify(many).length;
+  ok(many.solutions.length <= 2, '多解场景展示数封顶（≤2，实测 ' + many.solutions.length + '）', many.solutions.length);
+  ok(many.solutionCount >= many.solutions.length,
+    '多解场景 solutionCount 报引擎找到的总数（' + many.solutionCount + ' ≥ 展示 ' + many.solutions.length + '）',
+    { total: many.solutionCount, shown: many.solutions.length });
+  ok(manyBytes < 1600, '多解场景返回体也在 1600B 内（当前 ' + manyBytes + 'B）', manyBytes);
+  ok(many.truncated === true, '多解场景 truncated=true（Agent 知道解可能不全）', many.truncated);
+}
+
+// ⚠⚠⚠ 第 11 节：展示截断的诚实性（2026-10-04 补，🔴 修本轮自己引入的 3 个 P0）
+//
+// 背景：为了守 1600B 红线，本轮给 solutions[] 加了 AGENT_MAX_SOLUTIONS=2 封顶。
+// 它本身是对的（防 token 炸弹），但**第一版把「展示截断」当成了「求解被截断」**，
+// 一次引入三个 P0。留档，因为它们都是**看起来在保护产品、实际在骗 Agent**的典型：
+//
+//   ① 假指令：diagnostics.truncated = !!(... || capped) ⇒ 引擎明明找全了 5 个根，
+//      却报 trustLevel="budget_exhausted" + agentAction「加 budget 或缩 domain」。
+//      Agent 会照做，重试一百次都是同一结果。
+//   ② 自相矛盾：provenCount 数展示数（2）而 certification.proven 数引擎数（5），
+//      同一返回体里两个数字打架。LLM 遇矛盾会挑对自己方便的那半信。
+//   ③ 契约不可完成：poly_roots 描述写 "All real roots"，但 5 个根只给 2 个且
+//      **没有任何参数能取回剩下 3 个** —— Agent 被塞进一个无法完成的契约。
+//
+// 以下断言逐条钉住修好的行为，且**每条都能在修前失败**（不是恒真护栏）。
+{
+  // 造一个「引擎找全、只展示 2 个」的干净样本：
+  //   x⁴ − 5x² + 4 = (x²−1)(x²−4) = (x−1)(x+1)(x−2)(x+2) → 4 个实根 ±1 ±2
+  //   系数按 buildPolyEquation 的约定「最高次在前」：[1, 0, -5, 0, 4]
+  const FOUR_ROOTS = [1, 0, -5, 0, 4];
+  const five = svc.doPolyRoots({ coefficients: FOUR_ROOTS });
+  const b5 = JSON.stringify(five).length;
+  ok(five.solutionCount > five.solutions.length,
+    '样本前提：引擎找到的解数 > 展示数（' + five.solutionCount + ' > ' + five.solutions.length + '），否则本节无意义',
+    { total: five.solutionCount, shown: five.solutions.length });
+  ok(b5 < 1600, '多根 poly_roots 返回体在 1600B 内（当前 ' + b5 + 'B）', b5);
+
+  // ① truncated 只反映**引擎真实中止**，不反映我们自己截断展示
+  ok(five.truncated === false,
+    '① 展示截断不得置 truncated=true（引擎已算完，这是输出层容量问题）',
+    { truncated: five.truncated, trust: five.trust.trustLevel });
+  ok(five.trust.trustLevel === 'complete_but_shown_partially',
+    '① 展示截断有独立 trustLevel（不是 budget_exhausted）', five.trust.trustLevel);
+  ok(!/raise budget/i.test(five.trust.agentAction),
+    '① agentAction 不得建议「加预算」——搜索已完成，加预算是死路', five.trust.agentAction);
+  ok(five.trust.safeToUse === true,
+    '① 已认证的解即使只展示一部分也仍然 safeToUse（逼 Agent 重验已证过的东西是浪费）',
+    five.trust.safeToUse);
+
+  // ② 计数同口径：trust.provenCount 必须与 certification.proven 一致
+  ok(five.trust.provenCount === five.certification.proven,
+    '② provenCount 与 certification.proven 同口径（都是引擎总数）',
+    { trust: five.trust.provenCount, cert: five.certification.proven });
+  ok(five.trust.provenCount === five.solutionCount,
+    '② provenCount === solutionCount（全是 proven 时）',
+    { proven: five.trust.provenCount, count: five.solutionCount });
+
+  // ③ Agent 必须有一条**可执行**的取回路径
+  ok(typeof five.nextOffset === 'number' && five.nextOffset > 0,
+    '③ 有下一页时给具体 nextOffset（不是「还有更多」这种话）', five.nextOffset);
+  ok(five.trust.moreAvailable === five.solutionCount - five.solutions.length,
+    '③ moreAvailable = 总数 − 本页展示数', {
+      more: five.trust.moreAvailable, total: five.solutionCount, shown: five.solutions.length
+    });
+  {
+    // 分页必须**收敛**：第一版 capped 判据写成 `window.length < allSols.length`，
+    // 在 n 越过尾部时 nextOffset === n 本身 ⇒ Agent 循环 n=nextOffset **死循环**。
+    const got = [];
+    let n = 0, pages = 0, converged = false, monotonic = true;
+    while (pages < 20) {
+      const pg = svc.doPolyRoots({ coefficients: FOUR_ROOTS, n });
+      got.push(...pg.solutions.map((s) => Number(s.values[0].toFixed(6))));
+      pages++;
+      if (pg.nextOffset === undefined) { converged = true; break; }
+      if (pg.nextOffset <= n) { monotonic = false; break; }
+      n = pg.nextOffset;
+    }
+    ok(converged, '③ 分页在有限步内收敛（nextOffset 不再自指，无死循环）', { pages });
+    ok(monotonic, '③ nextOffset 严格递增（Agent 可安全 while 循环）', { pages });
+    const want = [-2, -1, 1, 2].sort((a, b) => a - b);
+    const uniq = [...new Set(got)].sort((a, b) => a - b);
+    ok(JSON.stringify(uniq) === JSON.stringify(want),
+      '③ 分页取回全部根、不重不漏（契约 "All real roots" 可完成）',
+      { got: uniq, want });
+  }
+
+  // ④ 越过尾部的 n 必须给「到底了」而不是「还有 N 个」
+  {
+    const past = svc.doPolyRoots({ coefficients: FOUR_ROOTS, n: 99 });
+    ok(past.nextOffset === undefined && past.trust.moreAvailable === undefined,
+      '④ n 越过尾部 ⇒ 无 nextOffset / moreAvailable（不会诱导 Agent 继续翻页）',
+      { next: past.nextOffset, more: past.trust.moreAvailable });
+    ok(past.solutions.length === 0, '④ n 越过尾部返回空页（不是重复最后一页）', past.solutions.length);
+  }
+
+  // ⑤ 非法 n 必须报错而不是静默忽略（静默忽略 ⇒ Agent 以为 n=999 生效了 ⇒ 漏解）
+  {
+    let threw = null;
+    try { svc.doPolyRoots({ coefficients: FOUR_ROOTS, n: -1 }); } catch (e) { threw = e; }
+    ok(threw && threw.type === 'invalid_input', '⑤ 负数 n 报 invalid_input（fail-closed，不静默忽略）',
+      threw ? threw.type : 'no throw');
+    let threw2 = null;
+    try { svc.doSolve({ equations: ['x^2=4'], variables: ['x'], n: 'abc' }); } catch (e) { threw2 = e; }
+    ok(threw2 && threw2.type === 'invalid_input', '⑤ 非数字 n 报 invalid_input', threw2 ? threw2.type : 'no throw');
+  }
+
+  // ⑥ 完备性与展示是**两件事**，不得互相降级
+  //   引擎已证完备（Sturm/Bézout）时，展示截断**不得**把 completeness.status 降成
+  //   unknown —— 那是把「知道」说成「不知道」，与「谎称找全」同样是错的谎报。
+  ok(five.trust.completeness.status === 'complete',
+    '⑥ 引擎已证完备 ⇒ completeness 保持 complete（展示截断不降级完备性）',
+    { status: five.trust.completeness.status, bound: five.trust.completeness.bound, found: five.solutionCount });
+  //   但 conclusion 描述「Agent 此刻掌握什么」⇒ 必须降级（它还没拿到全部）
+  ok(five.conclusion === '部分解',
+    '⑥ conclusion 降为部分解（Agent 手上确实还不是全部，与 complete 各自自洽）', five.conclusion);
+
+  // ⑦ warnings 已删：它的每条内容都与结构化字段重复（同一语义两处表达）
+  ok(five.warnings === undefined, '⑦ warnings 不再进 Agent 返回体（内容已由 conclusion/trust 表达）', five.warnings);
+  {
+    // inputErrorMessage 只在**真有输入错误**时给；否则它装的是求解结论却顶着
+    // 「输入错误」的名字 ⇒ Agent 会去改一个完全没问题的输入。
+    const okCase = svc.doSolve({ equations: ['x^2=4'], variables: ['x'] });
+    ok(okCase.diagnostics.inputErrorMessage === null,
+      '⑦ 无输入错误时 inputErrorMessage=null（不拿求解结论冒充输入错误）',
+      okCase.diagnostics.inputErrorMessage);
+    ok(okCase.diagnostics.inputError === null, '⑦ 无输入错误时 inputError=null（计费层依赖，保留）');
+  }
+
+  // ⑧ 6 次 6 实根：poly_roots 的主场景（AGENT_MAX_SOLUTIONS=2 意味着要翻 3 页）
+  //   (x²−1)(x²−4)(x²−9) = x⁶ − 14x⁴ + 49x² − 36，系数按「最高次在前」
+  {
+    const p6 = svc.doPolyRoots({ coefficients: [1, 0, -14, 0, 49, 0, -36] });
+    ok(p6.solutionCount === 6,
+      '⑧ 6 次多项式 6 个实根全部找到（引擎侧无丢根）', p6.solutionCount);
+    ok(p6.trust.completeness.status === 'complete',
+      '⑧ 6 实根时完备性由 Sturm/Bézout 判定为 complete', p6.trust.completeness.status);
+    ok(JSON.stringify(p6).length < 1600,
+      '⑧ 6 实根返回体仍在 1600B 内（当前 ' + JSON.stringify(p6).length + 'B）');
+  }
+}
+
+// ⚠⚠⚠ 第 12 节：完备性计数的「声明空间」口径 + 不等式约束闸门（2026-10-04 补）
+//
+// 这一节钉住的是**同一个数学错误在两个方向上的两次发作**，以及顺带挖出的一条独立 P0。
+// 背景：Sturm 定理给的是「区间内有多少实根」，所以**完备性判定的正确性 100% 取决于
+// 你喂给它的那个区间是什么**。这里有三个语义完全不同、历史上被混为一谈的区间：
+//
+//   (A) 搜索盒 domain:{x:[1,2]} —— 「去哪里找」。只是搜索提示，**不是问题的一部分**。
+//   (B) 问题约束 x>0 / x∈[-30,30] —— 「什么问题算合法」。**定义了解集本身**。
+//   (C) ℝ —— 只有在问题**没给任何约束**时才等于声明空间。
+//
+// 实测两次踩坑（都不是猜测，是跑出来的）：
+//   第一次用 (A)：`x^2=2` 域 [1,2] ⇒ 盒内 1 根、found 1 ⇒ 判「全部解」+ canAssert.allSolutions=true，
+//     而 −√2 是真解且在盒外 ⇒ **谎报找全**。这比报错严重一万倍（Agent 会直接断言「就这一个解」）。
+//   第二次用 (C)：`x^2-4=0, x>0` ⇒ ℝ 上 2 根、found 1 ⇒ 把**确实完备**的答案误判成「部分解」。
+//     这次是 golden 回归 g018 抓到的 —— 我第一版修复把 (A) 换成 (C)，方向对了但只对了一半。
+//
+// 正确口径：**声明空间**，由问题里的不等式/域约束界定（可 ±∞）。
+//   实测支撑：`x^2-4=0, x>0` 的声明空间是 (0,∞)，内含**恰好 1 个**解 x=2 ⇒ 确实完备。
+//
+// 顺带挖出的独立 P0（不在原计划内，但比原计划更严重）：
+//   `x^2=0` + `x>0` 返回解 `x=0` —— **x=0 违反 x>0**，真解集是空集。
+//   病根链条（逐段实测追出，不是推测）：
+//     ① lex.js parseCondition 把 `x>0` 归一成 {type:'domain', min:0}，**严格性被抹掉**
+//        （原注释自己写着「严格 > / < 在数值计算中转为 >= / <=」）；
+//     ② setup.js 只能据此写 `op: ">="` ⇒ x=0「满足」；
+//     ③ 没有任何闸门校验不等式 —— _finalResidualGate 只代回**等式**
+//        （setup.js:75 明确「不等式不加入 equations 数组」），
+//        而真正会校验不等式的 verifyAllConstraints **只在 suan48 里被调用**，
+//        suan48 首行就 `if (!state.isInequalityOnly) return`（ineq.js:7）
+//        ⇒ **混合系统（等式+不等式）的解从不经过任何不等式校验**。
+//   为什么网格搜索躲不掉：0 恰好是网格采样最易命中的点（盒的中点/端点），
+//   而 D0 收紧只能保证「不去盒外找」，**剔不掉恰好落在约束边界上的点**。
+//
+// 输出违反问题约束的解，比算不出来严重得多：算不出只是「我不知道」，
+// 给错是骗人 —— Agent 会把 x=0 当答案报给用户。
+{
+  const S = async (equations, domain) =>
+    await svc.doSolve({ equations, variables: ['x'], ...(domain ? { domain } : {}) });
+  const vals = (r) => (r.solutions || []).map((s) => s.values[0]);
+  const concl = (r) => r.conclusion;
+  const asserts = (r) => r.canAssert || (r.trust && r.trust.canAssert) || null;
+
+  // ── 第一组：(A) 搜索盒**不得**当完备性证据（谎报找全）──
+  {
+    const r = await S(['x^2 = 2'], { x: [1, 2] });
+    ok(concl(r) === '部分解',
+      '① 搜索盒窄于解集 ⇒ 必须「部分解」（域 [1,2] 内只有 +√2，−√2 是盒外真解）',
+      { conclusion: concl(r), sols: vals(r) });
+    ok(asserts(r) && asserts(r).allSolutions === false,
+      '① 且 canAssert.allSolutions=false —— 谎报找全是本产品最不能犯的错',
+      asserts(r));
+    ok(vals(r).length === 1 && Math.abs(vals(r)[0] - Math.SQRT2) < 1e-6,
+      '① 输出的是盒内那个根 +√2', vals(r));
+  }
+  {
+    // 对照：盒内含全部真解时，「全部解」是对的（数学事实，不是本测试放宽标准）
+    const r = await S(['x^2 = 2'], { x: [-2, 2] });
+    ok(concl(r) === '全部解' && vals(r).length === 2,
+      '① 对照：搜索盒含两个真根 ⇒ 「全部解」且两个都给出', { conclusion: concl(r), sols: vals(r) });
+  }
+
+  // ── 第二组：(B) 问题约束**必须**当完备性证据（否则误报漏解）──
+  {
+    const r = await S(['x^2 - 4 = 0', 'x > 0']);
+    ok(concl(r) === '全部解',
+      '② 声明空间 (0,∞) 内恰好 1 个解 ⇒ 确实完备，必须打「全部解」',
+      { conclusion: concl(r), sols: vals(r), reason: r.reason });
+    ok(vals(r).length === 1 && vals(r)[0] === 2,
+      '② 输出 x=2（−2 不满足 x>0，不该出现）', vals(r));
+    ok(asserts(r) && asserts(r).allSolutions === true,
+      '② canAssert.allSolutions=true —— 这是本轮修回来的核心用例（golden g018）', asserts(r));
+  }
+  {
+    // 同一数学事实的两种写法必须同结论（写入形式不同，语义相同）
+    const a = await S(['x^2 - 4 = 0', 'x > 0']);
+    const b = await S(['x^2 = 4', 'x∈(0,30)']);
+    const c = await S(['x^2 = 4', 'x∈[1,30]']);
+    ok(concl(a) === concl(b) && concl(b) === concl(c) && concl(a) === '全部解',
+      '② 三种等价写法（x>0 / x∈(0,30) / x∈[1,30]）结论必须一致',
+      { xgt0: concl(a), openIv: concl(b), closedIv: concl(c) });
+  }
+  {
+    const r = await S(['x^2 - 4 = 0', 'x < 0']);
+    ok(concl(r) === '全部解' && vals(r).length === 1 && vals(r)[0] === -2,
+      '② 对称方向 x<0 ⇒ 只有 −2 合法且完备', { conclusion: concl(r), sols: vals(r) });
+  }
+  {
+    // (C) 无约束时才允许用 ℝ
+    const r = await S(['x^2 = 2']);
+    ok(concl(r) === '全部解' && vals(r).length === 2,
+      '② 无约束 ⇒ 声明空间就是 ℝ ⇒ 两个根都要给且完备', { conclusion: concl(r), sols: vals(r) });
+  }
+
+  // ── 第三组：严格不等式的端点必须被剔除（独立 P0）──
+  {
+    const r = await S(['x^2 = 0', 'x > 0']);
+    ok(vals(r).length === 0,
+      '③ x²=0 ∧ x>0 的真解集是**空集** ⇒ 一个解都不许给（x=0 违反 x>0）',
+      { conclusion: concl(r), sols: vals(r) });
+  }
+  {
+    const r = await S(['x^2 = 0', 'x >= 0']);
+    ok(vals(r).length === 1 && vals(r)[0] === 0,
+      '③ 对照：x>=0 是闭约束 ⇒ x=0 合法，必须保留（严格/非严格必须能区分）', vals(r));
+  }
+  {
+    const r = await S(['(x - 1)^2 = 0', 'x > 2']);
+    ok(vals(r).length === 0,
+      '③ (x−1)²=0 ∧ x>2 真解集为空 ⇒ 0 解', { conclusion: concl(r), sols: vals(r) });
+  }
+  {
+    const r = await S(['(x - 1)^2 = 0', 'x > 0']);
+    ok(vals(r).length === 1 && vals(r)[0] === 1,
+      '③ 对照：(x−1)²=0 ∧ x>0 ⇒ x=1 合法，必须保留', vals(r));
+  }
+  {
+    const r = await S(['x^3 - x = 0', 'x > 0']);
+    ok(vals(r).length === 1 && vals(r)[0] === 1,
+      '③ x³−x=0 有根 0,±1；x>0 只允许 1 ⇒ 不得把 x=0 混进来', vals(r));
+  }
+  {
+    // 开区间端点：x=2 恰好落在开端点上 ⇒ 必须被剔除
+    const r = await S(['x^2 = 4', 'x∈(2,30)']);
+    ok(vals(r).length === 0,
+      '③ 开区间 x∈(2,30) 不含端点 2 ⇒ 0 解（x=2 在端点外）', vals(r));
+    const c2 = await S(['x^2 = 4', 'x∈[2,30]']);
+    ok(vals(c2).length === 1 && vals(c2)[0] === 2,
+      '③ 对照：闭区间 x∈[2,30] 含端点 2 ⇒ 必须保留 x=2', vals(c2));
+  }
+  {
+    // 区间形态约束过去根本没进 inequalityConstraints（setup.js:84 那条路径只推 domainConstraints）
+    const r = await S(['x^2 = 4', 'x∈(3,30)']);
+    ok(vals(r).length === 0,
+      '③ 开区间 x∈(3,30) 把两个根都排除 ⇒ 0 解（这条路径过去闸门完全看不到约束）',
+      { conclusion: concl(r), sols: vals(r) });
+  }
+
+  // ── 第四组：四态自洽（结论与 canAssert 不得互相矛盾）──
+  {
+    // 关键：conclusion 与 canAssert 是**两个不同的问题**——
+    //   conclusion  = Agent 此刻掌握什么（展示截断必须降级）
+    //   canAssert   = 程序化分支能不能断言找全（截断时必须 false）
+    // 布尔量矛盾比英文措辞矛盾更致命：Agent 会写 if (canAssert.allSolutions) assert(...)
+    const many = await svc.doPolyRoots({ coefficients: [1, 0, -5, 0, 4] });   // 4 根，展示 2 个
+    if (many.solutionCount > many.solutions.length) {
+      ok(many.trust.trustLevel === 'complete_but_shown_partially',
+        '④ 展示截断 ⇒ trustLevel=complete_but_shown_partially（不是 budget_exhausted）',
+        many.trust.trustLevel);
+      const ca = asserts(many);
+      ok(!ca || ca.allSolutions !== true,
+        '④ 展示截断 ⇒ canAssert.allSolutions 不得为 true（Agent 只有一半解却能断言找全 = 最危险）', ca);
+    } else {
+      ok(false, '④ 前提失败：4 根样本未触发展示截断（solutionCount=' + many.solutionCount + '）');
+    }
+  }
+  {
+    // 无解时 allSolutions=true 语义成立（全部解 = 空集），不是矛盾
+    const r = await S(['x^2 + 1 = 0']);
+    ok(concl(r) === '无解' && asserts(r) && asserts(r).noSolution === true,
+      '④ 严格无解（x²+1=0）⇒ conclusion=无解 且 canAssert.noSolution=true', asserts(r));
+  }
+}
+
+// ⭐ 零消费者护栏（2026-10-04）：返回体里的每个字段都得有存在的理由。
+// 为什么这条比体积卡更根本：体积卡只能告诉你「超了」，不能告诉你「哪一项白带」。
+// 真正防止体积回潮的是**没有字段能悄悄加进来**。
+//
+// 实测踩过：certification 里的 candidate / structural / emptyProof 三项，
+// 它们的**信息在别处已有**：
+//   · candidate   与 trust.candidateCount 同义
+//   · structural  Web 端自己从 state.result.structuralCount 算
+//   · emptyProof  由 index.html 的 _assignEmptiness() 从 provenEmpty 重算
+// 三项白占 47 字节 —— 而返回体离 1600 红线只剩 15B。
+//
+// ⚠⚠ 本护栏**只认直接取值**（certification.xxx / 裸 .xxx）作为消费者证据，
+//   且**排除赋值左端**。踩过的坑：第一版正则把
+//   index.html 的 state.result.emptyProof = ...（Web 端**自己写**，
+//   不是读服务端的 certification.emptyProof）也算成消费者，
+//   于是 emptyProof 那条恒真通过 —— 假通过的护栏比没护栏更糟。
+const CONSUMERS = ['services', 'test', 'index.html', 'mcp-server.js', 'mcp-tools.js',
+  'http-mcp-server.js', 'web-demo.html'];
+const readRe = (f) => new RegExp('certification\\s*\\.\\s*' + f + '\\b', 'i');
+const dotRe = (f) => new RegExp('(?<![\\w$.])\\.\\s*' + f + '\\b');
+const assignRe = /^\s*=[^=]/;
+const keyRe = /^\s*:/;
+function grepConsumers(field) {
+  const hits = [];
+  for (const rel of CONSUMERS) {
+    let abs;
+    try { abs = require.resolve(rel.startsWith('.') ? rel : '../' + rel); } catch (e) { continue; }
+    let src;
+    try { src = fs.readFileSync(abs, 'utf8'); } catch (e) { continue; }
+    if (readRe(field).test(src)) { hits.push(rel + ' certification.' + field); continue; }
+    const lines = src.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const L = lines[i];
+      const m = L.match(dotRe(field));
+      if (!m) continue;
+      const after = L.slice(m.index + m[0].length);
+      if (assignRe.test(after)) continue;   // 赋值左端 => 写
+      if (keyRe.test(after)) continue;      // 对象字面量 key => 构造
+      hits.push(rel + ':L' + (i + 1));
+      break;
+    }
+  }
+  return hits;
+}
+for (const f of ['candidate', 'structural', 'emptyProof']) {
+  const hits = grepConsumers(f);
+  ok(!hits.length, '返回体里不再有零消费者字段 certification.' + f, hits);
+}
+ok(Object.keys(lean2.certification).sort().join(',') === 'certifiedCoverage,proven',
+  'certification 只剩 proven + certifiedCoverage',
+  Object.keys(lean2.certification).join(','));
 
 console.log('\n通过 ' + pass + ' / 失败 ' + fail);
 process.exit(fail ? 1 : 0);

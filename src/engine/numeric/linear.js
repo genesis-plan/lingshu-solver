@@ -117,9 +117,11 @@ function gaussianSolveRect(A, b) {
         x[pc] = aug[r][n] / coeff;
     }
     if (rank < n) {
-        return { consistent: true, unique: false, solution: x };   // 欠定：无穷多解
+        // 欠定：无穷多解。**必须带上 rank** —— 解集维数 = n − rank，
+        // 调用方（suan17 的 resultType=3 分支）要靠它告诉 Agent「这是几维流形」。
+        return { consistent: true, unique: false, solution: x, rank: rank, freeDim: n - rank };
     }
-    return { consistent: true, unique: true, solution: x };        // 满列秩：唯一解
+    return { consistent: true, unique: true, solution: x, rank: rank, freeDim: 0 };  // 满列秩：唯一解
 }
 
 
@@ -375,6 +377,98 @@ function _pointResidual(eq, vn, x) {
 }
 // 单变量二分定位：区间 [a,b] 无奇点且 f(a)·f(b)<0（异号），二分至宽度<1e-10（≤100 次）；
 
+// 🔴🔴 完备性计数的区间必须是**声明空间**（问题本身允许的解范围），由**问题里的不等式约束**决定。
+//
+// 三种区间，三种数学地位，混用必出事（2026-10-04 两个方向都实测踩过）：
+//
+//   (a) 搜索盒 lo/hi（来自 _domBoxOf / userDomain）—— 是**搜索提示**（去哪里找），
+//       **不是问题的一部分**。实测 `x^2=2` 域 [1,2]：盒内 1 根、found 1，
+//       若拿它当完备性证据就判「全部解」+ canAssert.allSolutions=true，
+//       而 −√2 是真解且在盒外 ⇒ **谎报找全**。⇒ 只能进 inBoxCount 诊断，绝不当证据。
+//
+//   (b) 问题约束（如 `x>0`、`x∈[-30,30]`，写在方程串里的不等式）—— 是**问题的一部分**，
+//       它**定义解集本身**。实测 `x^2-4=0, x>0`：声明空间 (0,∞) 内**恰好 1 个**解 x=2，
+//       found=1 ⇒ 这里**确实完备**，应该打「全部解」。
+//       ⇒ 必须用它当计数区间，否则会把被约束排除的真根（−2）算进来 ⇒ 完备答案被误判成「部分解」。
+//
+//   (c) ℝ（无任何约束时）—— 这才是 `_sturmCountAllReal` 的合法场景。
+//
+// 实测确认的端点语义（dist 真实函数，勿猜）：Sturm 的 V(a)−V(b) 数的是 **(a,b]**
+//   （右端点含、左端点不含）。x−1 在 [0,1] 得 1（根 1 = 右端点计入）；
+//   x²−4 在 [−2,0] 得 0（根 −2 = 左端点不计入）。
+// ⇒ 开闭端点通过 opts.loClosed / opts.hiClosed 显式传给 _sturmCountRange 做修正。
+function _declaredIntervalOf(state, vn) {
+    var lo = -Infinity, hi = Infinity;
+    var loClosed = false, hiClosed = false;
+    var sawConstraint = false, unparsed = 0;
+    function tightenL(v, closed) {
+        sawConstraint = true;
+        if (v > lo) { lo = v; loClosed = closed; }
+        else if (v === lo && !closed) { /* 已有的更宽，保持 */ }
+        else if (v === lo && closed) { loClosed = true; }
+    }
+    function tightenR(v, closed) {
+        sawConstraint = true;
+        if (v < hi) { hi = v; hiClosed = closed; }
+        else if (v === hi && closed) { hiClosed = true; }
+    }
+    // —— 区间型域约束 x∈[a,b]（parseCondition 的 type:'domain'）——
+    var dcs = state.domainConstraints || [];
+    for (var i = 0; i < dcs.length; i++) {
+        var dc = dcs[i];
+        if (!dc || dc.varName !== vn) continue;
+        if (dc.min !== undefined) {
+            var mn = Number(dc.min);
+            if (!isFinite(mn)) { unparsed++; continue; }
+            tightenL(mn, true);
+        }
+        if (dc.max !== undefined) {
+            var mx = Number(dc.max);
+            if (!isFinite(mx)) { unparsed++; continue; }
+            tightenR(mx, true);
+        }
+    }
+    // —— 一般不等式约束 lhs OP rhs ——
+    // ⚠ 只认「一元线性比较」：形如 `x > 0`、`3 <= x`、`x <= -7`。
+    //   这类约束在 parseCondition 里被归一为 domain（进 domainConstraints），
+    //   但也可能有没被 parseCondition 覆盖的写法落进 inequalityConstraints（如 `x ≠ 0`、
+    //   `x^2 < 4`）⇒ 那些**解析不出边界**，记 unparsed ⇒ 计数区间退回 ℝ（保守方向：
+    //   count 偏大 ⇒ found<count ⇒ 报「部分解」，不会谎报找全）。
+    var iq = state.inequalityConstraints || [];
+    for (var j = 0; j < iq.length; j++) {
+        var c = iq[j];
+        if (!c) continue;
+        var lIsVar = !!(c.lhs && (c.lhs.type === 'var' || c.lhs.type === 'ident') && c.lhs.name === vn);
+        var rIsVar = !!(c.rhs && (c.rhs.type === 'var' || c.rhs.type === 'ident') && c.rhs.name === vn);
+        var lIsNum = !!(c.lhs && c.lhs.type === 'num' && isFinite(Number(c.lhs.value)));
+        var rIsNum = !!(c.rhs && c.rhs.type === 'num' && isFinite(Number(c.rhs.value)));
+        if (lIsVar && rIsNum) {
+            var a = Number(c.rhs.value);
+            if (c.op === '>') tightenL(a, false);
+            else if (c.op === '>=') tightenL(a, true);
+            else if (c.op === '<') tightenR(a, false);
+            else if (c.op === '<=') tightenR(a, true);
+            else unparsed++;
+        } else if (rIsVar && lIsNum) {
+            var b = Number(c.lhs.value);
+            // c OP x  ⇒  反向
+            if (c.op === '>') tightenR(b, false);
+            else if (c.op === '>=') tightenR(b, true);
+            else if (c.op === '<') tightenL(b, false);
+            else if (c.op === '<=') tightenL(b, true);
+            else unparsed++;
+        } else {
+            unparsed++;
+        }
+    }
+    // lo > hi ⇒ 约束本身矛盾（声明空间为空）⇒ 交由「无解」判定，不在这里下结论
+    return {
+        lo: lo, hi: hi, loClosed: loClosed, hiClosed: hiClosed,
+        sawConstraint: sawConstraint, unparsed: unparsed,
+        isEmpty: (lo > hi)
+    };
+}
+
 function _sturmCompletenessCheck(state) {
     if (!state || !state.result || !state.result.solutions) return;
     var eqs = state.equations;
@@ -387,20 +481,51 @@ function _sturmCompletenessCheck(state) {
     var dom = _domBoxOf(state, vns);
     var lo = (dom && dom[vn]) ? dom[vn].min : -1e6;
     var hi = (dom && dom[vn]) ? dom[vn].max : 1e6;
-    var r = _sturmCountAsc(coeffs, lo, hi);
+    // 🔴🔴 两个计数**必须分开**，混用会造成谎报（2026-10-04 实测 P0）：
+    //
+    //   decl  = Sturm 在**声明空间**（问题约束界定的区间，可 ±∞）内的实根数
+    //           ⇒ 这一份才是完备性证据
+    //   inBox = Sturm 在**搜索盒 [lo,hi]** 内的实根数
+    //           ⇒ 只能用于「盒内漏没漏」诊断
+    //
+    //   旧代码把 inBox 当证据，实测事故：`x^2=2` 域给 [1,2] ⇒ inBox=1、found=1 ⇒
+    //   判「全部解」+ canAssert.allSolutions=true，而 −√2 是真解且在盒外 ⇒ **谎报找全**。
+    //   这是本产品最不能犯的错。
+    //
+    //   inBox 只配用于「盒内应该有几个而没找到」，这正是过滤链剔除解时要报的数。
+    var decl = _declaredIntervalOf(state, vn);
+    var rDecl = _sturmCountRange(coeffs, decl.lo, decl.hi,
+        { loClosed: decl.loClosed, hiClosed: decl.hiClosed });
+    var rBox = _sturmCountAsc(coeffs, lo, hi);
     var found = state.result.solutions.length;
     var info = state.result.sturmCompleteness || (state.result.sturmCompleteness = {});
-    info.certified = r.ok;
-    info.realRootCount = r.ok ? r.count : null;
+    // ⚠ certified/realRootCount/complete 三个字段是**声明空间**语义（2026-10-04 起）。
+    //   下游 conclusion.js 的 sturm_exact_count 证据就读这三个字段 ⇒ 它必须来自问题约束，
+    //   既不能是搜索盒（谎报找全），也不能在有约束时盲目用 ℝ（把完备答案误判成部分解）。
+    info.certified = rDecl.ok;
+    info.realRootCount = rDecl.ok ? rDecl.count : null;
+    // 计数空间显式声明，防再被误当盒内计数或盲目全域计数。
+    //   'R'   = 声明空间就是 ℝ（问题没给任何区间约束）
+    //   'declared' = 由问题里的不等式/域约束界定（区间见 declaredLo/Hi）
+    info.scope = decl.sawConstraint ? 'declared' : 'R';
+    if (decl.sawConstraint) {
+        info.declaredLo = decl.lo; info.declaredHi = decl.hi;
+        info.declaredLoClosed = decl.loClosed; info.declaredHiClosed = decl.hiClosed;
+    }
+    // 有约束但解析不出边界（x≠0 / x^2<4 之类）⇒ 计数区间退回 ℝ，count 偏大 ⇒ 保守降级。
+    // 这不是缺陷，是「诚实地说不出全部解」；记下来供审计。
+    if (decl.unparsed > 0) info.unparsedConstraints = decl.unparsed;
+    if (decl.isEmpty) { info.why = '约束互相矛盾，声明空间为空'; info.complete = null; return; }
+    info.inBoxCount = rBox.ok ? rBox.count : null;
     info.found = found;
-    if (!r.ok) { info.why = r.why; info.complete = null; return; }
-    info.complete = (r.count === found);
-    if (!info.complete) info.missing = r.count - found;
+    if (!rDecl.ok) { info.why = rDecl.why; info.complete = null; return; }
+    info.complete = (rDecl.count === found);
+    if (!info.complete) info.missing = rDecl.count - found;
     if (!info.complete) {
         state.result.sturmIncomplete = {
-            provenRealRoots: r.count,
+            provenRealRoots: rDecl.count,
             found: found,
-            missing: r.count - found
+            missing: rDecl.count - found
         };
     }
 }

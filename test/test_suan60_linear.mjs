@@ -303,5 +303,160 @@ console.log('【⑬ 零空间参数化仿射采样】');
     ck('域收缩后仍全部在域内且残差 0', tightOk, 'n=' + tight.solutions.length);
 }
 
+// 【⑭ rank 语义回归锁 —— 独立精确算术裁决，不是自证】
+//
+// 本节存在的缘由（本轮抓到的真 bug）：内核曾把
+//     fullRank = rankAfterPresolve + nFixed   （nFixed = presolve 固定的变量数）
+// 当成「原系统的秩」。错的。两次返工才对：
+//   ① nFixed 修正错 ⇒ underdet6（4×6 矩阵）报 rank=5，而秩上限 min(4,6)=4，数学上不可能。
+//   ② 改成「秩不变」也错 ⇒ presolve-heavy6 真相 rank=4，presolve 后只剩 1。
+//   正解：rank(原A) = rank(剩余) + stats.singletonRow
+//   （singletonRow 消元把该列从所有其他行消成 0 后同时删行删列 ⇒ 秩恰降 1；
+//     zeroRow / dupRow / zeroCol 都不改变秩。）
+//
+// ⚠ 本节的期望值来自 test/benchmarks/linear_arbiter.mjs 的 BigInt 精确 RREF
+//   （纯独立实现，与内核无共享代码），不是把内核自己的输出抄回来。
+//   抄回来等于自证，测不出 bug —— 这是本节最要紧的一条纪律。
+console.log('【⑭ rank 语义回归锁（期望值来自独立 BigInt 精确 RREF 裁决）】');
+{
+    // ⑭-1 underdet6：4×6，第 6 列整列为 0（zeroCol）
+    //   真相 rank(A) = 4。曾经的 bug 报 5 —— 超过 min(4,6)=4，不可能。
+    {
+        const r = core_([
+            [1, 2, 0, 0, 0, 0, 1],
+            [0, 1, 3, 0, 0, 0, 2],
+            [0, 0, 1, 4, 0, 0, 3],
+            [0, 0, 0, 1, 5, 0, 4],
+        ], 6);
+        ck('underdet6：4×6 报 rank=4（不是 5；5 超过 min(4,6) 上限）', r.rank === 4, 'rank=' + r.rank);
+        ck('underdet6：kind=family（解集 2 维仿射簇）', r.kind === 'family', 'kind=' + r.kind);
+    }
+    // ⑭-2 presolve-heavy6：6×6，3 次 singletonRow 消元
+    //   真相 rank=4 = 剩余 1 + singletonRow 3。曾经误改成「秩不变」只报 1。
+    {
+        const r = core_([
+            [1, 0, 0, 0, 0, 0, 2],
+            [0, 2, 0, 0, 0, 0, 4],
+            [0, 0, 3, 0, 0, 0, 6],
+            [1, 0, 0, 0, 0, 0, 2],
+            [2, 4, 0, 0, 0, 0, 12],
+            [0, 0, 0, 7, 1, 1, 5],
+        ], 6);
+        ck('presolve-heavy6：rank=4（= 剩余 1 + singletonRow 3）', r.rank === 4, 'rank=' + r.rank);
+        ck('presolve-heavy6：kind=family（真相是相容的 2 维簇，不是无解）', r.kind === 'family', 'kind=' + r.kind);
+    }
+    // ⑭-3 sparse-rand6-incon：6×6，rank(A)=5 < rank([A|b])=6 ⇒ 不相容无解
+    //   这题同时锁住两件事：kind 必须是 nosol，且 rank 必须是 5（不是消元后的 4，也不是 6）
+    {
+        const r = core_([
+            [0, 0, 0, 4, 0, 0, 10],
+            [7, -3, 0, 0, 8, 0, 16],
+            [-6, 0, 0, -3, -1, 0, -8],
+            [8, -1, 0, -8, -5, 6, 20],
+            [1, -3, 0, -7, -7, -3, -13],
+            [0, 0, 0, 6, 7, 8, 1],
+        ], 6);
+        ck('sparse-rand6-incon：kind=nosol 且 provenEmpty', r.kind === 'nosol' && r.provenEmpty === true,
+            'kind=' + r.kind + ' provenEmpty=' + r.provenEmpty);
+        ck('sparse-rand6-incon：rank=5（= 剩余 4 + singletonRow 1）', r.rank === 5, 'rank=' + r.rank);
+    }
+    // ⑭-4 不变式护栏（比逐例断言更强，任何用例都必须满足）：
+    //   rank 恒在 [0, min(m,n)] 内。这条一旦破了，就是数学上不可能的值，
+    //   不需要对照任何期望值就能判定内核错了。
+    {
+        const CASES = [
+            [[[1, 0, 0, 0, 0, 0, 2], [0, 2, 0, 0, 0, 0, 4], [0, 0, 3, 0, 0, 0, 6],
+            [1, 0, 0, 0, 0, 0, 2], [2, 4, 0, 0, 0, 0, 12], [0, 0, 0, 7, 1, 1, 5]], 6],
+            [[[1, 2, 0, 0, 0, 0, 1], [0, 1, 3, 0, 0, 0, 2], [0, 0, 1, 4, 0, 0, 3],
+            [0, 0, 0, 1, 5, 0, 4]], 6],
+            [[[0, 0, 0, 4, 0, 0, 10], [7, -3, 0, 0, 8, 0, 16], [-6, 0, 0, -3, -1, 0, -8],
+            [8, -1, 0, -8, -5, 6, 20], [1, -3, 0, -7, -7, -3, -13], [0, 0, 0, 6, 7, 8, 1]], 6],
+            [[[0, 0, 0, 0], [0, 0, 0, 0]], 3],       // 全零行（b=0 ⇒ 恒真 ⇒ rank 0）
+            [[[1, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0]], 6],  // 后 5 列全零 ⇒ rank 1
+            // ⚠ 下面这行曾经被我写成 [[0,0,0],[0,0,0,5]]（两行长度 3 和 4 的 ragged 数组），
+            //   内核直接返回 rank=undefined，把不变式断言顶红了。查下来是【我的用例写错】，
+            //   不是内核 bug —— 变量数 n=3 时每行必须有 4 个元素（3 系数 + 1 rhs）。
+            //   教训：断言红了先查用例本身，别急着改产品。零行矛盾用等长写法重测：
+            [[[1, 0, 0, 1], [0, 0, 0, 0], [0, 0, 0, 5]], 3],   // 0 = 5 ⇒ nosol, rank 1
+        ];
+        let viol = [];
+        for (const [rows, n] of CASES) {
+            const m = rows.length;
+            const r = core_(rows, n);
+            const cap = Math.min(m, n);
+            if (!(r.rank >= 0 && r.rank <= cap)) viol.push('m=' + m + ' n=' + n + ' rank=' + r.rank + ' cap=' + cap);
+        }
+        ck('不变式：rank ∈ [0, min(m,n)] 恒成立（' + CASES.length + ' 例）', viol.length === 0, viol.join('; '));
+    }
+}
+
+// 【⑮ 仿射采样死循环回归锁 —— 生产事故级】
+//
+// 本轮实测抓到的最严重缺陷：_s60sampleAffine 沿解流形采样时
+//   ① 每方向生成 CAP+1=257 个点，方向数 k ⇒ |out| 可达 257^k；
+//   ② push() 是 O(|out|) 线性去重 ⇒ 整体 O(N²)；
+//   ③ 【没有总量上限】。
+// 触发用例 E2（4 方程 6 未知、rank=3 ⇒ 3 维解流形、域 [-1e6,1e6]）：
+//   CPU profile 显示 90.8% ticks 烧在 _s60sampleAffine，
+//   60 秒被外部 kill 仍不返回；8 秒硬预算也兜不住
+//   （预算检查在【算子粒度】，这是单个算子内部的死循环，压根轮不到检查）。
+//   ⇒ Agent 调用会永久挂起。这是生产事故，不是性能问题。
+// 修复：总量封顶 512 + 去重改 Set（O(1)）+ 三处提前 break。实测 60s+ → 0.78s。
+//
+// ⚠ 判据用「墙钟时间」而不是「解的个数」：死循环的表现就是跑不完，
+//   只断言解数的话，修复前会「慢慢跑完」而测不出来。
+console.log('【⑮ 仿射采样死循环回归锁（3 维解流形 + 大域）】');
+{
+    const eqs = [
+        'u + v + w + x + y + z = 1',
+        '2*u + 2*v + 2*w + 2*x + 2*y + 2*z = 2',
+        'u + 2*v + 3*w + 4*x + 5*y + 6*z = 5',
+        '-3*u - v + 2*w - x + 2*y - z = 1',
+    ];
+    const vars = ['u', 'v', 'w', 'x', 'y', 'z'];
+    // 独立精确 RREF 核过的真相：rank(A)=3=rank([A|b]) ⇒ 相容，3 维仿射簇
+    const t0 = Date.now();
+    const r = core.solve(eqs, vars);
+    const dt = Date.now() - t0;
+    ck('3 维解流形 + 大域：必须在 3 秒内返回（修复前 60s+ 挂死）', dt < 3000, dt + 'ms');
+    ck('走零空间采样路径', /零空间/.test(r.executionPath || ''), r.executionPath);
+    ck('采样点数量受控（不得爆炸）', r.candidateCount <= 512, 'cand=' + r.candidateCount);
+    // ⚠ 2026-10-04：断言从「措辞匹配」改为「语义匹配」。
+    //   原断言 `/无限解集/.test(resultTypeName)` 在 resultTypeName 收敂为 4 态后必然失败
+    //   ——它匹配的是**旧自由文本**（"无限解集(推荐解)"/"有限解（投影法抢救）"），
+    //   而那些措辞已下沉到 resultTypeNameLegacy。
+    //   教训同「门控字段必须先 grep 核实」：**断言也要断言语义，不能断言措辞**。
+    //   措辞会变，语义不变。改成直接查正维标记。
+    ck('正维解集标记仍在（solutionSpaceDimension>0 或 positiveDim）',
+      (r.solutionSpaceDimension > 0) || r.positiveDim === true || r.resultType === 3,
+      'ssd=' + r.solutionSpaceDimension + ' pd=' + r.positiveDim + ' rt=' + r.resultType);
+    ck('结论为「部分解」（无穷多解无法用有限列表断言全部）',
+      (r.conclusion || '') === '部分解', r.conclusion);
+    ck('旧的无限解集措辞已下沉到 resultTypeNameLegacy（保留可追溯）',
+      /无限解集/.test(r.resultTypeNameLegacy || ''), r.resultTypeNameLegacy);
+
+    // 每个采样点都必须严格满足原方程（第三方手写残差）
+    let maxRes = 0;
+    for (const s of (r.solutions || [])) {
+        const [u, v, w, x, y, z] = s.values;
+        const res = [
+            Math.abs(u + v + w + x + y + z - 1),
+            Math.abs(2 * (u + v + w + x + y + z) - 2),
+            Math.abs(u + 2 * v + 3 * w + 4 * x + 5 * y + 6 * z - 5),
+            Math.abs(-3 * u - v + 2 * w - x + 2 * y - z - 1),
+        ];
+        for (const e of res) if (e > maxRes) maxRes = e;
+    }
+    ck('全部采样点原方程残差 = 0（max=' + maxRes.toExponential(1) + '）', maxRes < 1e-6, 'max=' + maxRes);
+
+    // 采样点必须互不相同（去重改 Set 后仍要保证真的去掉了重复）
+    const seen = new Set((r.solutions || []).map(s => s.values.map(q => Math.round(q * 1e9)).join(',')));
+    ck('采样点无重复（' + seen.size + '/' + (r.solutions || []).length + '）',
+        seen.size === (r.solutions || []).length, 'unique=' + seen.size);
+}
+
+console.log('\n———— ' + pass + ' passed / ' + fail + ' failed ————');
+process.exit(fail ? 1 : 0);
+
 console.log('\n———— ' + pass + ' passed / ' + fail + ' failed ————');
 process.exit(fail ? 1 : 0);

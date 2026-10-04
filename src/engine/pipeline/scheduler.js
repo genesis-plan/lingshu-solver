@@ -9,8 +9,12 @@ function _runOp(state, op) {
     if (state.skipOperators && state.skipOperators[op.id]) return 0;
     // 全局硬超时兜底（2026-08-21）：根调用开表，跨整棵递归树共享；任何算子执行前检查，
     // 杜绝单输入长时间卡顿/冻结。触发时如实标记 truncated/unconverged，绝不静默丢解。
+    //
+    // 🔴 2026-10-04：阈值改为引用常量 _LS_BRANCH_TIME_BUDGET_MS（值不变，仍是 8000），
+    //   与 branch.js 的内层看门狗同源。理由：两处各写一个数字必然漂移，
+    //   而一旦内层 > 外层，内层就是死代码（历史值 10000 > 8000 正是如此）。
     if (typeof __LS_ROOT_START !== 'undefined' && __LS_ROOT_START > 0 &&
-        performance.now() - __LS_ROOT_START > 8000) {
+        performance.now() - __LS_ROOT_START > _LS_BRANCH_TIME_BUDGET_MS) {
         if (!state.done) {
             state.done = true;
             state.truncated = true;
@@ -176,6 +180,25 @@ function _suan52Order(state, layer) {
 function _runContractionFixpoint(state, ops, maxRounds) {
     if (!state.varNames || state.varNames.length === 0) return;
     maxRounds = maxRounds || 6;
+
+    // 🔴 2026-10-04 子问题减负：分支定界递归出来的子问题（opts._subProblem=true）
+    //   最多跑 2 轮，而不是根问题的 6 轮。
+    //
+    // 为什么这**不损正确性**（这是本改动唯一的成立前提，必须说清）：
+    //   收缩层的作用是把 D0 变窄。而子问题的 D0 已经是父域的一半 —— 也就是说
+    //   「收缩」这件事在子层能做的幅度，父层已经做过了。实测子层几乎必然第一轮就
+    //   `g <= 1e-12`（零增益）从而 break，多跑的 4 轮是纯空转。
+    //   而**有增益的层不会因此丢失**：层内不动点判定（g<=1e-12 break）与
+    //   「贵层取得收缩就回流便宜层」（reentered）在前 2 轮内照常生效。
+    //   换句话说被砍掉的是「确定无增益」的重复轮次。
+    //
+    // ⚠ 但这是**性能**改动，不是「正确性已证明」—— 我不会说它对所有输入零影响。
+    //   护栏在 test/test-branch-budget.mjs：同一批题在开/关减负下解数必须一致，
+    //   有差异就以「关掉减负」为准（宁可慢，不可少解）。
+    //   `_noSubProblemTrim` 是护栏用的逃生阀（branch.js 沿递归链透传），
+    //   只有测试会置它；生产路径永远走减负。
+    if (state.solveOpts && state.solveOpts._subProblem
+        && !(state.solveOpts._noSubProblemTrim) && maxRounds > 2) maxRounds = 2;
 
     // 按 cost 分桶，得到由便宜到贵的层序
     var buckets = {}, costs = [];

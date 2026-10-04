@@ -1,16 +1,8 @@
 [
   {
     "name": "g001-2d-basic",
-    "eqs": [
-      "x^2+y^2=4",
-      "x*y=1"
-    ],
-    "varNames": [
-      "x",
-      "y"
-    ],
     "result": {
-      "resultTypeName": "有限个解",
+      "resultTypeName": "全部解",
       "exactSolutionCount": 4,
       "provenCount": 4,
       "candidateCount": 0,
@@ -37,29 +29,29 @@
         {
           "values": [
             -1.9318516525781366,
-            -0.5176380902050416
+            -0.5176380902050413
           ],
-          "residual": 3.292325079229e-9,
+          "residual": 4.440892098501e-16,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
         },
         {
           "values": [
-            -0.5176380902050415,
-            -1.9318516525781366
+            -0.5176380902050416,
+            -1.9318516525781364
           ],
-          "residual": 3.292325079229e-9,
+          "residual": 4.440892098501e-16,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
         },
         {
           "values": [
-            0.5176380902050416,
-            1.9318516525781364
+            0.5176380902050415,
+            1.9318516525781366
           ],
-          "residual": 3.292325079229e-9,
+          "residual": 1.110223024625e-16,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -67,9 +59,9 @@
         {
           "values": [
             1.9318516525781366,
-            0.5176380902050415
+            0.5176380902050411
           ],
-          "residual": 3.292325079229e-9,
+          "residual": 6.661338147751e-16,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -79,16 +71,8 @@
   },
   {
     "name": "g002-2d-resultant",
-    "eqs": [
-      "x^2-2=0",
-      "y-3=0"
-    ],
-    "varNames": [
-      "x",
-      "y"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "全部解",
       "provenCount": 2,
       "candidateCount": 0,
       "truncated": false,
@@ -116,7 +100,7 @@
             -1.4142135623731626,
             3
           ],
-          "residual": 0.000001237796000364,
+          "residual": 1.914024494454e-13,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -126,7 +110,7 @@
             1.4142135623731626,
             3
           ],
-          "residual": 0.000001237796000364,
+          "residual": 1.914024494454e-13,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -136,18 +120,8 @@
   },
   {
     "name": "g003-3d-sphere",
-    "eqs": [
-      "x^2+y^2+z^2=14",
-      "x+y+z=6",
-      "x*y*z=6"
-    ],
-    "varNames": [
-      "x",
-      "y",
-      "z"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "全部解",
       "provenCount": 6,
       "candidateCount": 0,
       "truncated": false,
@@ -191,7 +165,7 @@
             0.9999999999999999,
             2.0000000000000004
           ],
-          "residual": 5.567404315343e-10,
+          "residual": 8.881784197001e-16,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -245,18 +219,8 @@
   },
   {
     "name": "g004-3d-linear",
-    "eqs": [
-      "x+y+z=6",
-      "y+z=3",
-      "z=1"
-    ],
-    "varNames": [
-      "x",
-      "y",
-      "z"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "全部解",
       "provenCount": 1,
       "candidateCount": 0,
       "truncated": false,
@@ -292,33 +256,21 @@
           "residual": 0,
           "tier": "proven",
           "certified": true,
-          "method": "krawczyk_newton"
+          "method": "exact_rational_substitution"
         }
       ]
     }
   },
   {
     "name": "g005-4d-couple-ok",
-    "eqs": [
-      "x^2+y^2+z^2+w^2=30",
-      "x+y+z+w=10",
-      "x*y=4",
-      "z*w=6"
-    ],
-    "varNames": [
-      "x",
-      "y",
-      "z",
-      "w"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "部分解",
       "provenCount": 0,
       "candidateCount": 4,
       "truncated": false,
       "hardTimeout": false,
       "positiveDim": false,
-      "completenessProven": true,
+      "completenessProven": false,
       "bound": {
         "varCount": 4,
         "domain": {
@@ -396,20 +348,8 @@
   },
   {
     "name": "g006-4d-partial",
-    "eqs": [
-      "x^2+y^2+z^2=14",
-      "x+y+z+w=10",
-      "x*y=4",
-      "z*w=6"
-    ],
-    "varNames": [
-      "x",
-      "y",
-      "z",
-      "w"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "部分解",
       "provenCount": 4,
       "candidateCount": 0,
       "truncated": false,
@@ -483,7 +423,7 @@
             0.4210396190136272,
             14.250440407618282
           ],
-          "residual": 4.036948553221e-11,
+          "residual": 8.881784197001e-16,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -493,22 +433,8 @@
   },
   {
     "name": "g007-5d-chain",
-    "eqs": [
-      "x+y+z+w+v=10",
-      "x^2+y^2+z^2+w^2+v^2=30",
-      "x*y=z",
-      "z*v=w",
-      "w*v=x"
-    ],
-    "varNames": [
-      "x",
-      "y",
-      "z",
-      "w",
-      "v"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "部分解",
       "provenCount": 2,
       "candidateCount": 0,
       "truncated": false,
@@ -564,7 +490,7 @@
             2.192467217921865,
             2.0317033907122712
           ],
-          "residual": 8.037801535465e-10,
+          "residual": 1.7763568394e-15,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -574,26 +500,8 @@
   },
   {
     "name": "g008-n7-failclosed",
-    "eqs": [
-      "a+b+c+d+e+f+g=7",
-      "a*b=1",
-      "c*d=1",
-      "e*f=1",
-      "g*a=1",
-      "b*c=1",
-      "d*e=1"
-    ],
-    "varNames": [
-      "a",
-      "b",
-      "c",
-      "d",
-      "e",
-      "f",
-      "g"
-    ],
     "result": {
-      "resultTypeName": "空结果",
+      "resultTypeName": "计算资源不足",
       "provenCount": 0,
       "candidateCount": 0,
       "truncated": false,
@@ -611,21 +519,14 @@
   },
   {
     "name": "g009-positive-dim",
-    "eqs": [
-      "x-y=0"
-    ],
-    "varNames": [
-      "x",
-      "y"
-    ],
     "result": {
-      "resultTypeName": "无限解集（推荐解）",
+      "resultTypeName": "部分解",
       "provenCount": 0,
       "candidateCount": 1,
       "truncated": false,
       "hardTimeout": false,
       "positiveDim": false,
-      "completenessProven": true,
+      "completenessProven": false,
       "bound": {
         "varCount": 2,
         "domain": {
@@ -656,14 +557,8 @@
   },
   {
     "name": "g010-no-real-sol",
-    "eqs": [
-      "x^2+1=0"
-    ],
-    "varNames": [
-      "x"
-    ],
     "result": {
-      "resultTypeName": "空结果",
+      "resultTypeName": "无解",
       "provenCount": 0,
       "candidateCount": 0,
       "truncated": false,
@@ -686,21 +581,15 @@
   },
   {
     "name": "g011-trig",
-    "eqs": [
-      "sin(x)=0.5"
-    ],
-    "varNames": [
-      "x"
-    ],
     "result": {
-      "resultTypeName": "有限个解（截断）",
+      "resultTypeName": "计算资源不足",
       "exactSolutionCount": 636620,
       "provenCount": 100,
       "candidateCount": 0,
       "truncated": true,
       "hardTimeout": false,
       "positiveDim": false,
-      "completenessProven": true,
+      "completenessProven": false,
       "bound": {
         "varCount": 1,
         "domain": {
@@ -717,7 +606,7 @@
           "values": [
             -999999.8339653915
           ],
-          "residual": 0,
+          "residual": 1.32324151636e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -726,7 +615,7 @@
           "values": [
             -999993.5507800843
           ],
-          "residual": 0,
+          "residual": 2.211208993685e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -735,7 +624,7 @@
           "values": [
             -999987.2675947772
           ],
-          "residual": 0,
+          "residual": 3.099176471011e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -744,7 +633,7 @@
           "values": [
             -999980.98440947
           ],
-          "residual": 0,
+          "residual": 3.987149499451e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -753,7 +642,7 @@
           "values": [
             -999974.7012241628
           ],
-          "residual": 0,
+          "residual": 4.875116976777e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -762,7 +651,7 @@
           "values": [
             -999968.4180388555
           ],
-          "residual": 0,
+          "residual": 4.318778668022e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -771,7 +660,7 @@
           "values": [
             -999962.1348535484
           ],
-          "residual": 0,
+          "residual": 3.430811190697e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -780,7 +669,7 @@
           "values": [
             -999955.8516682412
           ],
-          "residual": 0,
+          "residual": 2.542843713371e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -789,7 +678,7 @@
           "values": [
             -999949.568482934
           ],
-          "residual": 0,
+          "residual": 1.654876236046e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -798,7 +687,7 @@
           "values": [
             -999943.2852976269
           ],
-          "residual": 0,
+          "residual": 7.669087587203e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -807,7 +696,7 @@
           "values": [
             -999937.0021123197
           ],
-          "residual": 0,
+          "residual": 1.210642697203e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -816,7 +705,7 @@
           "values": [
             -999930.7189270125
           ],
-          "residual": 0,
+          "residual": 1.009031747046e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -825,7 +714,7 @@
           "values": [
             -999924.4357417054
           ],
-          "residual": 0,
+          "residual": 1.896999224371e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -834,7 +723,7 @@
           "values": [
             -999918.1525563982
           ],
-          "residual": 0,
+          "residual": 2.784966701697e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -843,7 +732,7 @@
           "values": [
             -999911.869371091
           ],
-          "residual": 0,
+          "residual": 3.672939730137e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -852,7 +741,7 @@
           "values": [
             -999905.5861857838
           ],
-          "residual": 0,
+          "residual": 4.560907207463e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -861,7 +750,7 @@
           "values": [
             -999899.3030004766
           ],
-          "residual": 0,
+          "residual": 4.632982886221e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -870,7 +759,7 @@
           "values": [
             -999893.0198151694
           ],
-          "residual": 0,
+          "residual": 3.745015408896e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -879,7 +768,7 @@
           "values": [
             -999886.7366298622
           ],
-          "residual": 0,
+          "residual": 2.85704793157e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -888,7 +777,7 @@
           "values": [
             -999880.453444555
           ],
-          "residual": 0,
+          "residual": 1.969080454245e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -897,7 +786,7 @@
           "values": [
             -999874.1702592479
           ],
-          "residual": 0,
+          "residual": 1.081112976919e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -906,7 +795,7 @@
           "values": [
             -999867.8870739407
           ],
-          "residual": 0,
+          "residual": 1.93145499594e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -915,7 +804,7 @@
           "values": [
             -999861.6038886335
           ],
-          "residual": 0,
+          "residual": 6.948219777314e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -924,7 +813,7 @@
           "values": [
             -999855.3207033264
           ],
-          "residual": 0,
+          "residual": 1.582789455057e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -933,7 +822,7 @@
           "values": [
             -999849.0375180192
           ],
-          "residual": 0,
+          "residual": 2.470756932382e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -942,7 +831,7 @@
           "values": [
             -999842.754332712
           ],
-          "residual": 0,
+          "residual": 3.358729960823e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -951,7 +840,7 @@
           "values": [
             -999836.4711474049
           ],
-          "residual": 0,
+          "residual": 4.246697438148e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -960,7 +849,7 @@
           "values": [
             -999830.1879620976
           ],
-          "residual": 0,
+          "residual": 4.947198206651e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -969,7 +858,7 @@
           "values": [
             -999823.9047767904
           ],
-          "residual": 0,
+          "residual": 4.059230729325e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -978,7 +867,7 @@
           "values": [
             -999817.6215914832
           ],
-          "residual": 0,
+          "residual": 3.171263252e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -987,7 +876,7 @@
           "values": [
             -999811.3384061761
           ],
-          "residual": 0,
+          "residual": 2.283295774674e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -996,7 +885,7 @@
           "values": [
             -999805.0552208689
           ],
-          "residual": 0,
+          "residual": 1.395328297349e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1005,7 +894,7 @@
           "values": [
             -999798.7720355617
           ],
-          "residual": 0,
+          "residual": 5.073608200235e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1014,7 +903,7 @@
           "values": [
             -999792.4888502546
           ],
-          "residual": 0,
+          "residual": 3.806122084171e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1023,7 +912,7 @@
           "values": [
             -999786.2056649474
           ],
-          "residual": 0,
+          "residual": 1.268579685743e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1032,7 +921,7 @@
           "values": [
             -999779.9224796402
           ],
-          "residual": 0,
+          "residual": 2.156552714183e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1041,7 +930,7 @@
           "values": [
             -999773.639294333
           ],
-          "residual": 0,
+          "residual": 3.044520191509e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1050,7 +939,7 @@
           "values": [
             -999767.3561090259
           ],
-          "residual": 0,
+          "residual": 3.932487668834e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1059,7 +948,7 @@
           "values": [
             -999761.0729237187
           ],
-          "residual": 0,
+          "residual": 4.820455146159e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1068,7 +957,7 @@
           "values": [
             -999754.7897384114
           ],
-          "residual": 0,
+          "residual": 4.373434947524e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1077,7 +966,7 @@
           "values": [
             -999748.5065531043
           ],
-          "residual": 0,
+          "residual": 3.485467470199e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1086,7 +975,7 @@
           "values": [
             -999742.2233677971
           ],
-          "residual": 0,
+          "residual": 2.597499992874e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1095,7 +984,7 @@
           "values": [
             -999735.9401824899
           ],
-          "residual": 0,
+          "residual": 1.709532515548e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1104,7 +993,7 @@
           "values": [
             -999729.6569971828
           ],
-          "residual": 0,
+          "residual": 8.215650382226e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1113,7 +1002,7 @@
           "values": [
             -999723.3738118756
           ],
-          "residual": 0,
+          "residual": 6.640243910283e-13,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1122,7 +1011,7 @@
           "values": [
             -999717.0906265684
           ],
-          "residual": 0,
+          "residual": 9.543699164283e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1131,7 +1020,7 @@
           "values": [
             -999710.8074412612
           ],
-          "residual": 0,
+          "residual": 1.842342944869e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1140,7 +1029,7 @@
           "values": [
             -999704.5242559541
           ],
-          "residual": 0,
+          "residual": 2.730310422194e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1149,7 +1038,7 @@
           "values": [
             -999698.2410706469
           ],
-          "residual": 0,
+          "residual": 3.61827789952e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1158,7 +1047,7 @@
           "values": [
             -999691.9578853397
           ],
-          "residual": 0,
+          "residual": 4.506245376845e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1167,7 +1056,7 @@
           "values": [
             -999685.6747000325
           ],
-          "residual": 0,
+          "residual": 4.687650267954e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1176,7 +1065,7 @@
           "values": [
             -999679.3915147253
           ],
-          "residual": 0,
+          "residual": 3.799682790628e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1185,7 +1074,7 @@
           "values": [
             -999673.1083294181
           ],
-          "residual": 0,
+          "residual": 2.911715313303e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1194,7 +1083,7 @@
           "values": [
             -999666.825144111
           ],
-          "residual": 0,
+          "residual": 2.023747835977e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1203,7 +1092,7 @@
           "values": [
             -999660.5419588038
           ],
-          "residual": 0,
+          "residual": 1.135769256422e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1212,7 +1101,7 @@
           "values": [
             -999654.2587734966
           ],
-          "residual": 0,
+          "residual": 2.478017790963e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1221,7 +1110,7 @@
           "values": [
             -999647.9755881894
           ],
-          "residual": 0,
+          "residual": 6.40160147114e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1230,7 +1119,7 @@
           "values": [
             -999641.6924028823
           ],
-          "residual": 0,
+          "residual": 1.528133175555e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1239,7 +1128,7 @@
           "values": [
             -999635.4092175751
           ],
-          "residual": 0,
+          "residual": 2.41610065288e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1248,7 +1137,7 @@
           "values": [
             -999629.1260322679
           ],
-          "residual": 0,
+          "residual": 3.304068130205e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1257,7 +1146,7 @@
           "values": [
             -999622.8428469608
           ],
-          "residual": 0,
+          "residual": 4.192035607531e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1266,7 +1155,7 @@
           "values": [
             -999616.5596616535
           ],
-          "residual": 0,
+          "residual": 5.001854486153e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1275,7 +1164,7 @@
           "values": [
             -999610.2764763463
           ],
-          "residual": 0,
+          "residual": 4.113887008828e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1284,7 +1173,7 @@
           "values": [
             -999603.9932910391
           ],
-          "residual": 0,
+          "residual": 3.225919531502e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1293,7 +1182,7 @@
           "values": [
             -999597.710105732
           ],
-          "residual": 0,
+          "residual": 2.337952054177e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1302,7 +1191,7 @@
           "values": [
             -999591.4269204248
           ],
-          "residual": 0,
+          "residual": 1.449984576851e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1311,7 +1200,7 @@
           "values": [
             -999585.1437351176
           ],
-          "residual": 0,
+          "residual": 5.620170995257e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1320,7 +1209,7 @@
           "values": [
             -999578.8605498105
           ],
-          "residual": 0,
+          "residual": 3.259503777997e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1329,7 +1218,7 @@
           "values": [
             -999572.5773645033
           ],
-          "residual": 0,
+          "residual": 1.21392340624e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1338,7 +1227,7 @@
           "values": [
             -999566.2941791961
           ],
-          "residual": 0,
+          "residual": 2.101890883566e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1347,7 +1236,7 @@
           "values": [
             -999560.010993889
           ],
-          "residual": 0,
+          "residual": 2.989858360891e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1356,7 +1245,7 @@
           "values": [
             -999553.7278085818
           ],
-          "residual": 0,
+          "residual": 3.877825838217e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1365,7 +1254,7 @@
           "values": [
             -999547.4446232746
           ],
-          "residual": 0,
+          "residual": 4.765793315542e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1374,7 +1263,7 @@
           "values": [
             -999541.1614379673
           ],
-          "residual": 0,
+          "residual": 4.428102329257e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1383,7 +1272,7 @@
           "values": [
             -999534.8782526602
           ],
-          "residual": 0,
+          "residual": 3.540134851931e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1392,7 +1281,7 @@
           "values": [
             -999528.595067353
           ],
-          "residual": 0,
+          "residual": 2.652167374606e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1401,7 +1290,7 @@
           "values": [
             -999522.3118820458
           ],
-          "residual": 0,
+          "residual": 1.76418879505e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1410,7 +1299,7 @@
           "values": [
             -999516.0286967386
           ],
-          "residual": 0,
+          "residual": 8.762213177249e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1419,7 +1308,7 @@
           "values": [
             -999509.7455114315
           ],
-          "residual": 0,
+          "residual": 1.174615960053e-13,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1428,7 +1317,7 @@
           "values": [
             -999503.4623261243
           ],
-          "residual": 0,
+          "residual": 8.99713636926e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1437,7 +1326,7 @@
           "values": [
             -999497.1791408171
           ],
-          "residual": 0,
+          "residual": 1.787681114251e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1446,7 +1335,7 @@
           "values": [
             -999490.89595551
           ],
-          "residual": 0,
+          "residual": 2.675648591577e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1455,7 +1344,7 @@
           "values": [
             -999484.6127702028
           ],
-          "residual": 0,
+          "residual": 3.563616068902e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1464,7 +1353,7 @@
           "values": [
             -999478.3295848956
           ],
-          "residual": 0,
+          "residual": 4.451583546228e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1473,7 +1362,7 @@
           "values": [
             -999472.0463995883
           ],
-          "residual": 0,
+          "residual": 4.742306547456e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1482,7 +1371,7 @@
           "values": [
             -999465.7632142812
           ],
-          "residual": 0,
+          "residual": 3.854339070131e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1491,7 +1380,7 @@
           "values": [
             -999459.480028974
           ],
-          "residual": 0,
+          "residual": 2.966371592805e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1500,7 +1389,7 @@
           "values": [
             -999453.1968436668
           ],
-          "residual": 0,
+          "residual": 2.07840411548e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1509,7 +1398,7 @@
           "values": [
             -999446.9136583597
           ],
-          "residual": 0,
+          "residual": 1.190436638154e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1518,7 +1407,7 @@
           "values": [
             -999440.6304730525
           ],
-          "residual": 0,
+          "residual": 3.024691608289e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1527,7 +1416,7 @@
           "values": [
             -999434.3472877453
           ],
-          "residual": 0,
+          "residual": 5.855038676117e-12,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1536,7 +1425,7 @@
           "values": [
             -999428.0641024382
           ],
-          "residual": 0,
+          "residual": 1.473471344937e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1545,7 +1434,7 @@
           "values": [
             -999421.780917131
           ],
-          "residual": 0,
+          "residual": 2.361438822263e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1554,7 +1443,7 @@
           "values": [
             -999415.4977318238
           ],
-          "residual": 0,
+          "residual": 3.249406299588e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1563,7 +1452,7 @@
           "values": [
             -999409.2145465167
           ],
-          "residual": 0,
+          "residual": 4.137373776913e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1572,7 +1461,7 @@
           "values": [
             -999402.9313612095
           ],
-          "residual": 0,
+          "residual": 5.025346805354e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1581,7 +1470,7 @@
           "values": [
             -999396.6481759022
           ],
-          "residual": 0,
+          "residual": 4.16855439056e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1590,7 +1479,7 @@
           "values": [
             -999390.364990595
           ],
-          "residual": 0,
+          "residual": 3.280575811004e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1599,7 +1488,7 @@
           "values": [
             -999384.0818052879
           ],
-          "residual": 0,
+          "residual": 2.392608333679e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1608,7 +1497,7 @@
           "values": [
             -999377.7986199807
           ],
-          "residual": 0,
+          "residual": 1.504640856353e-11,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1618,14 +1507,8 @@
   },
   {
     "name": "g012-abs-miranda",
-    "eqs": [
-      "abs(x)-2=0"
-    ],
-    "varNames": [
-      "x"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "部分解",
       "provenCount": 2,
       "candidateCount": 0,
       "truncated": false,
@@ -1667,14 +1550,8 @@
   },
   {
     "name": "g013-rational-loan",
-    "eqs": [
-      "120000*p*(1+p)^360-2500000=0"
-    ],
-    "varNames": [
-      "p"
-    ],
     "result": {
-      "resultTypeName": "有限个解",
+      "resultTypeName": "部分解",
       "provenCount": 1,
       "candidateCount": 0,
       "truncated": false,
@@ -1707,22 +1584,14 @@
   },
   {
     "name": "g014-division-equation",
-    "eqs": [
-      "x^2-4=0",
-      "(x-2)/(x+2)=0"
-    ],
-    "varNames": [
-      "x",
-      "y"
-    ],
     "result": {
-      "resultTypeName": "有限个解",
+      "resultTypeName": "部分解",
       "provenCount": 0,
       "candidateCount": 1,
       "truncated": false,
       "hardTimeout": false,
       "positiveDim": false,
-      "completenessProven": true,
+      "completenessProven": false,
       "bound": {
         "varCount": 1,
         "domain": {
@@ -1748,18 +1617,8 @@
   },
   {
     "name": "g015-bezout8",
-    "eqs": [
-      "x^2+y^2+z^2=3",
-      "x*y=1",
-      "y*z=1"
-    ],
-    "varNames": [
-      "x",
-      "y",
-      "z"
-    ],
     "result": {
-      "resultTypeName": "有限个解",
+      "resultTypeName": "部分解",
       "exactSolutionCount": 2,
       "provenCount": 2,
       "candidateCount": 0,
@@ -1791,20 +1650,20 @@
           "values": [
             -0.7071067811865476,
             -1.414213562373095,
-            -0.7071067811865476
+            -0.7071067811865479
           ],
-          "residual": 1.256660886462e-9,
+          "residual": 4.440892098501e-16,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
         },
         {
           "values": [
-            0.7071067811865474,
-            1.4142135623730954,
-            0.7071067811865475
+            0.7071067811865476,
+            1.414213562373095,
+            0.7071067811865478
           ],
-          "residual": 1.256660886462e-9,
+          "residual": 2.22044604925e-16,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1814,14 +1673,6 @@
   },
   {
     "name": "g016-2d-watt",
-    "eqs": [
-      "x^3+y^3-3*a*x*y=0",
-      "x+y=1"
-    ],
-    "varNames": [
-      "x",
-      "y"
-    ],
     "result": {
       "certificateCount": 0,
       "truncated": false,
@@ -1835,14 +1686,8 @@
   },
   {
     "name": "g017-exp-equation",
-    "eqs": [
-      "exp(x)-2=0"
-    ],
-    "varNames": [
-      "x"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "部分解",
       "provenCount": 1,
       "candidateCount": 0,
       "truncated": false,
@@ -1865,7 +1710,7 @@
           "values": [
             0.6931471805599616
           ],
-          "residual": 7.430500659211e-11,
+          "residual": 3.241851231905e-14,
           "tier": "proven",
           "certified": true,
           "method": "krawczyk_newton"
@@ -1875,15 +1720,8 @@
   },
   {
     "name": "g018-inequality-domain",
-    "eqs": [
-      "x^2-4=0",
-      "x>0"
-    ],
-    "varNames": [
-      "x"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "全部解",
       "provenCount": 1,
       "candidateCount": 0,
       "truncated": false,
@@ -1916,20 +1754,14 @@
   },
   {
     "name": "g019-repeated-root",
-    "eqs": [
-      "x^3-3*x^2+3*x-1=0"
-    ],
-    "varNames": [
-      "x"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "部分解",
       "provenCount": 0,
       "candidateCount": 1,
       "truncated": false,
       "hardTimeout": false,
       "positiveDim": false,
-      "completenessProven": true,
+      "completenessProven": false,
       "bound": {
         "varCount": 1,
         "domain": {
@@ -1956,22 +1788,14 @@
   },
   {
     "name": "g020-big-scale",
-    "eqs": [
-      "x*y-1e6=0",
-      "x+y-2000=0"
-    ],
-    "varNames": [
-      "x",
-      "y"
-    ],
     "result": {
-      "resultTypeName": "有限离散孤立采样点",
+      "resultTypeName": "部分解",
       "provenCount": 0,
       "candidateCount": 1,
       "truncated": false,
       "hardTimeout": false,
       "positiveDim": false,
-      "completenessProven": true,
+      "completenessProven": false,
       "bound": {
         "varCount": 2,
         "domain": {

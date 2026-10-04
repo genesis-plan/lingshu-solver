@@ -176,6 +176,21 @@ function suan17(state) {
     var result = (state.equations.length === state.varNames.length)
         ? gaussianSolve(A, b)                  // 方阵：原 sound 路径
         : gaussianSolveRect(A, b);             // 过定：秩感知判定（sound）
+
+    // 方阵 + gaussianSolve 返回 null ⇒ 它无法区分「不相容」与「秩亏」，直接放弃。
+    // 这会让**秩亏方阵**（如 x−y=0 与 x−y=0）掉进多起点牛顿，被当成「有限离散解集」
+    // 输出上百个采样点——而它的解集是一条直线（无穷多解）。
+    // 实测（2026-10-04）：x−y=0, x−y=0 ⇒ resultType=2 / 170 个解 / 163 个误标 proven。
+    // ⇒ 补一次秩感知判定，把两种情形分开（数学上这是必须的，不是可选优化）：
+    //     rank(A) < n ⇒ 解集是 n−rank 维仿射流形 ⇒ resultType=3（无穷多解）
+    //     rank(A) = n 但增广不相容 ⇒ provenEmpty
+    if (!result && state.equations.length === state.varNames.length) {
+        result = gaussianSolveRect(A, b);
+        if (result && result.unique === false) {
+            // 秩亏但相容 ⇒ 明确区分于「唯一解」，让下游的 unique===false 分支接管
+            result.squareFallback = true;
+        }
+    }
     if (!result) return;
 
     // 过定且不相容 → sound 地报"无实数解"（绝非"漏解"）
@@ -192,22 +207,47 @@ function suan17(state) {
         return;
     }
     // 欠定(秩 < 变量数，尽管 m>=n 但方程线性相关) → 无穷多解，给一组特解
+    //
+    // ⚠ 代表点也要走【精确有理数证明】（2026-10-04）：
+    //   实测 x−y=0, x−y=0 修前 confidence='low'、certifiedCoverage=0，
+    //   而这个特解 (0,0) 代入两式残差**恒等于 0** —— 是 ℚ 上的严格证明。
+    //   不标 proven 等于「已经证明过的事谎报成未证明」，与本产品 fail-closed 底线相反。
+    //   另注：confidence 初值给 'low' 是**占位**，真判定由 _resyncConfidence 按认证覆盖率统一做
+    //   （口径见 pipeline/solver.js:_resyncConfidence 的注释）。
     if (result.unique === false) {
-        var pSol = {};
-        state.varNames.forEach(function(v, i) { pSol[v] = roundToGrid(result.solution[i]); });
-        var pVals = state.varNames.map(function(v) { return pSol[v]; });
+        var pExact = _s17ExactLinearProof(A, b, result.solution);
+        var pVals = state.varNames.map(function (v, i) {
+            var _pv = (pExact && typeof pExact[i] === 'number' && isFinite(pExact[i]))
+                ? pExact[i] : roundToGrid(result.solution[i]);
+            return _pv;
+        });
         var pVars = {};
-        state.varNames.forEach(function(v, i) { pVars[v] = pSol[v]; });
+        state.varNames.forEach(function(v, i) { pVars[v] = pVals[i]; });
         var pRes = state.equations.map(function(eq) { return Math.abs(evalAST(eq, pVars)); });
         var pMax = Math.max.apply(null, pRes);
+        var pDim = (result.freeDim !== undefined) ? result.freeDim
+            : (result.rank !== undefined ? state.varNames.length - result.rank : 1);
+        if (!(pDim > 0)) pDim = 1;
         state.done = true;
         state.result = {
-            solutions: [{ values: pVals, residual: pMax }],
-            message: "线性方程组无穷多解（秩 < 变量数，方程线性相关）：给出一组特解（自由变量取 0），任意线性组合均满足",
-            executionPath: "高斯消元(秩判定)",
+            solutions: [{
+                values: pVals, residual: pMax,
+                // ℚ 上精确代入确证 ⇒ proven（严格强于 Krawczyk 区间包含）
+                tier: pExact ? 'proven' : 'candidate',
+                certified: !!pExact,
+                certMethod: pExact ? 'exact_rational_substitution' : null
+            }],
+            message: "线性方程组无穷多解（秩 " + (result.rank !== undefined ? result.rank : '?') +
+                " < 变量数 " + state.varNames.length + "，方程线性相关）：解集是 " +
+                pDim + " 维仿射子空间，给出一组特解（自由变量取 0）作为代表点；" +
+                "任意「特解 + 零空间线性组合」均满足。**这是无穷多解，不是有限解集**",
+            executionPath: pExact ? "高斯消元(秩判定) + 精确有理数证明" : "高斯消元(秩判定)",
             timeMs: performance.now() - state.startTime,
-            confidence: "high", varNames: state.varNames,
-            resultType: 3, resultTypeName: "无限解集(推荐解)", resultTypeDesc: "欠定线性系统，无穷多实解"
+            confidence: 'low', varNames: state.varNames,
+            solutionSpaceDimension: pDim,
+            resultType: 3, resultTypeName: "无限解集(推荐解)",
+            resultTypeDesc: "方程线性相关（秩 < 变量数），解集是 " + pDim +
+                " 维仿射子空间，无穷多实解；输出的是其中 1 个代表点，不代表全部解"
         };
         return;
     }
@@ -215,6 +255,34 @@ function suan17(state) {
     var solution = {};
     state.varNames.forEach(function(v, i) { solution[v] = roundToGrid(result.solution[i]); });
     var values = state.varNames.map(function(v) { return solution[v]; });
+
+    // ── 精确有理数证明（2026-10-04 修 P0）───────────────────────────────
+    //
+    // 实测事故：x+y−3=0, x−y−1=0, x+2y−4=0（超定相容，唯一解 (2,1)）
+    //   修前：executionPath="高斯消元"、tier 缺失、certifiedCoverage=0
+    //         ⇒ Agent 收到 candidates_only +「调 verify 复核」，
+    //           而这个解**三式残差全 0**，早已被精确验证过。
+    //
+    // 为什么这里需要额外一步：`roundToGrid` 把解压到 6 位网格，
+    //   **网格化本身就破坏精确性** ⇒ 线性消元给的浮点解 + 网格化
+    //   只能支撑「残差 < 1e-6」这种数值复核，支撑不了「这是真解」的证明。
+    //   但若浮点解恰好是**有理数且在 ℚ 上精确满足全部方程**，
+    //   那就可以给出**严格证明**（代入即恒等式），比 Krawczyk 区间包含更强。
+    //
+    // 口径（fail-closed）：
+    //   · 系数与解都能转成有理数（分母在 maxDen 内）⇒ 才尝试；
+    //   · 逐式检查 `Σ aᵢⱼxⱼ − bᵢ` 在 ℚ 上**严格等于 0**（不是「接近 0」）；
+    //   · 任一条不过 ⇒ 保持 candidate，不标 proven。
+    var _s17exact = _s17ExactLinearProof(A, b, result.solution);
+    if (_s17exact) {
+        // 证明成立 ⇒ 用精确解（未网格化）作为输出值
+        for (var _ej = 0; _ej < values.length; _ej++) {
+            var _ev = _s17exact[_ej];
+            if (typeof _ev === 'number' && isFinite(_ev)) values[_ej] = _ev;
+        }
+        solution = {};
+        state.varNames.forEach(function (v, i) { solution[v] = values[i]; });
+    }
 
     // 按域约束过滤
     var passesDomain = true;
@@ -233,17 +301,129 @@ function suan17(state) {
     state.varNames.forEach(function(v, i) { vars[v] = solution[v]; });
     var residuals = state.equations.map(function(eq) { return Math.abs(evalAST(eq, vars)); });
     var maxResidual = Math.max.apply(null, residuals);
-    var confidence = maxResidual < 1e-5 ? "high" : (maxResidual < 1e-4 ? "medium" : "low");
+    // ⚠ confidence 不在此判（2026-10-04）：绝对残差分档已在「五·ter」§4 判定为数学上错误的口径
+    //   （大系数题上相消误差使 |p(r)| 必然很大；且「点残差小」≠「解集被证明过」）。
+    //   真正判定由 pipeline 的 _resyncConfidence 按【认证覆盖率】统一做。
+    var confidence = 'low';   // 占位，认证层跑完会被覆盖
 
     state.done = true;
     state.result = {
-        solutions: [{ values: values, residual: maxResidual }],
-        executionPath: "高斯消元",
+        solutions: [{
+            values: values, residual: maxResidual,
+            // ℚ 上精确代入确证 ⇒ proven（严格强于 Krawczyk 区间包含）
+            tier: _s17exact ? 'proven' : 'candidate',
+            certified: !!_s17exact,
+            certMethod: _s17exact ? 'exact_rational_substitution' : null
+        }],
+        executionPath: _s17exact ? "高斯消元 + 精确有理数证明" : "高斯消元",
         timeMs: performance.now() - state.startTime,
         confidence: confidence,
         varNames: state.varNames,
-        resultType: 2, resultTypeName: "有限离散孤立采样点", resultTypeDesc: "高斯消元直接求解"
+        resultType: 2, resultTypeName: "有限离散孤立采样点",
+        resultTypeDesc: _s17exact
+            ? "线性方程组唯一解，已在有理数域精确验证（残差严格为 0）"
+            : "高斯消元直接求解"
     };
+}
+
+
+/**
+ * 线性方程组的**精确有理数证明**（2026-10-04）
+ *
+ * 命题：对 A∈ℚ^{m×n}、b∈ℚ^m 与候选解 x∈ℚ^n，若 `A·x − b` 在 ℚ 上**逐式恒等于 0**，
+ * 则 x 是该方程组的**严格解**（不是「近似解」）。
+ *
+ * 为什么需要它（而不是靠残差小）：
+ *   消元产出的是**双精度浮点解**，再经 `roundToGrid` 到 6 位网格。
+ *   网格化本身破坏精确性 ⇒ 浮点残差只能支撑「误差 < 1e-6」这类**数值复核**，
+ *   支撑不了「x 是解」的**证明**。但若 x 恰为有理数且在 ℚ 上严格满足全部方程，
+ *   代入即恒等式 ⇒ 得到**真证明**，其强度严格高于 Krawczyk 的区间包含
+ *   （后者证「根在盒内」，前者证「代入为零」）。
+ *
+ * 实现口径（fail-closed，任一条不过就返回 null，退回数值路径）：
+ *   · 系数与解都必须能用**有限位分数**精确表示（否则无法谈「严格为零」）；
+ *   · 分母上限 `maxDen` 沿用 exact.js 的 1e9，与有理根判据同口径；
+ *   · 逐式检查 `Σⱼ aᵢⱼ·xⱼ − bᵢ === 0`（分数域上的**严格**零，不是 |·| < tol）。
+ *
+ * @param {number[][]} A  m×n 系数矩阵（行 = 方程）
+ * @param {number[]} b  常数项（b = −常数，方程写作 Σ aᵢⱼxⱼ = bᵢ）
+ * @param {number[]} xCand  候选解（未网格化）
+ * @returns {number[]|null} 证明成立则返回精确解（可含超出双精度精度的分量），否则 null
+ */
+function _s17ExactLinearProof(A, b, xCand) {
+    var MAXDEN = 1e9;
+    var n = xCand.length;
+
+    // 分数（分子/分母），分母恒正、最简由化简保证
+    function rat(v) {
+        if (typeof v !== 'number' || !isFinite(v)) return null;
+        if (v === 0) return [0, 1];
+        if (Math.abs(v) > 1e15) return null;      // 超出可精确表示范围 ⇒ 放弃证明
+        // ⚠ 用 toString() 拿十进制字面量。**不能**用「符号 × 绝对值的字符串」——
+        //   那样 parts[0] 会恒为 "1"（符号），所有非零数都被转成 1/1。
+        //   浮点的 toString() 本身就是最短**可往返**表示（V8 精确实现），
+        //   所以它给出的十进制字面量能被严格解释为这个 double 的值。
+        var str = v.toString();
+        if (str.indexOf('e') >= 0 || str.indexOf('E') >= 0) {
+            // 科学计数：小数点位移后分母可能超 MAXDEN ⇒ 放弃（fail-closed）
+            return null;
+        }
+        var neg = false;
+        if (str.charAt(0) === '-') { neg = true; str = str.slice(1); }
+        var parts = str.split('.');
+        var den = 1;
+        if (parts[1]) den = Math.pow(10, parts[1].length);
+        if (den > MAXDEN) return null;
+        var digits = parts[0] + (parts[1] || '');
+        if (!/^[0-9]+$/.test(digits)) return null;   // 非法字面量 ⇒ 放弃
+        var num = parseInt(digits, 10);
+        if (!isFinite(num)) return null;
+        return gcdf([neg ? -num : num, den]);
+    }
+    function gcdf(f) {
+        var a = Math.abs(f[0]), bq = f[1];
+        while (bq) { var t = a % bq; a = bq; bq = t; }
+        if (a === 0) return [0, 1];
+        var g = a || 1;
+        return [f[0] / g, f[1] / g];
+    }
+    // ⚠ 溢出守卫：分数运算全程用 double，分子一旦超过 2^53 就**不再精确**，
+    //   此时判「严格等于 0」是不可信的（可能把非零算成零，或反之）。
+    //   ⇒ 一旦越界立即放弃证明（fail-closed 方向：宁可不给证明，不给假证明）。
+    var OVER = Math.pow(2, 53);
+    function finite(f) { return isFinite(f[0]) && isFinite(f[1]) && Math.abs(f[0]) < OVER; }
+    function mul(p, q) { return gcdf([p[0] * q[0], p[1] * q[1]]); }
+    function add(p, q) { return gcdf([p[0] * q[1] + q[0] * p[1], p[1] * q[1]]); }
+    function isZero(p) { return p[0] === 0; }
+
+    var xr = [];
+    for (var j0 = 0; j0 < n; j0++) {
+        var r0 = rat(xCand[j0]);
+        if (!r0 || !finite(r0)) return null;      // 分母超限 / 分子溢出 ⇒ 无法严格证明
+        xr.push(r0);
+    }
+    for (var i0 = 0; i0 < A.length; i0++) {
+        var s0 = [0, 1];
+        for (var j1 = 0; j1 < n; j1++) {
+            var av0 = A[i0][j1];
+            if (!av0) continue;
+            var ra0 = rat(av0);
+            if (!ra0 || !finite(ra0)) return null;
+            var t0 = mul(ra0, xr[j1]);
+            if (!finite(t0)) return null;
+            s0 = add(s0, t0);
+            if (!finite(s0)) return null;         // 越界 ⇒ 放弃证明（fail-closed）
+        }
+        var rb0 = rat(b[i0]);
+        if (!rb0 || !finite(rb0)) return null;
+        var d0 = add(s0, [-rb0[0], rb0[1]]);
+        if (!finite(d0)) return null;
+        if (!isZero(d0)) return null;             // 严格非零 ⇒ 不是解
+    }
+    // 证明成立 ⇒ 输出精确解（转回 double；已在 double 表示范围内的分量无损）
+    var out = [];
+    for (var j2 = 0; j2 < n; j2++) out.push(xr[j2][0] / xr[j2][1]);
+    return out;
 }
 
 
@@ -324,17 +504,37 @@ function suan20(state) {
         var fullVars = {};
         getOutputVarNames(state).forEach(function(v, i) { fullVars[v] = fullValues[i]; });
         var origEqs = state.equations.slice();
-        var res = 0;
+        var res = 0, be = 0;
         for (var ei = 0; ei < origEqs.length; ei++) {
             var rv = Math.abs(evalAST(origEqs[ei], fullVars));
             if (rv > res) res = rv;
+            // 后向误差 = |f_e| / Σ|terms|_e（逐式算，不能拿 max|f| 去比一个总量）
+            var sc = 0;
+            try { sc = evalASTScale(origEqs[ei], fullVars); } catch (e0) { sc = 0; }
+            if (!isFinite(sc) || sc <= 0) { be = (rv > 0) ? Infinity : be; continue; }
+            var r2 = rv / sc;
+            if (r2 > be) be = r2;
         }
-        return { values: fullValues, residual: res };
+        return { values: fullValues, residual: res, backwardError: be };
     });
 
     if (solutions.length > 0) {
-        var maxRes = Math.max.apply(null, solutions.map(function(s) { return s.residual; }));
-        var confidence = maxRes < 1e-5 ? "high" : (maxRes < 1e-4 ? "medium" : "low");
+        // 置信度口径（2026-10-04 修正）：这里**不判**，交由 pipeline 的 _resyncConfidence 统一算。
+        //
+        // 为什么本算子不判：suan20 产出的解此刻**还没认证**（tier 要等 _certifySolutions
+        //   的 Krawczyk/Miranda 跑完才定），此刻算出来的任何值都会被下游认证层覆盖。
+        //   历史上有两个错版本：
+        //     ① 早期：按绝对残差判 ⇒ 5x⁴−1e12x²+7 的真根（|p(r)|≈3.8e10，属不可避免的
+        //        相消误差，项量级 4e23、ulp≈3.4e7）一律报 "low"，
+        //        Agent 无法区分「算错了」和「只是尺度大」。
+        //     ② 同日改按后向误差判：后向误差确实解决了 ①，但**判据本身选错了**——
+        //        「点残差小」≠「解集被证明过」。实测欠定系统 x+y−3=0, x−y−1=0, z−1=0：
+        //        解集是一条直线（无穷多解），引擎自己写「未证明解集完备」，
+        //        但代表点精确满足三式 ⇒ BE=0 ⇒ 报 "high"。
+        //        一个「只算出流形上一点」的结果被标成高置信，与红线相反。
+        //   ⇒ 正确口径是**认证覆盖率**（见 pipeline/solver.js:_resyncConfidence 的注释），
+        //     后向误差只作为 backwardError 字段留给 Web 端调试与回归测试。
+        var confidence = 'low';   // 占位：真正的判定在 _resyncConfidence（认证后）
         // 按域约束过滤（用户定义的 x∈[a,b] 等）
         var domainFiltered = solutions.filter(function(sol) {
             for (var dci = 0; dci < state.domainConstraints.length; dci++) {
@@ -835,11 +1035,11 @@ function suan22(state) {
             }
             domainFiltered = _clust2;
             domainFiltered.sort(function(a, b) { return a.residual - b.residual; });
-            // 置信度：通过原始方程回代校验（残差<1e-5）为高，否则中
-            const maxRes = domainFiltered[0].residual;
-            const confidence = maxRes < 1e-5 ? "high" : (maxRes < 1e-4 ? "medium" : "low");
+            // ⚠ 同上（2026-10-04）：绝对残差分档不是 confidence 的合法判据。
+            //   真正的判定在 pipeline 的 _resyncConfidence（按认证覆盖率）。
+            //   这里的残差只用于**排序**（挑范数最小的代表点），不用于定性。
             state.done = true;
-            state.result = { solutions: domainFiltered, executionPath: "显式替换牛顿", timeMs: performance.now() - state.startTime, confidence: confidence, varNames: resultVarNames, resultType: 2, resultTypeName: "有限离散孤立采样点", resultTypeDesc: "显式替换牛顿求解" };
+            state.result = { solutions: domainFiltered, executionPath: "显式替换牛顿", timeMs: performance.now() - state.startTime, confidence: 'low', varNames: resultVarNames, resultType: 2, resultTypeName: "有限离散孤立采样点", resultTypeDesc: "显式替换牛顿求解" };
             // 周期方程完整性标注（2026-08-21）：单变量方程含 sin/cos/tan 等周期函数、
             // 且声明域宽度远超周期时，真解为周期平移的无穷集合，牛顿+扫描只能给出有限
             // 代表根。如实标注 truncated 并说明解的结构，杜绝"静默给出不完整解集"。
@@ -1132,7 +1332,32 @@ function suan60(state) {
     state.varNames.forEach(function (v, k) { vars[v] = solution[v]; });
     var residuals = state.equations.map(function (eq) { return Math.abs(evalAST(eq, vars)); });
     var maxResidual = Math.max.apply(null, residuals);
-    var confidence = maxResidual < 1e-5 ? "high" : (maxResidual < 1e-4 ? "medium" : "low");
+
+    // ── 精确有理数路径的认证标记（2026-10-04 修 P0）────────────────────────
+    //
+    // 实测事故（超定相容线性方程组）：x+y−3=0, x−y−1=0, x+2y−4=0
+    //   正确解 (2,1)（三式残差全 0），但返回：
+    //     tier 缺失 ⇒ certification.proven=0, certifiedCoverage=0
+    //     ⇒ Agent 收到 candidates_only + 「调 verify 复核」
+    //   **而它已经被精确验证过了** —— suan60 走的是 Bareiss 分数自由消元 +
+    //   _s60exactVerify（有理数域代入，残差**严格为 0**，非数值近似）。
+    //
+    // 为什么 `maxResidual` 判不出这件事：
+    //   第 1153 行的 maxResidual 是用 **evalAST 在双精度下重算**的，
+    //   它是**数值近似量**；而 suan60 的证明在 **ℚ 上精确成立**。
+    //   两者是**不同的证明**，代码用弱的那个（且判据本身是绝对残差分档，
+    //   已在「五·ter」§4 判定为数学上错误的口径）。
+    //
+    // 数学定位：ℚ 上的精确代入验证**严格强于** Krawczyk 区间认证
+    // （后者是「根在盒内」的区间包含论证，前者是「代入等于零」的恒等式证明）。
+    // ⇒ 它的解必须标 proven，否则引擎就在**向下游谎报**证据强度。
+    //
+    // fail-closed 方向：只有 verified==='exact-substitution'（精确代入确证）
+    // 才标 proven；仅 Bareiss 消元出解、未做精确验证的，仍走数值路径不标。
+    var _s60ExactProven = (r.verified === 'exact-substitution');
+    // confidence 交由 _resyncConfidence 按认证覆盖率统一算（口径见 solver.js 该函数注释）。
+    // 这里的局部值只用于 state.result 的初值，认证层跑完会被统一覆盖。
+    var confidence = 'low';
 
     state.done = true;
     if (r.kind === 'family') {
@@ -1291,13 +1516,27 @@ function suan60(state) {
                     if (!isFinite(av60)) { rs60 = 1e10; break; }
                 }
                 if (!(rs60 < 1e-6)) continue;      // 残差不过 ⇒ 丢弃，绝不输出错解
-                sols60.push({ values: state.varNames.map(function (v2) { return vv60[v2]; }), residual: rs60 });
+                sols60.push({
+                    values: state.varNames.map(function (v2) { return vv60[v2]; }),
+                    residual: rs60,
+                    // 族解采样点由【精确特解 + 精确零空间基】线性组合再取整到 6 位网格。
+                    // 网格化会引入舍入，故它只是「投影回原方程后残差 < 1e-6」的数值复核，
+                    // **不是** ℚ 上的精确代入 —— 只有未网格化的特解才配 proven。
+                    // ⇒ 这里一律 candidate（fail-closed 方向：证据不足就不给强标记）。
+                    tier: 'candidate', certified: false
+                });
             }
         }
         // 采样全被裁掉（如流形与域无交集）⇒ 回落给特解，绝不空手
         if (!sols60.length) {
             var oneVals = state.varNames.map(function (v3) { return solution[v3]; });
-            sols60 = [{ values: oneVals, residual: maxResidual }];
+            sols60 = [{
+                values: oneVals, residual: maxResidual,
+                // 回落的是**未网格化的精确特解** ⇒ 若已做精确代入确证则标 proven
+                tier: _s60ExactProven ? 'proven' : 'candidate',
+                certified: _s60ExactProven,
+                certMethod: _s60ExactProven ? 'exact_rational_substitution' : null
+            }];
         }
 
         state.result = {
@@ -1320,7 +1559,15 @@ function suan60(state) {
         ? "精确线性代数(suan60 · Markowitz稀疏序+O(n²)精确验证)"
         : "精确线性代数(suan60 · Bareiss分数自由消元)";
     state.result = {
-        solutions: [{ values: values, residual: maxResidual }],
+        solutions: [{
+            values: values,
+            residual: maxResidual,
+            // ℚ 上精确代入确证 ⇒ 标 proven（比 Krawczyk 区间包含更强，见上方注释）
+            tier: _s60ExactProven ? 'proven' : 'candidate',
+            certified: _s60ExactProven,
+            // 认证器名：让 Agent / Web 端知道这是**精确算术**证明，不是区间近似
+            certMethod: _s60ExactProven ? 'exact_rational_substitution' : null
+        }],
         message: "唯一解（精确秩判定：rank = n = " + n + "）。" +
             (r.verified === 'exact-substitution'
                 ? "解已用精确有理数代入原方程逐式验证通过（残差严格为 0，非数值近似）。"
@@ -1416,7 +1663,7 @@ function suan59(state) {
     }
     if (!state || !state.equations || state.equations.length !== 2) return;
     if (!state.varNames || state.varNames.length !== 2) return;
-    // 存在不等式约束时不接管（解集还需交���求交，逻辑另走 OP_INEQ）
+    // 存在不等式约束时不接管（解集还需交叉求交，逻辑另走 OP_INEQ）
     if (state.inequalityConstraints && state.inequalityConstraints.length) return;
     // 已被显式代入消元（suan19）⇒ 降为一元，走 suan51 更快，本算子不抢
     if (state.substitutions && Object.keys(state.substitutions).length) return;

@@ -162,7 +162,11 @@ function solve(equationStrs, varNames, decimals, initialD0, fastMode, opts) {
                 var _lsEqStr = _eqsNorm[_lsEi];
                 if (typeof _lsEqStr !== 'string') continue;
                 var _lsToks = null;
-                try { _lsToks = tokenize(fuzzyFix(_lsEqStr, _lsEntryProt)); } catch (_lsTe) { continue; }   // 必须先 fuzzyFix：门禁与 setup 解析须看同一个字符串，否则隐式乘 "2x" 会被误判为未声明标识符（见下方注释）
+                // ⚠ 2026-10-04：第二个参数把【声明过的变量名】传给 tokenize ——
+                //   否则变量名 `e` 会被当成欧拉数 2.718 静默替换（见 lex.js 的 P0 说明），
+                //   本门禁就会把 `a+b+c+d+e` 里的 e 漏判为「未声明标识符」⇒ 早退 0 解。
+                //   口径必须与 setup 解析层完全一致（同源），否则又是一处分叉。
+                try { _lsToks = tokenize(fuzzyFix(_lsEqStr, _lsEntryProt), _lsEntryProt); } catch (_lsTe) { continue; }   // 必须先 fuzzyFix：门禁与 setup 解析须看同一个字符串，否则隐式乘 "2x" 会被误判为未声明标识符（见下方注释）
                 for (var _lsTi = 0; _lsToks && _lsTi < _lsToks.length; _lsTi++) {
                     if (_lsToks[_lsTi].type === 'var' && !_lsDeclSet[_lsToks[_lsTi].name]) {
                         _lsBadName[_lsToks[_lsTi].name] = 1; _lsBadAny = true;
@@ -289,6 +293,23 @@ function _buildMeta(state) {
     var contracted = fired.filter(function (id) { return (opStats[id].gain || 0) > 0; });
     var truncated = !!state.truncated;
     var term = truncated ? 'resource_exhausted' : (state.fastMode ? 'fast_mode' : 'converged');
+    // 🔴 2026-10-04 新增：算子耗时排行（用户重点「时间消耗」的可观测面）
+    //
+    // 为什么必须透出（三个理由，缺一不可）：
+    //   ① Agent 决策：拿到「时间花在哪」才能自己选路（改域 / 减变量 / 换容差 / 直接放弃）。
+    //      之前 meta 只有 operatorsFired（算子**名字**列表），没有耗时，
+    //      Agent 无法区分「这条路径很快」和「这条路径注定超时」。
+    //   ② 可诊断：6 元二次实测撞满 8 秒 0 解，若没有耗时分布只能靠反复插桩猜。
+    //   ③ 排序是「确定性」的：先按 ms 降序，同 ms 按 id 字典序 —— 输出稳定可 diff，
+    //      不会出现两次同输入两次不同顺序的「噪声 diff」。
+    //
+    // ⚠ 只取前 12 个：opStats 有 40+ 项，全量会让 meta 膨胀（Agent 侧有 1600B 预算）。
+    //   超时的场景最需要看的就是「前几名谁在烧时间」。
+    var _prof = fired.map(function (id) {
+        var r = opStats[id] || {};
+        return { op: id, name: r.name || id, ms: +(r.ms || 0).toFixed(2), calls: r.calls || 0, gain: +(r.gain || 0).toFixed(3), errors: r.errors || 0 };
+    });
+    _prof.sort(function (a, b) { return (b.ms - a.ms) || (a.op < b.op ? -1 : 1); });
     return {
         solverVersion: SOLVER_VERSION,
         reportId: _computeReportId(state),
@@ -299,6 +320,9 @@ function _buildMeta(state) {
         operatorsFired: fired,
         operatorsFiredCount: fired.length,
         operatorsContracted: contracted,
+        // 算子耗时 TOP12（降序；ms 为该算子所有调用累计）
+        operatorProfile: _prof.slice(0, 12),
+        operatorProfileTotalMs: +_prof.reduce(function (s, x) { return s + x.ms; }, 0).toFixed(2),
         contractionRounds: state.contractionRounds || 0,
         contractionGain: +(state.contractionGain || 0).toFixed(3),
         monotonicityViolations: (state.contractionViolations || []).length,
@@ -347,6 +371,65 @@ function _residualAt(eq, vm) {
         }
         return v;
     } catch (err) { return NaN; }
+}
+
+
+/**
+ * 置信度按【认证证据】重算（2026-10-04 修正，撤销同日的 backwardError 版本）
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * 为什么必须用「认证覆盖率」而不是「点残差」（这个错我犯过一次，记下来）
+ *
+ * v1（错误）：confidence = f(max 后向误差)，<1e-9 ⇒ high
+ *   判据的直觉是「解算得准 ⇒ 可信」。这个直觉**在数学上是错的**，因为
+ *   **「这一点残差小」与「这个解集被证明过」是两个不同的命题**。
+ *
+ *   实测反例（欠定系统 x+y−3=0, x−y−1=0, z−1=0）：
+ *     解集是 3 维空间里的**一条直线**（正维流形，**无穷多解**），
+ *     引擎自己都在 message 里写「未证明解集完备」，
+ *     但那个代表点精确满足三式 ⇒ 后向误差 = 0 ⇒ confidence 报 **"high"**。
+ *   ⇒ 一个只算出了「流形上一个点」的结果，被标成了「高置信」。
+ *   读者（人）会以为「答案就是它」，这与项目「宁可少给不可给错」的红线相反。
+ *
+ *   数学表述：confidence 想回答的是 **∃ 存在性证明的强度**（一阶量），
+ *   而后向误差回答的是 **某个具体点的代入误差**（点态量）。
+ *   欠定时点态误差可以任意小（投影到流形上即可），而存在性证明根本不存在。
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * 为什么残差本来就不该当「可信度」
+ *   「x 是否是真解」= 零测试（zero test）。这个问题在一般情形下**不可判定**：
+ *     · Richardson 1968, *J. Symbolic Logic* 33(4):514–520：
+ *       对含 x, e^x, sin x, |x|, π, ln2 的表达式类，
+ *       「是否有 x 使 A(x)=0」与「A(x) 恒等于 0」都**不可判定**。
+ *     · Blömer 1991 (FOCS 32:670–677) / 1998 (ESA, LNCS 1461:151–162)：
+ *       即使退化到「有理数的平方根和」，零判定也只是 **co-NP**（单向误差蒙特卡洛），
+ *       判定**符号**至今仍是公开问题。
+ *   ⇒ 任何「|f(x)| < ε ⇒ x 是根」的推理都**不是证明**，只是启发式。
+ *     本项目里它只允许出现在两个地方，且都明确 fail-closed：
+ *       · polyIsRootWithin / _finalResidualGate：**筛选器**（剔伪解），不产出可信度；
+ *       · backwardError：**诊断量**（Web 端调试 / 回归测试），不进 Agent 决策面。
+ *   可信度必须由**区间算子给出的存在性/唯一性证书**回答：Krawczyk / Miranda / MK-test。
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * 本函数的口径（只看认证覆盖率，与 tier 分布一致）
+ *   high   = 全部解都 tier==='proven'（coverage === 1）
+ *   medium = 部分 proven（0 < coverage < 1）
+ *   low    = 一个 proven 都没有（全是 candidate）
+ *   无解   = 不动（空结果没有「解的可信度」可言，交给 provenEmpty / truncated 表达）
+ *
+ * 放在收口处的原因不变：tier 会被认证层与后面的过滤改写，
+ * 分散算必然算在别人的改写之前。
+ */
+function _resyncConfidence(state) {
+    var res = state && state.result;
+    if (!res || !res.solutions || !res.solutions.length) return;
+    var proven = 0;
+    for (var i = 0; i < res.solutions.length; i++) {
+        var s = res.solutions[i];
+        if (s && (s.tier === 'proven' || s.certified === true)) proven++;
+    }
+    res.confidence = (proven === res.solutions.length) ? "high"
+        : (proven > 0 ? "medium" : "low");
 }
 
 
@@ -453,6 +536,186 @@ function _filterIllDefined(state) {
 }
 
 
+/**
+ * 🔴🔴 最终残差闸门（2026-10-04，P0 数学正确性最后一道防线）
+ *
+ * 为什么要在 _filterIllDefined 之后再加一道：
+ *   _filterIllDefined 用的是 **state.equations（已化简 AST）** 或 userEquations，
+ *   而分支定界的递归子问题会把 state.D0 收窄、把 state.equations 改写。
+ *   于是出现了一条**绕过路径**：递归子问题返回的候选解，
+ *   在**子 state 里**通过了过滤（对着子域是对的），回到父 state 后
+ *   仍带着子 state 的语义。实测事故：
+ *
+ *     p ∈ [−2.5e9, 2.5e9] 上的 120000·p·(1+p)^360 = 2500000（真解 p=0.01955）
+ *     → 返回 9650 个「解」，其中 9468 个 residual 自报为 0；
+ *     → 独立回代：p=±1.25e9 等点处 (1+p)^360 溢出成 ±Infinity，
+ *       表达式值是 Infinity，而 Infinity 减掉常数仍是 Infinity；
+ *     → 这些点被算成「残差 0 的完美解」。
+ *
+ *   也就是说：**溢出被当成了零残差**。这不是精度问题，是正确性问题 ——
+ *   给用户 9468 个假解，比返回 0 解恶劣得多。
+ *
+ * 本闸门的判据（与前两道都不同，这是它的价值所在）：
+ *   ① 用 **state.equationStrs 原始字符串** 重新解析，不复用任何可能被改写的 AST；
+ *   ② 直接调 evalAST 取**表达式的值**，而不是相减后的残差 ——
+ *      非有限值（NaN/±Infinity）在这里被显式拒绝，而不是让它参与减法变成 NaN 后被漏过；
+ *   ③ 阈值用**后向稳定残差**（Higham 标准做法）：|f(x)| ≤ τ · Σ|terms|，
+ *      其中 Σ|terms| 是表达式各项绝对值之和（f 在该点求值的**条件数尺度**），
+ *      τ 取 1e-11（约 4.5 万倍机器 eps，覆盖表达式深度带来的舍入放大）。
+ *      这不是放水，是把「允差」和**问题自身的量纲**绑定：
+ *
+ *   🔴 2026-10-04 修 tol 退化 bug（误杀真根，比原 bug 更普遍）
+ *      初版阈值写的是 max(1e-6, |rhs| × 1e-7)，其中 |rhs| 取「等号右端的常数」。
+ *      但 `expr=0` 是方程的**标准写法** ⇒ 右端恒为 0 ⇒ tol ≡ 1e-6 恒成立。
+ *      实测后果：x^2−1e13=0（真根 ±3162277.66）的两个真根被当伪解杀掉 ——
+ *      因为 x=3162277.6601683795 时 x^2 的双精度舍入误差本身就是 0.00195，
+ *      而 tol 只有 1e-6。**凡是根量级超过 ~1e3 的大系数方程，真根全被误杀。**
+ *      教训：绝对容差必须与表达式在该点的量纲挂钩，用固定 1e-6 判「残差为 0」
+ *      在大系数问题上等价于「把所有解都判成伪解」。
+ *
+ * ⚠ 拒绝对齐用户利益：宁可少给解，不可给错解。全部被拒时如实标注，
+ *   绝不让「伪解列表」流到 Agent 面前。
+ */
+/**
+ * 🔴🔴 2026-10-04 新增（P0，与 _finalResidualGate 对称）：**不等式约束终态闸门**。
+ *
+ * 实测事故：`x^2=0` + `x>0` 返回解 `x=0` —— x=0 **违反** x>0。
+ *   根因不是求解器算错了，而是**没有任何一道闸门校验不等式**：
+ *     · `_finalResidualGate` 只代回**等式** AST（state.equations 里根本没有不等式，
+ *       setup.js:61 明确写「不等式不加入 equations 数组」）；
+ *     · `verifyAllConstraints`（真正会校验不等式的函数）只在 `suan48` 里被调用，
+ *       而 suan48 首行就 `if (!state.isInequalityOnly) return`（ineq.js:7）
+ *       ⇒ **混合系统（等式+不等式）的解从不经过任何不等式校验**。
+ *   D0 收紧只能保证「不去盒外找」，无法剔除**恰好落在约束边界上**的点 ——
+ *   而网格采样最易命中的恰恰就是边界点（0 就是这种点）。
+ *
+ * 为什么是 P0：`x^2=0, x>0` 的**真解集是空集**，工具却返回了一个解。
+ *   Agent 会直接把它当答案报给用户 ⇒ 输出**违反问题本身约束**的解，
+ *   比「算不出」严重得多（算不出只是不知道，给错是骗人）。
+ *
+ * 为什么放在 `_finalResidualGate` 之后同一个位置：那个位置踩过一次坑（见上 1432 行注释）——
+ *   _mergeGlobalBranch 会在更早处把全局分支定界的解**再塞一次**进 state.result.solutions，
+ *   闸门必须站在「所有写入路径的最后一个」之后，否则就是假闸门。
+ *
+ * fail-closed 方向选择：
+ *   · 约束**解析失败** → 该候选判为「无法验证」→ **保留**（不因验证不了就误杀真解，
+ *     与 _finalResidualGate 的既有取舍一致）；
+ *   · 约束**解析成功且明确违反** → 剔除。这条不能反过来：宁可少给，不可给错。
+ *   · 严格不等式（> / <）按**精确违反**判定；非严格（>= / <=）用 1e-6 容差
+ *     （沿用 verifyAllConstraints 的既有口径，两处必须一致，否则闸门与 suan48 互相打架）。
+ */
+function _finalConstraintGate(state) {
+    var sols = (state && state.result && state.result.solutions) || [];
+    if (!sols.length) return;
+    var iq = state.inequalityConstraints || [];
+    if (!iq.length) return;
+    var vns = getOutputVarNames(state);
+    if (!vns || !vns.length) return;
+    var kept = [], dropped = 0;
+    for (var i = 0; i < sols.length; i++) {
+        var vals = sols[i].values;
+        if (!vals || vals.length < vns.length) { kept.push(sols[i]); continue; }
+        if (verifyAllConstraints(vals, iq, vns)) { kept.push(sols[i]); continue; }
+        // 区分「明确违反」与「无法验证」：verifyAllConstraints 两者都返回 false。
+        // 无法验证的候选必须保留（不因验证不了就误杀），否则会把真解误删。
+        if (_constraintsVerifiable(vals, iq, vns)) { dropped++; continue; }
+        kept.push(sols[i]);
+    }
+    if (dropped > 0) {
+        state.result.solutions = kept;
+        state.result.inequalityGateDropped = (state.result.inequalityGateDropped || 0) + dropped;
+        var note = '不等式约束闸门剔除 ' + dropped + ' 个违反约束的候选（如 x>0 却返回 x=0）';
+        if (!state.result.warnings) state.result.warnings = [];
+        if (state.result.warnings.indexOf(note) < 0) state.result.warnings.push(note);
+    }
+}
+// 约束是否**每一项都能求值**（不是「是否满足」）。全可求值 ⇒ verifyAllConstraints 的 false
+// 就是真违反；有一项求不出 ⇒ false 只说明「验证不了」，不能据此剔除。
+function _constraintsVerifiable(values, constraints, varNames) {
+    var vars = {};
+    for (var vi = 0; vi < varNames.length; vi++) vars[varNames[vi]] = values[vi];
+    for (var ci = 0; ci < constraints.length; ci++) {
+        var c = constraints[ci];
+        if (!c || !c.lhs || !c.rhs) continue;
+        var lv, rv;
+        try { lv = evalAST(c.lhs, vars); } catch (e) { return false; }
+        try { rv = evalAST(c.rhs, vars); } catch (e2) { return false; }
+        if (lv === null || lv !== lv || rv === null || rv !== rv
+            || !isFinite(lv) || !isFinite(rv)) return false;
+    }
+    return true;
+}
+
+function _finalResidualGate(state) {
+    var sols = (state && state.result && state.result.solutions) || [];
+    if (!sols.length) return;
+    var eqStrs = state.equationStrs || state._origEqStrs;
+    if (!eqStrs || !eqStrs.length) return;   // 无原始串可依据 ⇒ 不动（fail-open 只限「无法验证」场景）
+    var vns = getOutputVarNames(state);
+    if (!vns || !vns.length) return;
+
+    // 原始方程 → AST（解析失败的一律置 null，稍后按「无法验证」放行，绝不误杀）
+    var asts = [];
+    for (var ei = 0; ei < eqStrs.length; ei++) {
+        var a = null;
+        try {
+            var s = String(eqStrs[ei]);
+            var k = s.indexOf('=');
+            if (k < 0) a = parse(tokenize(s, vns));
+            else a = { type: 'binop', op: '-', left: parse(tokenize(s.slice(0, k), vns)), right: parse(tokenize(s.slice(k + 1), vns)) };
+        } catch (e) { a = null; }
+        asts.push(a);
+    }
+    if (!asts.some(function (x) { return !!x; })) return;
+
+    // 🔴🔴 2026-10-04 修 tol 退化：绝对容差 → 后向稳定相对容差
+    //
+    // 判据（Higham 标准结论）：双精度求值误差上界 = eps · Σ|terms|，
+    // 所以「残差真的是 0」这件事**没有绝对阈值可判**，必须与量纲挂钩。
+    //
+    // τ = 1e-11 的依据：机器 eps = 2.2e-16，τ/eps ≈ 4.5e4 倍余量，
+    //   用来覆盖「表达式求值链的深度」造成的舍入放大（实测 x^2 情形放大到 2e-15 量级，
+    //   即 ~2e-14 相对误差 ⇒ τ=1e-11 有 500 倍余量，稳）。
+    //
+    // ⚠ 保底 1e-6 保留：Σ|terms| 算不出尺度时（表达式全是函数节点，evalASTScale 返回 0）
+    //   退回绝对容差。此时是**偏严**方向（fail-closed），符合「宁可少给不给错」的取舍。
+    var TAU_REL = 1e-11;
+    var TOL_ABS_FLOOR = 1e-6;
+
+    var kept = [], droppedBad = 0, droppedUnverifiable = 0;
+    for (var i = 0; i < sols.length; i++) {
+        var vals = sols[i].values;
+        if (!vals || vals.length < vns.length) { droppedUnverifiable++; continue; }
+        var vmap = {};
+        for (var v = 0; v < vns.length; v++) vmap[vns[v]] = vals[v];
+        var bad = false;
+        for (var e2 = 0; e2 < asts.length && !bad; e2++) {
+            if (!asts[e2]) continue;   // 该式解析失败 ⇒ 不参与本候选的判据（不误杀）
+            var ev, scale;
+            // 🔴 关键：先判「表达式值本身是否有限」，再谈残差。
+            //   Infinity − Infinity = NaN，NaN 与 0 比较恒为 false，很容易在下游被「当作已通过」。
+            try { ev = evalAST(asts[e2], vmap); } catch (err) { ev = NaN; }
+            if (ev === null || ev !== ev || !isFinite(ev)) { bad = true; break; }
+            try { scale = evalASTScale(asts[e2], vmap); } catch (err2) { scale = 0; }
+            if (!isFinite(scale) || scale <= 0) scale = 0;
+            var tol = Math.max(TOL_ABS_FLOOR, scale * TAU_REL);
+            if (Math.abs(ev) > tol) { bad = true; break; }
+        }
+        if (bad) { droppedBad++; continue; }
+        kept.push(sols[i]);
+    }
+    if (droppedBad > 0 || droppedUnverifiable > 0) {
+        state.result.solutions = kept;
+        // 被剔除数量要如实告知（Agent 需要知道「引擎找到 N 个，其中 M 个是伪解」）
+        var gateNote = '残差闸门剔除 ' + droppedBad + ' 个非解候选'
+                     + (droppedUnverifiable ? ('（另有 ' + droppedUnverifiable + ' 个结构异常）') : '');
+        if (!state.result.warnings) state.result.warnings = [];
+        if (state.result.warnings.indexOf(gateNote) < 0) state.result.warnings.push(gateNote);
+        state.residualGateDropped = droppedBad;
+    }
+}
+
+
 function _enforceVarInvariant(state) {
     if (!state || !state.result || !state.result.solutions) return;
     var target = getOutputVarNames(state).length;
@@ -502,6 +765,15 @@ function _assignTiers(state) {
     state.result.provenCount = proven;
     state.result.candidateCount = cand;
     state.result.structuralCount = struct;
+
+    // —— 新增：把「独立计数证据」透传到顶层，别只藏在 sturmCompleteness 里 ——
+    // ⚠ 教训：sturmIncomplete 写进去却没人读，等于没算（2026-10-04 实测 x^5-1e20*x+1=0
+    //   漏 2 个根却报完备）。凡是「已算出但没被消费」的字段都是负债，要提到顶层。
+    if (state.result.sturmCompleteness && state.result.sturmCompleteness.certified === true) {
+        state.result.expectedRealRootCount = state.result.sturmCompleteness.realRootCount;
+        state.result.missingRealRootCount = (state.result.sturmCompleteness.complete === false)
+            ? state.result.sturmCompleteness.missing : 0;
+    }
 }
 
 
@@ -520,14 +792,152 @@ function _assignEmptiness(state) {
 function _assignCompleteness(state) {
     if (!state || !state.result) return;
     var vns = getOutputVarNames(state);
+
+    // —— fail-closed 门控：完备性不能是硬编码常量，必须由证据决定 ——
+    // ⚠ 踩过的坑（2026-10-04）：此处原本写死 provenIsComplete: true。
+    //   实测 x^5-1e20*x+1=0 暴露破口 —— _sturmCompletenessCheck 独立算出域内 3 个实根、
+    //   只找到 1 个，已把 sturmIncomplete={realRootRoots:3, found:1, missing:2} 写进 result，
+    //   但【没有任何下游消费它】⇒ 顶层照样报 provenCount:1 + provenIsComplete:true（漏解还宣称完备）。
+    //   根因不是 Sturm 不算数，而是「算了不等于用」。凡是能证明「可能漏解」的地方都必须降级。
+    var gaps = [];
+
+    // —— 门控⓪：Sturm 计数的 found 必须按【最终输出】重算（2026-10-04）——
+    // ⚠ 为什么必须在这里重算，而不能直接信 sturmIncomplete：
+    //   _sturmCompletenessCheck 在 solver.js:1086 就跑完了，那时 solutions 还是【未过滤】的快照；
+    //   之后 _filterIllDefined / _finalResidualGate / _mergeGlobalBranch 又会继续剔除解。
+    //   于是 found 会停留在「过滤前」的数上 ⇒ 门控①拿到一个偏大的 found ⇒ missing 偏小
+    //   ⇒ 【漏了 2 个解却报 complete:true】。
+    //   实测事故：5x⁴−1e12x²+7=0。域内 4 个实根，过滤前 found=4、Sturm 也数出 4 ⇒ 判 complete；
+    //   但两个小根（±2.6e-6）被 6 位绝对网格 + 邻域穿越判据剔除，最终只输出 2 个解。
+    //   Agent 拿到 complete:true 会断言「全部解都在这里」—— 直接违反数学正确性。
+    // 本函数是完备性判定的最后一道（1347 行，在所有过滤之后），所以这里的解数就是最终解数。
+    var _sc = state.result.sturmCompleteness;
+    if (_sc && _sc.certified === true && typeof _sc.realRootCount === 'number') {
+        var _finalFound = (state.result.solutions || []).length;
+        if (_finalFound !== _sc.found) {
+            _sc.found = _finalFound;
+            _sc.complete = (_sc.realRootCount === _finalFound);
+            if (_sc.complete) { delete _sc.missing; }
+            else { _sc.missing = _sc.realRootCount - _finalFound; }
+        }
+        if (!_sc.complete) {
+            state.result.sturmIncomplete = {
+                provenRealRoots: _sc.realRootCount,
+                found: _sc.found,
+                missing: _sc.realRootCount - _sc.found
+            };
+        } else {
+            state.result.sturmIncomplete = null;
+        }
+        // 顶层透传必须在这里跟着刷新：_assignTiers 里的那份是过滤前的快照
+        //（实测 5x⁴−1e12x²+7 顶层 missingRealRootCount 报 0，实际缺 2）。
+        // 「已算出但没被消费」和「算了但用的是旧值」是同一类病。
+        state.result.expectedRealRootCount = _sc.realRootCount;
+        state.result.missingRealRootCount = _sc.complete === false ? _sc.missing : 0;
+    }
+
+    // 门控①Sturm 独立计数与实-found 不一致（单变量多项式最强的完备性证据）
+    // ⚠ 两个方向都要说清：found > provenRealRoots 同样是异常（输出了 Sturm 证明不存在的根），
+    //   不能只报「缺 N 个」把负数说成缺几个。
+    // ⚠⚠ 措辞必须跟 `realRootCount` 的口径一致（2026-10-04 二次修正）：
+    //   realRootCount 现在来自 _sturmCountRange，区间是**声明空间**（问题里的不等式/域约束界定，
+    //   可 ±∞），不是搜索盒、也不是盲目用 ℝ。scope='R' 表示无约束、空间就是 ℝ；
+    //   scope='declared' 表示空间由约束界定（见 sturmCompleteness.declaredLo/Hi）。
+    //   旧文案写「域内共 N 个实根」会让 Agent 以为「域外还可能有」—— 而 scope 已声明计数空间，
+    //   文案与数据自相矛盾；写「全域」在有约束时又不准确。
+    var _scScope = (_sc && _sc.scope === 'declared') ? '声明空间内' : '全域';
+    if (state.result.sturmIncomplete && state.result.sturmIncomplete.missing !== 0) {
+        var _si2 = state.result.sturmIncomplete;
+        gaps.push(_si2.missing > 0
+            ? ('Sturm 独立计数证明' + _scScope + '共 ' + _si2.provenRealRoots +
+               ' 个实根，本次仅找到 ' + _si2.found + ' 个，缺 ' + _si2.missing + ' 个')
+            : ('Sturm 独立计数证明' + _scScope + '共 ' + _si2.provenRealRoots +
+               ' 个实根，却输出了 ' + _si2.found + ' 个（多出 ' + (-_si2.missing) +
+               ' 个）——独立计数与输出互相矛盾，不可宣称完备'));
+    }
+    // 门控②仍有未认证的 candidate。
+    //  ⚠ 实测 2^x+x^2-100=0 暴露的隐蔽破口：它返回 2 个 tier='candidate'（certified=false），
+    //    却因「没触发任何截断/Sturm 缺口」而算出 complete=true。
+    //    理由：Krawczyk 只能证明「这个候选点附近有唯一根」，【无法证明没有别的根】。
+    //    所以只要存在未经认证的候选解，且无独立的完备性证据（Sturm/单调分段），
+    //    就【必须】降级为未验证 —— 0 个 proven 时声称完备在逻辑上毫无意义。
+    var hasCandidate = (state.result.candidateCount || 0) > 0;
+    var hasCompletenessProof = !!(
+        (state.result.sturmCompleteness && state.result.sturmCompleteness.complete === true) ||
+        (state.result.s55Completeness && state.result.s55Completeness.segmentsProven === true)
+    );
+    if (hasCandidate && !hasCompletenessProof) {
+        gaps.push('存在 ' + state.result.candidateCount +
+            ' 个未经认证的候选解（certified=false），且无独立完备性证据（Sturm 精确计数 / 导数单调分段）' +
+            '——Krawczyk 只能证明候选点附近根唯一，不能证明没有其它根');
+    }
+    // 门控③解数被截断：resultant.js 用 truncated + exactCount 标记「精确总数 > 实际返回数」。
+    //  ⚠ 这里【曾经】写过一个不存在的 displayCapped 字段 —— 教训：门控字段必须先 grep 核实存在，
+    //    凭记忆写门控等于造了一条永不触发的假保护，比没有保护更危险（会给人虚假安全感）。
+    if (state.result.truncated === true) {
+        gaps.push('计算被资源上限中止，结果不完整（truncated）');
+    }
+    // 门控④精确计数（若有）大于实际返回解数 —— 截断了但没标 truncated 的路径
+    if (typeof state.result.exactCount === 'number' && state.result.exactCount > (state.result.solutions || []).length) {
+        gaps.push('精确计数为 ' + state.result.exactCount + '，实际只返回 ' +
+            (state.result.solutions || []).length + ' 个（解被截断）');
+    }
+    // 🔴🔴 门控⑤（2026-10-04，P0）：全局区间分支定界**未运行** ⇒ 完备性未验证。
+    //
+    //   实测事故（我自己引入的）：把全局分支定界改成默认关之后，
+    //   x³−x=0 的 completeness.provenIsComplete 从 false **翻成 true** ——
+    //   因为门控③ 靠 state.result.truncated 触发，而 truncated 恰恰是
+    //   _mergeGlobalBranch 在 complete=false 时置的。关掉分支 ⇒ 不置 truncated
+    //   ⇒ 没有任何 gap ⇒ isComplete=true。
+    //   ⇒ 而「没跑过穷举」和「穷举过且穷尽了」在逻辑上**完全不同**：
+    //     前者对「有没有漏解」**零信息**，报 true 是**纯谎报**。
+    //   这正是本产品最不能犯的错（Agent 客群靠它判断能否断言「找全了」）。
+    //
+    //   正确口径：**没做过完备性检查 ⇒ 完备性未验证**，与「检查过且通过」严格区分。
+    //   ⇒ 无条件降级，不看有没有候选解、不看解是否已被证明存在。
+    if (state.result.globalBranchSkipped && !hasCompletenessProof) {
+        gaps.push('全局区间分支定界未运行（默认关闭）⇒ 未做过任何完备穷举检查，' +
+            '"没有漏解"这件事**没有任何证据**；proven 只证明"这一个解确实存在"，' +
+            '不证明"没有别的解"。需要完备穷举请显式传 {globalBranch:true}');
+    }
+
+    var realGaps = gaps.filter(function (g) { return !!g; });
+    var isComplete = realGaps.length === 0;
+
+    // ⚠ 2026-10-04 修文档 bug：原来这里硬写「声明定义域[-10000,10000]」，
+    //   但 _domBoxOf 里的实测默认域是 [-1e6, 1e6]（差 100 倍）。写死的 scope 字符串
+    //   会让 Agent 按错误的域判断完备性 ⇒ 改为从实际域动态生成，绝不写死数值。
+    var _scopeDom = state._initD0 || state.D0 || null;
+    var _domTxt = '实际求解域(见 result.bound.domain)';
+    if (_scopeDom && typeof _scopeDom === 'object') {
+        try {
+            var _parts = [];
+            for (var _si = 0; _si < vns.length; _si++) {
+                var _sn = vns[_si], _sv = _scopeDom[_sn];
+                if (_sv && _sv.min !== undefined) _parts.push(_sn + '∈[' + _sv.min + ',' + _sv.max + ']');
+            }
+            if (_parts.length) _domTxt = _parts.join(' ');
+        } catch (e) { /* 域结构异常就保持泛化表述，绝不因此崩 */ }
+    }
+
     state.result.completeness = {
-        scope: '变量数≤6、声明定义域[-10000,10000]、有限网格(6位小数)、残差容差三档(1e-6/1e-9/1e-3)',
-        provenIsComplete: true,        // proven 解（certified）在本网格/定义域下经 Krawczyk 唯一性证明，已完备
-        candidateMayMiss: true,        // candidate 解未经证明，可能存在漏解/伪根
+        scope: '变量数≤6、' + _domTxt + '、有限网格(6位小数)、残差容差三档(1e-6/1e-9/1e-3)',
+        provenIsComplete: isComplete,
+        candidateMayMiss: hasCandidate ? true : false,
         emptyProofNote: 'emptyProof=proof_empty 表示已严格证明域内无解；candidate_empty 仅表示未找到，不保证不存在',
         undecidability: '对任意超越系统，Richardson 不可判定定理表明不存在判定"有解/无解/几解"的通用算法；本工具保证边界如上，不对全部输出承诺100%正确',
         reproducibility: '全路径无随机数(Math.random=0)，种子确定性，结果跨运行/平台可复现'
     };
+    if (realGaps.length) {
+        // ⚠ fail-closed：一旦发现漏解证据，降级为「未验证」，并把证据原样带出去，不隐藏。
+        state.result.completeness.incompleteReasons = realGaps;
+        state.result.provenIsCompleteFalse = true;
+        if (realGaps.length >= 1) {
+            state.result.warnings = (state.result.warnings || []).concat([
+                '完备性降级为「未验证」：' + realGaps.join('；')
+            ]);
+        }
+    }
     state.result.bound = {
         varCount: vns.length,
         domain: state._initD0 || state.D0 || {},
@@ -587,9 +997,13 @@ function _assignCertBlock(state) {
  *   ② 残差必须 < 1e-9（与 suan49 门槛一致）—— 达不到就完全不动 state
  *   ③ 逐点回代原始 AST 验算，不只信投影自己报的 residual
  *
- * 采纳后**必须**把 truncated 语义改回：拿到了真解就不是「没算完」。
- * 但完备性仍不声称（可能有别的解没找到），故 truncated 由 true 改为 false 并
- * 写入 warning 说明「只证明了至少一个解存在」。这是诚实的最小声明。
+ * 采纳后 truncated **必须保持 true**（2026-10-04 修正，原注释说改回 false 并真的改了）：
+ * 本路径只证明「至少存在一个解」—— 那是**存在性**，不是**完备性**。
+ * 清掉 truncated 等于宣称「这就是全部解」，而 Agent 客群靠它判断能否断言「找全了」。
+ * 同时必须**重写 message/warnings**：兜底里的「8 秒预算被中止」在欠定路径上是误报
+ * （欠定系统在阶段 3.5 之前就 return，根本没进主求解），留着是给 Agent 的假指令。
+ * 「至少一个解」这个信息没丢：resultTypeName / confidence='low' / tier='candidate'
+ * / rescueProjection 都在明说。见下方 state.result.truncated = true 处的完整注释。
  */
 function _rescueUnderdeterminedByProjection(state) {
     var eqs = state.userEquations || [];
@@ -660,9 +1074,30 @@ function _rescueUnderdeterminedByProjection(state) {
         certMethod: 'kkt_projection'
     };
     state.result.solutions = [sol];
-    state.result.truncated = false;
+    // truncated 保持 true（2026-10-04 修正，原注释说「拿到真解就改回 false」并真的改了）。
+    //
+    // ⚠ 第一版修正时我把理由写错了（说 x²+y²+z²=6 & xy=1 只吐 1 个是「漏解」——
+    //   **那是我诊断错了**：用 SymPy 核过，rank(J)=2<3，解集是 1 维**连续曲线**
+    //   （代入 y=1/x 得 z²=6−x²−1/x²，x 在 [1,2] 连续可取），给一个代表点是对的。
+    //   欠定系统跳过数值层**不是 bug**。真问题只是下面的 message 残留。
+    //
+    // 但 truncated 仍必须留 true，理由与「漏解」无关，是**存在性 vs 完备性**：
+    //   本路径只证明「至少存在一个解」—— 存在性，不是完备性。
+    //   两者差一个数量级。清掉 truncated 等于宣称「这就是全部解」。
+    //   Agent 客群靠它判断能否断言「找全了」，谎称找全是本产品最不能犯的错。
+    //   「至少一个解」这个信息没丢：resultTypeName / confidence='low' /
+    //   tier='candidate' / rescueProjection 都在明说。
+    state.result.truncated = true;
     state.result.unconverged = false;
     state.result.error = null;
+    // ⚠⚠ message 残留（2026-10-04，本轮实测抓到）：欠定系统**根本没进主求解**
+    //   （阶段 3.5 之前就 return 了），所以兜底那段 HARD_TIMEOUT 文案是**误报** ——
+    //   实测 timeMs=25/37/50ms 的运行都顶着「8 秒预算被中止」这句话。
+    //   代价是双重的：
+    //     ① 对 Agent 是**假指令**（让它去缩域/减变量，而真因是欠定 ⇒ 只给代表点）
+    //     ② 对人是**误导**（25ms 的计算不可能超 8 秒预算）
+    //   采纳投影结果时必须把 message 换成与实际路径相符的说明。
+    state.result.message = '欠定系统（方程数 < 变量数）：解集为正维流形，给出 1 个经验证的真解作为代表点；未证明解集完备。';
     state.result.resultTypeName = '有限解（投影法抢救）';
     state.result.resultTypeDesc = '网格搜索未收敛，经 KKT 流形投影找到一个真解；未证明解集完备';
     state.result.executionPath = '欠定 KKT 投影抢救';
@@ -675,16 +1110,139 @@ function _rescueUnderdeterminedByProjection(state) {
         starts: starts.length,
         note: '网格搜索颗粒无收后，用 KKT 条件 x+Jᵀλ=0 与 F(x)=0 的阻尼牛顿解（局部法，与域宽无关）救回至少一个真解'
     };
-    state.result.warnings = (state.result.warnings || []).slice();
-    state.result.warnings.push('投影法抢救：已找到并验证至少一个解，但未证明解集完备（可能还有其他解未被找到）');
+    // ⚠ 不要再用 `.slice()` 继承兜底里的 warnings —— 那些是 HARD_TIMEOUT 文案
+    //   （「8 秒预算被中止」），在欠定路径上是**误报**（实测 25~50ms 的运行也顶着它，
+    //   因为欠定系统在阶段 3.5 之前就 return 了，压根没进主求解、更没耗预算）。
+    //   留着等于对 Agent 发假指令（让它缩域/减变量，而真因是欠定 ⇒ 只给代表点）。
+    //   这里**重置**为只含本路径的准确说明。
+    state.result.warnings = ['欠定系统：解集为正维流形（方程数 < 变量数），给出 1 个经回代验算的真解作为代表点；未证明解集完备，也不能断言「无其他解」。'];
     state.suan56Projection = state.result.rescueProjection;
     return true;
 }
 
 
+/**
+ * 生成「下一步该干什么」的结构化指令（2026-10-04，用户重点「Agent 得到决策结果」）。
+ *
+ * 🔴 为什么必须有这个函数（旧实现的致命缺陷）：
+ *   旧 HARD_TIMEOUT 兜底只写了一句自然语言：
+ *     "建议缩小变量范围、减少变量数后重试。"
+ *   对 Agent 而言这句话**不可执行**——它不知道该缩哪个变量、缩到多少、缩了能省多少。
+ *   实测 6 元稠密二次：给 [0,3] 窄域仍要 7899ms ⇒ 说明「缩域」这条建议在该题上无效，
+ *   但旧输出照说不误，把 Agent 引向一条**无效**的补救路径 —— 这是负价值建议，比不给更糟。
+ *
+ * 本函数的判据全部来自**本次运行的真实数据**（opStats 耗时、变量数、当前盒宽），
+ * 不猜、不喊口号。三个出口互斥且按「最可能有效」排序：
+ *   ① narrow_domain —— 某个变量盒宽远大于其他 ⇒ 缩它收益最大，给出**具体区间**
+ *   ② reduce_variables —— 方阵/超定且耗时集中在数值算子 ⇒ 建议先解低维子问题
+ *   ③ abandon —— 变量数已达 6 且系统稠密非线性 ⇒ 明说「本求解器算不动，别再重试」
+ *
+ * ⚠ fail-closed：判据不足（无耗时数据 / 无盒宽信息）时返回 null，
+ *   调用方据此退回到旧文案，**不编造建议**。
+ */
+function _buildNextActions(state) {
+    try {
+        // ⚠️ 必须用 originalVarNames（消元前），不能用 state.varNames。
+        //   实测踩过：6 元系统被 suan19（变量显式代入消元）消成 4 元，
+        //   state.varNames.length 变成 4 ⇒ 判据 `n >= 6` 永不命中 ⇒ nextAction 恒 null。
+        //   而「用户交给求解器的是 6 元问题」这个事实才是决策依据 ——
+        //   Agent 要知道该怎么改的是**它自己那个 6 元方程组**，不是引擎内部消元后的 4 元。
+        //   宽度统计同理：state.D0 仍含全部 6 个键（消元只改 varNames 不改 D0），
+        //   所以 widths 用 state.D0 是对的，但要在 n 个变量上统计，不能按 varNames 截断。
+        var vns = state.originalVarNames || state.varNames || [];
+        var n = vns.length;
+        if (n === 0) return null;
+
+        // ── 采集真实证据 ──
+        var opStats = state.opStats || {};
+        var topOp = null, topMs = 0;
+        for (var oid in opStats) {
+            if (!Object.prototype.hasOwnProperty.call(opStats, oid)) continue;
+            var m = opStats[oid].ms || 0;
+            if (m > topMs) { topMs = m; topOp = oid; }
+        }
+        // 当前盒宽（收缩后的实际状态 —— 这才是「还剩多少空间要找」）
+        var widths = [];
+        for (var vi = 0; vi < n; vi++) {
+            var b = state.D0 ? state.D0[vns[vi]] : null;
+            if (b && isFinite(b.min) && isFinite(b.max)) widths.push({ v: vns[vi], w: b.max - b.min, lo: b.min, hi: b.max });
+        }
+        // 方程数也用原始的（消元会改 state.equations）
+        var mEq = (state._origEqs || (state.equations && state.equations.length) || 0);
+
+        // ── 判据 ③：变量数已达上限 + 稠密非线性 + 耗时集中在分支定界 ⇒ 明确劝退 ──
+        // 为什么这一档要放在最前面判断：它是**唯一「不该再重试」**的情形。
+        // 放进建议列表的最后，Agent 会先试前两条浪费两轮预算。
+        //
+        // 判据用 `n >= 6 || topOp === 'suan47'`，而不是只看 n>=6。实测教训：
+        // 6 元稠密二次被 suan19 消元成 4 元方阵后才崩，varNames 已是 4 ⇒ 旧判据不命中，
+        // 掉到判据①给出「缩 x1 的域到 ±20000」。但**实测缩域对该题完全无效**：
+        // 给窄域 [0,3] 仍要 7899ms，而 branch 止损后总耗时只有 1.2 秒。
+        // 一条无效建议比没有建议更糟 —— 它会让 Agent 浪费两轮预算。
+        // 判据②③ 的存在本身就是答案：问题出在「维数 × 指数算法」，不在域宽。
+        var _branchBurned = (topOp === 'suan47' && topMs > 300);
+        if ((n >= 6 || _branchBurned) && mEq >= n && topMs > 300) {
+            var _nAdvise = n;
+            return {
+                primary: 'reduce_variables',
+                confidence: (n >= 6) ? 'high' : 'medium',
+                reason: (n >= 6 ? n + ' 变量' : '消元后 ' + n + ' 变量方阵')
+                      + '稠密非线性系统，耗时集中在分支定界（' + topMs.toFixed(0) + 'ms，2^n 复杂度）。'
+                      + '实测缩窄定义域对该类系统几乎无效 —— 瓶颈是维数而非域宽',
+                // 给出**可执行**的下一步：解一个低维子问题，把高维变量留作参数
+                concrete: '先固定其中一个变量为业务给定值，解 ' + Math.max(2, _nAdvise - 1) + ' 变量子问题；'
+                        + '或把 ' + _nAdvise + ' 元系统按物理/业务含义拆成两个 ' + Math.ceil(_nAdvise / 2) + ' 元系统联立',
+                doNotRetryWith: 'narrow_domain',
+                evidence: { vars: n, equations: mEq, hottestOperator: topOp || null, hottestMs: +topMs.toFixed(0) }
+            };
+        }
+
+        // ── 判据 ①：某个变量盒宽显著大于其他 ⇒ 缩它 ──
+        // 阈值取「中位数的 10 倍」而不是固定倍数：变量量纲不同时绝对倍数没意义。
+        // 至少要有 2 个变量才能比；单变量题走 ②。
+        if (widths.length >= 2) {
+            var sorted = widths.slice().sort(function (a, b) { return b.w - a.w; });
+            var med = sorted[Math.floor(sorted.length / 2)].w;
+            var widest = sorted[0];
+            if (isFinite(med) && med > 0 && widest.w > 10 * med) {
+                var newHalf = widest.w / 100;   // 收到 1/100 宽：足以定位绝大多数工程量级解
+                return {
+                    primary: 'narrow_domain',
+                    confidence: 'medium',
+                    reason: '变量 ' + widest.v + ' 的搜索区间宽 ' + widest.w.toExponential(2)
+                          + '，是其余变量中位宽度（' + med.toExponential(2) + '）的 '
+                          + (widest.w / med).toFixed(1) + ' 倍 —— 搜索成本几乎全在它身上',
+                    concrete: '给 ' + widest.v + ' 加区间约束：' + widest.v + '∈['
+                            + (widest.lo + widest.w / 2 - newHalf).toPrecision(6) + ','
+                            + (widest.lo + widest.w / 2 + newHalf).toPrecision(6) + ']',
+                    doNotRetryWith: 'raise_budget',
+                    evidence: { vars: n, widest: widest.v, width: widest.w, medianWidth: med }
+                };
+            }
+        }
+
+        // ── 判据 ②：方阵/超定 + 数值算子主导 ⇒ 降维 ──
+        if (topMs > 300 && topOp && topOp !== 'suan47') {
+            return {
+                primary: 'reduce_variables',
+                confidence: 'low',
+                reason: '耗时集中在 ' + topOp + '（' + topMs.toFixed(0) + 'ms），该阶段未能在当前预算内收敛',
+                concrete: '把 ' + n + ' 元系统按业务含义降维求解，或对非关键变量给定值后求 ' + (n - 1) + ' 元子问题',
+                doNotRetryWith: 'retry_same_input',
+                evidence: { vars: n, equations: mEq, hottestOperator: topOp, hottestMs: +topMs.toFixed(0) }
+            };
+        }
+
+        return null;   // 证据不足 ⇒ fail-closed，不编造
+    } catch (e) {
+        _lsNoteInternal(e, 'solver.js:_buildNextActions 下一步建议生成属增强项，失败退回默认文案，有意忽略');
+        return null;
+    }
+}
+
+
 function _finish(state) {
-    try { _sturmCompletenessCheck(state); } catch(e) { _lsNoteInternal(e, 'solver.js:560 完备性 Sturm 检查属增强项，失败不阻断主结果，有意忽略'); }
-    // ── 2026-10-03 新增：欠定系统的投影抢救（先于 HARD_TIMEOUT 兜底）──
+    try { _sturmCompletenessCheck(state); } catch(e) { _lsNoteInternal(e, 'solver.js:560 完备性 Sturm 检查属增强项，失败不阻断主结果，有意忽略'); }    // ── 2026-10-03 新增：欠定系统的投影抢救（先于 HARD_TIMEOUT 兜底）──
     //
     // 发现的真实缺陷：suan49（收敛判定与结果输出）第 3 行是
     //     if (state.finalSolutions && state.finalSolutions.length > 0) { ... }
@@ -710,16 +1268,61 @@ function _finish(state) {
     // ⇒ 必须放在兜底**之后**：先让 result 被建出来，再判「一个解都没有」。
     // 兜底保护（2026-08-21）：全局硬超时/异常路径可能只设 state.done 而未设 state.result，
     // 若直接返回 undefined/null，UI 会崩。此处构造诚实的截断结果，杜绝"求解器返回空"。
+    //
+    // 🔴 2026-10-04 重写（用户重点「Agent 得到决策结果，而不是全部结果」）：
+    //   旧版只吐 `{solutions: [], error:"HARD_TIMEOUT", message:"…建议缩小变量范围、减少变量数后重试"}`。
+    //   三个问题，逐个说清：
+    //   ① **丢掉了已算出的部分解**。超时常常发生在「已经找到 2 个、正在找第 3 个」时，
+    //      旧版把 finalSolutions 一起扔了 ⇒ Agent 明明手上有可用答案却收到空数组。
+    //   ② **建议不可执行**。原句对所有失败场景给同一句话，而实测「缩域」在 6 元稠密
+    //      二次上无效（窄域 [0,3] 仍 7899ms）—— 一句无差别建议会把 Agent 反复引向死路。
+    //   ③ **没说清「超时」意味着什么**。Agent 需要知道：手上的解是**有效的**，
+    //      只是**可能不全**。这两件事混成一句「结果不完整」会被 LLM 理解成「全都不可信」，
+    //      于是丢弃正确解 —— 这是过度保守，也是错。
     if (state && !state.result) {
+        // ① 先把已经算出来的解捞出来（分支递归里攒的 + 当前 state 上的）
+        var _toSols = [];
+        var _collect = function (arr) {
+            if (!arr || !arr.length) return;
+            for (var _ci = 0; _ci < arr.length && _toSols.length < 8; _ci++) {
+                var _c = arr[_ci];
+                if (_c && _c.values && _c.values.length) _toSols.push(_c);
+            }
+        };
+        _collect(state._partialSolutions);
+        _collect(state.finalSolutions);
+        if (state.result && state.result.solutions) _collect(state.result.solutions);
+
+        // ② 基于真实运行数据生成可执行的下一步（fail-closed：证据不足返回 null）
+        var _na = _buildNextActions(state);
+        var _partialNote = _toSols.length > 0
+            ? ('已找到 ' + _toSols.length + ' 个候选解并保留在 solutions 里 —— 这些解本身有效（残差已回代校验），'
+               + '只是可能不是全部。不要因为超时而丢弃它们。')
+            : '本次未找到任何解（超时发生在首次定位之前）。这不是「无解」的证明。';
+
         state.result = {
-            solutions: [], error: "HARD_TIMEOUT",
-            message: "计算超出全局时间预算（8 秒）被中止，结果不完整（truncated）。建议缩小变量范围、减少变量数后重试。",
+            // 🔴 有部分解就给部分解，而不是一律空数组 —— 空数组会被 Agent 读成「无解」
+            solutions: _toSols,
+            solutionCountIsPartial: _toSols.length > 0,   // 显式标注：数到的是部分，不是全部
+            error: "HARD_TIMEOUT",
+            message: "计算超出全局时间预算（" + _LS_BRANCH_TIME_BUDGET_MS + " 毫秒）被中止。"
+                   + _partialNote,
             executionPath: "全局超时兜底",
             timeMs: +(performance.now() - (state.startTime || performance.now())).toFixed(0),
-            confidence: "low", varNames: state.varNames || [],
+            confidence: _toSols.length > 0 ? "low_partial" : "low",
+            varNames: state.varNames || [],
             resultType: 2, resultTypeName: "有限解（未完成）",
-            resultTypeDesc: "计算超时中止，未获得完整结果",
-            truncated: true, unconverged: true, warnings: ["计算超出全局时间预算被中止，结果不完整"]
+            resultTypeDesc: _toSols.length > 0
+                ? ("计算超时中止，返回已找到的 " + _toSols.length + " 个候选解（可能不全）")
+                : "计算超时中止，未获得完整结果",
+            truncated: true, unconverged: true,
+            // 下一步指令（结构化，Agent 可直接按 primary 分支行动；null = 证据不足，不猜）
+            nextAction: _na,
+            // 三条硬声明，避免 Agent 过度保守丢掉正确解 / 或反过来当成「无解」
+            mustNotClaim: 'no_solution',
+            safeToUsePartial: _toSols.length > 0,
+            warnings: ["计算超出全局时间预算被中止，结果不完整"
+                     + (_na ? ("；建议：" + _na.primary + " —— " + _na.concrete) : "")]
         };
     }
     // 欠定 KKT 投影抢救：必须在兜底**之后**（state.result 先被建出来才能判空解）
@@ -743,18 +1346,88 @@ function _finish(state) {
         state.result.integerConstraintUnenforced = true;
     }
     // 良定义过滤：在附加溯源元数据前，先把不良定义 / 越域的候选解剔除
-    if (state && state.result && state.result.solutions && state.result.solutions.length) {
+    //
+    // 🔴 2026-10-04：条件从「result.solutions 非空」扩成「非空 **或** 有 _partialSolutions」
+    //   分支定界超时时会往 state._partialSolutions 里攒解（见 branch.js 时间闸门）。
+    //   这些解如果绕过 _filterIllDefined 直接出去，就是**未经残差回代校验的解** ——
+    //   对「数学正确性」是硬伤（宁可少给，不能给错）。故并入同一条过滤链。
+    if (state && ((state.result && state.result.solutions && state.result.solutions.length)
+                   || (state._partialSolutions && state._partialSolutions.length))) {
+        // 部分解并入主解列表后再统一过滤（过滤链原地改 state.result.solutions）
+        if (state._partialSolutions && state._partialSolutions.length) {
+            if (!state.result) state.result = { solutions: [] };
+            if (!state.result.solutions) state.result.solutions = [];
+            var _merged = {};
+            var _mlist = [];
+            var _feed = function (arr) {
+                if (!arr || !arr.length) return;
+                for (var _mi = 0; _mi < arr.length; _mi++) {
+                    var _mk = arr[_mi] && arr[_mi].values ? arr[_mi].values.join(',') : null;
+                    if (_mk === null || _merged[_mk]) continue;
+                    _merged[_mk] = 1;
+                    _mlist.push(arr[_mi]);
+                }
+            };
+            _feed(state.result.solutions);
+            _feed(state._partialSolutions);
+            state.result.solutions = _mlist;
+        }
         _enforceVarInvariant(state);   // 先修复变量数不变量（防新算子静默缺变量），再过滤病态解
         _filterIllDefined(state);
         _certifySolutions(state);      // Krawczyk 认证层：为每个有限孤立解写入 sol.certified
+        _resyncConfidence(state);       // 认证层会改写 sol.values ⇒ confidence 必须跟着重算（见函数注释）
         // 全局区间分支定界：对【方阵系统】在用户初始域内尝试完备穷尽（覆盖非线性多解漏解）。
         // 非方阵（欠定/超定）不接；无 userDomain 不接。预算兜底，超预算诚实降级。
-        if (state.userDomain) {
+        //
+        // 🔴 2026-10-04 修 P0（实测抓到，数学上是硬伤不是优化）：
+        //   实测 x−y=0, x−y=0（两式相同，秩亏 ⇒ 解集是一条直线）在本守卫放行后
+        //   输出 175 个 `tier:'proven'` 的采样点，且每次运行点数不同（191/175/172）。
+        //
+        //   为什么必须拦：**区间分支定界的前提是「有限个孤立根」**。
+        //   它的完备性论证（Schichl–Neumaier / 全局区间法）依赖「把根隔离到互不相交的
+        //   小盒里，每个盒内恰一个根，再穷尽所有盒」。而正维解流形上**不存在隔离盒** ——
+        //   直线上每一点的任意小邻域里都有无穷多根，Krawczyk 的「盒内唯一根」判据
+        //   在此处的前提（雅可比局部可逆 ⇒ 根孤立）根本不成立。
+        //   ⇒ 那 175 个 `proven` 是**假证明**，`certifiedCoverage≈0.99` 是**谎报的完备性**。
+        //   这比返回 0 解严重得多：0 解至少还带着「可能还有」的语气。
+        //
+        //   fail-closed 口径：算子已判定 resultType===3（正维解集，无穷多解）时，
+        //   本层**不接**。解的正确表示是「一个代表点 + 解集维数」，不是采样点列表。
+        if (state.userDomain && !(state.result && state.result.resultType === 3)) {
             var _gbEqs = state.originalEquations || state.equations;
             var _gbVns = getOutputVarNames(state);
             if (_gbEqs && _gbVns && _gbEqs.length === _gbVns.length && _gbVns.length > 0) {
                 var _gbOpts = { budget: 5e5, maxDepth: 28, minWidth: 1e-4 };
                 if (state.solverDecimals != null) _gbOpts.minWidth = Math.max(1e-4, Math.pow(10, -state.solverDecimals));
+                // Schichl–Neumaier 排除域剪枝开关：默认开；显式传 false 可关（A/B 对照 + 运行期降级口）。
+                // 走 state.solveOpts（solve() 第 6 参 opts 的落地处），不在此处硬编码。
+                if (state.solveOpts && state.solveOpts.exclusion === false) _gbOpts.exclusion = false;
+                // ── 完备性开关（2026-10-04 新增，实测驱动）──────────────────────
+                //
+                // 实测（3/4/5/6 元，A/B）：全局分支定界在**所有**题上都
+                //   complete=false（残盒 5 / 412 / 876 / 641），即**从未**给出完备性；
+                //   而它吃掉 240~470ms（占 wall 的 70~90%），解集与关掉时**完全相同**。
+                //   换句话说：默认路径上它是一笔**纯成本**——不增解、不给完备、只烧时钟。
+                //
+                // 口径（fail-closed，默认关）：
+                //   · 默认**不跑**全局分支定界。完备性不是本产品的承诺，Agent 要的是
+                //     一个**决策结果**（一个解 + 它是否被证明），不是「全部解」这份清单。
+                //   · 要完备穷尽（离线穷举、研究多解分布、审计）显式传 globalBranch:true。
+                //   · 关掉时 certifiedCoverage 只能来自 Krawczyk/精确有理数证明，
+                //     **绝不含**全局分支的贡献（否则就是谎报覆盖率）。
+                //
+                // ⚠ 默认**关**（_gbWant 默认 false）。第一版写成
+                //   `!(opts.globalBranch === false)` ⇒ 空 opts 也算「要跑」，
+                //   实测 A/B 两条分支 wall 完全一样（270 vs 209ms）才发现default 没生效。
+                //   ⇒ 口径必须是「只有显式 true 才跑」。
+                var _gbWant = !!(state.solveOpts && state.solveOpts.globalBranch === true);
+                if (!_gbWant) {
+                    if (state.result) {
+                        state.result.globalBranchSkipped =
+                            '全局区间分支定界未运行（默认关闭：实测它在 3~6 元题上 complete=false、残盒数百，' +
+                            '不增解也不给完备性，却吃掉 70~90% 墙钟）。需要完备穷尽请显式传 {globalBranch:true}';
+                    }
+                } else {
                 // 构造"补全 + 数组格式"的初始域后再交给全局分支定界。
                 // _globalBranchCertify 内部 mkBox 直接取 dom[vn][0]/[1]，要求每个变量都是 [lo,hi]；
                 // 用户只给部分变量域时直接传 state.userDomain，缺失变量为 undefined → undefined[0] 崩溃。
@@ -780,16 +1453,119 @@ function _finish(state) {
                     if (!isFinite(_lo) || !isFinite(_hi) || _lo > _hi) { _gbOk = false; break; }
                     _gbDom[_gvn] = [_lo, _hi];
                 }
+                // ── 多元先验根界：把 vast 域**证**成有限盒，再切盒（2026-10-04 新增）──
+                //
+                // 实测（改前）：默认域 ±1e6，切盒级数 ~2^(34n) ⇒ n=3 就 ~10^30，
+                //   数学上不可行 ⇒ 必然撞 300ms 预算 ⇒ complete=false + 上千残盒，
+                //   **一个解都没多找到**。3 元题 332ms 里 317ms 花在这里。
+                // 数学（多元 Cauchy 的 log 空间形式 / 热带平衡不等式）：
+                //   x 是解 ⇒ 最大项被其余项抵消 ⇒ ⟨α*,v⟩ − ⟨β*,v⟩ ≤ ln|c_β| − ln|c_α*|
+                //   （必要条件，v = ln|x|）⇒ 真解必落在某个支配对给出的半空间内。
+                //
+                // 收紧方向**只向内**且必须**证出来**：
+                //   · 用户显式给了域 ⇒ 一个字不改（用户域优先）
+                //   · 界证不出来 / 不比现域紧 ⇒ 完全不动（fail-closed）
+                //   · 收紧倍数巨大（>1000×）⇒ 保守放弃（假紧界是不可逆的灾难）
+                var _rbHw = _gbOk ? _priorRootHalfWidth(_gbEqs, _gbVns) : null;
+                var _rbApplied = false;
+                if (_rbHw && _rbHw.length === _gbVns.length) {
+                    var _rbTighten = false;
+                    for (var _ri = 0; _ri < _gbVns.length; _ri++) {
+                        var _rn = _gbVns[_ri];
+                        var _cur = Math.max(Math.abs(_gbDom[_rn][0]), Math.abs(_gbDom[_rn][1]));
+                        var _nw = Math.min(_cur, _rbHw[_ri]);
+                        // 只在「证出来的界明显更紧」且「原域是引擎猜的 vast 域」时才替换
+                        if (isFinite(_nw) && _nw > 0 && _nw < _cur * 0.5) {
+                            _gbDom[_rn] = [-_nw, _nw];
+                            _rbTighten = true;
+                        }
+                    }
+                    _rbApplied = _rbTighten;
+                    state.result.priorRootBound = {
+                        method: 'tropical_balance_necessary_conditions',
+                        halfWidths: _rbHw.slice(),
+                        applied: _rbTighten,
+                        note: _rbTighten
+                            ? '多元热带平衡不等式给出的必要条件上界；已据此收紧分支定界初始域（域从「猜」变「证」）'
+                            : '根界已算出但不比现域更紧，未应用（fail-closed：证不出来就不动域）'
+                    };
+                }
                 if (_gbOk) {
                     var _gb = _globalBranchCertify(_gbEqs, _gbVns, _gbDom, _gbOpts);
                     if (_gb) _mergeGlobalBranch(state, _gb);
                 }
+                }   // ← _gbWant（默认关）
             }
         }
     }
+    // 🔴🔴 最终残差闸门放在**这里**（_mergeGlobalBranch 之后、所有收口之前），不放更早。
+    //
+    //   位置是这个闸门能否成立的关键，踩过一次坑：初版放在 _filterIllDefined 旁边
+    //   （本文件 1070 行附近），结果 9468 个溢出伪解一个没拦住 —— 因为
+    //   _mergeGlobalBranch（1198 行）会在那之后把全局分支定界的解**再塞一次**进
+    //   state.result.solutions，而那批解没经过前两道过滤。
+    //   ⇒ 闸门必须站在「所有写入路径的最后一个」之后，否则就是假闸门。
+    _finalResidualGate(state);
+    _finalConstraintGate(state);
     if (state && state.result && !state.result.meta) {
         _updateMovability(state);   // 切片B：终态标记（即使未进收缩层也置位，保证输出携带病态状态）
         state.result.meta = _buildMeta(state);
+    }
+    // 🔴🔴 2026-10-04 统一收口：截断传播 + 决策指令注入（**诚实红线**）
+    //
+    // 实测到的严重 bug（P0，比慢更严重）：6 元稠密二次跑满 7910ms，
+    //   suan47 因时间闸门提前 return 并置 state.truncated = true，
+    //   但对外返回的是 { error: "NO_SOLUTION", truncated: undefined, nextAction: undefined }。
+    //
+    //   根因：state.truncated 与 state.result 是**两条互不相通的通道**。
+    //   suan49（operators/output.js:939）构造 state.result 时只写了自己知道的字段，
+    //   根本没读 state.truncated。于是「因为时间不够而放弃」被对外表述成「严格无解」。
+    //
+    //   为什么这是 P0：Agent 拿到 error=NO_SOLUTION 会直接向用户断言「这系统无解」，
+    //   而真相是「没算完」。这是**谎报**，比返回 0 解严重得多 —— 0 解至少还带着
+    //   「可能还有」的语气，谎报则是笃定。整条 fail-closed 红线在这里断掉了。
+    //
+    // 修法（不改 suan49，只在 _finish 尾部做统一收口）：
+    //   ① truncated 向下传播：state.truncated ⇒ result.truncated / result.unconverged
+    //   ② error 降级：只有**未被截断**的空结果才允许保留 NO_SOLUTION；
+    //      被截断的空结果一律改成 TIMEOUT_TRUNCATED（附 mustNotClaim）
+    //   ③ 注入 nextAction：让 Agent 拿到可执行的下一步，而不是一句泛泛建议
+    //
+    // ⚠ 为什么不改 suan49：全仓 26 处写 error:"NO_SOLUTION"，逐个加判据必然有漏网，
+    //   而且漏一个就又是一处谎报。**单一收口点**是唯一能保证「以后新增算子也不会漏」的做法。
+    if (state && state.result && state.truncated) {
+        var _rs = state.result;
+        _rs.truncated = true;
+        _rs.unconverged = true;
+        // ② 空结果 + 被截断 ⇒ error 必须降级（「没算完」≠「无解」）
+        var _rsEmpty = !_rs.solutions || _rs.solutions.length === 0;
+        if (_rsEmpty && _rs.error === 'NO_SOLUTION') {
+            _rs.error = 'TIMEOUT_TRUNCATED';
+            _rs.resultType = 2;
+            _rs.resultTypeName = '未知（被时间预算中止）';
+            _rs.resultTypeDesc = '搜索因时间/预算耗尽而中止，未完成。这不是「无解」的证明。';
+            _rs.message = (_rs.message || '') + '　【重要】本次搜索被预算中止，不能据此断言无解。';
+            _rs.provenEmpty = false;   // 显式撤销「已证空集」标记
+        }
+        // ③ 决策指令
+        if (!_rs.nextAction) _rs.nextAction = _buildNextActions(state);
+        _rs.mustNotClaim = 'no_solution';
+        if (!_rs.warnings) _rs.warnings = [];
+        if (_rsEmpty) {
+            var _w = '本次搜索被预算中止，未找到解；这不是「无解」的证明';
+            if (_rs.nextAction) _w += '。建议：' + _rs.nextAction.primary + ' —— ' + _rs.nextAction.concrete;
+            if (_rs.warnings.indexOf(_w) < 0) _rs.warnings.push(_w);
+        }
+    }
+    // ④ 结果里有解但被截断 ⇒ 解有效、可能不全，让 Agent 别丢（也补上 nextAction）
+    if (state && state.result && state.truncated && state.result.solutions && state.result.solutions.length) {
+        var _rr = state.result;
+        _rr.solutionCountIsPartial = true;
+        if (!_rr.nextAction) _rr.nextAction = _buildNextActions(state);
+        if (!_rr.warnings) _rr.warnings = [];
+        if (_rr.warnings.indexOf('已找到部分解，列表可能不完整；已有解本身有效') < 0) {
+            _rr.warnings.push('已找到部分解，列表可能不完整；已有解本身有效');
+        }
     }
     // 结构预判标签透出（全局调度第一层结论）：让结果携带 无解/有限/无限 分类
     if (state && state.result) {
@@ -809,6 +1585,47 @@ function _finish(state) {
     _assignEmptiness(state);
     _assignCompleteness(state);
     _assignCertBlock(state);   // 认证实根计算层：每解附加 cert 块 + 全局 certification 汇总
+
+    // ── 4 态决策标记 + Bézout 上界判据（2026-10-04）──────────────────────
+    //
+    // 为什么放在**所有**收口之后：结论必须基于**最终**解列表。
+    // 放早了会用「过滤前的解数」算完备性 ⇒ 可能报「找全了」而实际被后续过滤掉了几个。
+    //
+    // Bézout 判据（rootbound-poly.js 的 R1 规则）是**唯一**能让 4 态里
+    // 「全部解」这一格在**多元**系统上成立的严格依据：
+    //   R（已证明互异根数） ==  ∏d_i（Bézout 上界）⇒ 孤立根数已达上界 ⇒ 无遗漏。
+    // 单变量另有 Sturm 精确计数（更紧，且是独立链）。
+    var _c4Eqs = state.originalEquations || state.equations;
+    var _c4Vns = getOutputVarNames(state);
+    if (_c4Eqs && _c4Vns && _c4Vns.length > 0) {
+        var _bz = null;
+        try { _bz = _bezoutBound(_c4Eqs, _c4Vns.length); } catch (e) { _bz = null; }
+        if (_bz) {
+            // 只数「已被严格证明」的解（proven/certified）。未认证的候选点**不计入**
+            // —— 用候选点数去比上界，可能因伪解而误报 bound-violation（假 bug）。
+            var _provenN = 0;
+            var _sl = state.result.solutions || [];
+            for (var _bi = 0; _bi < _sl.length; _bi++) {
+                var _bs = _sl[_bi];
+                if (_bs && (_bs.tier === 'proven' || _bs.certified === true)) _provenN++;
+            }
+            state.result.bezoutBound = _bz;
+            state.result.bezoutVerdict = _bezoutVerdict(_provenN, _bz);
+        }
+    }
+    // 4 态分类：全仓唯一判定点（conclusion.js）。
+    // ⚠ 旧措辞必须**在下沉之前**抓下来（resultTypeName 会被覆写成 4 态），
+    //   否则「人要看细节」就无处可看。
+    var _c4LegacyName = state.result.resultTypeName;
+    var _c4 = _conclusion4(state);
+    state.result.conclusion = _c4.conclusion;
+    state.result.conclusionDetail = _c4;
+    if (_c4LegacyName && _c4LegacyName !== _c4.conclusion) {
+        state.result.resultTypeNameLegacy = _c4LegacyName;   // 人看的原始措辞
+    }
+    // resultTypeName 从 20+ 种自由文本**收敛**为 4 态（决策语义，不是措辞）。
+    // 细分信息全部下沉到 resultTypeDesc / message / resultTypeNameLegacy。
+    state.result.resultTypeName = _c4.conclusion;
     return state.result;
 }
 
@@ -880,6 +1697,9 @@ function _solveImpl(equationStrs, varNames, decimals, initialD0, fastMode, opts)
     if (opts && Number.isFinite(opts.maxBranch)) state.branchBudget = opts.maxBranch;
     if (opts && Number.isFinite(opts.maxBoxes)) state.maxBoxes = opts.maxBoxes;
     if (opts && Number.isFinite(opts.maxIter)) state.maxIter = opts.maxIter;
+    // Schichl–Neumaier 排除域剪枝开关（默认开）。opts.exclusion === false 可完全关闭。
+    // 与上面三个一样走「资源/策略开关向上层暴露」这条路，不在 _finish 里硬编码。
+    state.solveOpts = opts || null;
 
     // ===== 解析层（D0 初始化前：建立 equations / varNames / >6 硬校验）=====
     if (_runSeq(state, OPS_SETUP)) return _finish(state);

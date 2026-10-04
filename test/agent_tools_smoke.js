@@ -68,12 +68,33 @@ function spawnServer(port) {
   await waitHealth(PORT);
 
   // 1) poly_roots：x³−2x²−5x+6 = (x-3)(x-1)(x+2) → 实根 3, 1, -2，全部 Krawczyk 认证
+  //
+  // ⚠⚠ 2026-10-04 改为**走 Agent 的真实路径**（分页取全），原来只查单次返回。
+  //   改的原因不是断言变松了，是原断言在钉一个 P0：单次只返回 AGENT_MAX_SOLUTIONS=2 个，
+  //   而 poly_roots 的工具描述承诺 "All real roots" ⇒ 3 根只给 2 个且无法取回第 3 个，
+  //   是一个**无法完成的契约**。
+  //   现在产品给了 nextOffset + n 入参，Agent 必须能自己翻页拿全 ——
+  //   这条断言就是守住「Agent 走完这条路能拿到全部 3 个根」这个**端到端**事实。
   const pr = await mcp(PORT, 'poly_roots', { coefficients: [1, -2, -5, 6] });
   ok('poly_roots 返回 3 个解', pr.payload && pr.payload.solutionCount === 3, pr.payload && pr.payload.solutionCount);
   ok('poly_roots 全部 proven（certified=true）', pr.payload && pr.payload.certified === true, pr.payload && pr.payload.certified);
-  if (pr.payload && pr.payload.solutions) {
-    const vals = pr.payload.solutions.map(s => s.values[0]).sort((a, b) => a - b);
-    ok('poly_roots 根为 -2, 1, 3', JSON.stringify(vals.map(v => Number(v.toFixed(6)))) === JSON.stringify([-2, 1, 3]), vals);
+  {
+    // 模拟 Agent：按 nextOffset 翻页直到取完
+    const got = [];
+    let page = pr.payload, hops = 0, converged = true;
+    while (page && hops < 10) {
+      if (Array.isArray(page.solutions)) got.push(...page.solutions.map(s => s.values[0]));
+      if (page.nextOffset === undefined || page.nextOffset === null) break;
+      const np = await mcp(PORT, 'poly_roots', { coefficients: [1, -2, -5, 6], n: page.nextOffset });
+      if (!np.payload || !Array.isArray(np.payload.solutions)) { converged = false; break; }
+      if (np.payload.nextOffset !== undefined && np.payload.nextOffset <= page.nextOffset) { converged = false; break; }
+      page = np.payload; hops++;
+    }
+    if (page && page.nextOffset !== undefined && page.nextOffset !== null) converged = false;
+    const vals = got.map(v => Number(v.toFixed(6))).sort((a, b) => a - b);
+    ok('poly_roots 分页取全 -2, 1, 3（Agent 走 nextOffset 能拿全，契约可完成）',
+      JSON.stringify(vals) === JSON.stringify([-2, 1, 3]), vals);
+    ok('poly_roots 分页收敛（nextOffset 严格递增，不死循环）', converged, { hops });
   }
 
   // 2) verify：x²=4，候选 2 是根 → verified

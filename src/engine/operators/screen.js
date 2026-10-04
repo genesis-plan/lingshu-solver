@@ -121,6 +121,37 @@ function suan11(state) {
             state.result = { solutions: [], error: "NO_SOLUTION", provenEmpty: true, message: "方程恒负，无实数解（平方和/指数/绝对值恒负检测）", executionPath: "结构恒正剪枝", timeMs: performance.now() - state.startTime, confidence: "high", varNames: state.varNames, resultType: 1, resultTypeName: "空结果", resultTypeDesc: "方程恒负，最大值<0，无实数解" };
             return;
         }
+        // 🔴 2026-10-04 补一条**区间包络判据**（P0 数学正确性 + 时间）
+        //
+        // 事故经过：测试 test/p0_fix_regression.js 的 F 组要求
+        //   `solve(sin(x)+2=0)` ⇒ resultType=1（严格证无解）。实测它跑 1502ms 撞上限，
+        //   由 output.js 兜底报 NO_SOLUTION —— **那个「无解」是谎报**（只是没找到）。
+        //   本轮给 _finish 加了截断收口（截断时 error 降级为 TIMEOUT_TRUNCATED），
+        //   谎报被揭穿，测试从"假绿"变红 —— 这正是收口该起的作用。
+        //   根因是上面的 _checkStructuralAlwaysPositive 只认「偶次幂/exp/abs」三种结构，
+        //   而 sin(x)+2 是「有下界的振荡 + 常量」，不在其内。
+        //
+        // 判据（区间算术，**sound**：包络是外包，必真）：
+        //   若表达式在整个 D0 上的区间包络满足 min > 0（或 max < 0），
+        //   则该式恒正（或恒负）⇒ 方程恒成立/恒不成立 ⇒ 定义域内**严格无解**。
+        //   这不是「没找到」，是**证出来了** —— 与 fail-closed 完全同向。
+        //
+        // ⚠ 为什么这一条极便宜：只做一次区间求值（微秒级），
+        //   换掉的是「跑满 1.5 秒 + 谎报无解」。
+        // ⚠ 依赖区间算术的 sound 性（over-estimation）：包络只会更宽不会更窄，
+        //   所以 min > 0 是**充分**条件，判为「已证无解」绝不会有反例。
+        var _env = null;
+        try { _env = intervalEval(_expr, state.D0); } catch (e) { _env = null; }
+        if (_env && isFinite(_env.min) && isFinite(_env.max)) {
+            var _why = null;
+            if (_env.min > 0) _why = '方程左端在整个搜索域上的值恒 > ' + _env.min.toPrecision(6) + '，严格证明无实数解（区间包络判据）';
+            else if (_env.max < 0) _why = '方程左端在整个搜索域上的值恒 < ' + _env.max.toPrecision(6) + '，严格证明无实数解（区间包络判据）';
+            if (_why) {
+                state.done = true;
+                state.result = { solutions: [], error: "NO_SOLUTION", provenEmpty: true, message: _why, executionPath: "区间包络恒号判据", timeMs: performance.now() - state.startTime, confidence: "high", varNames: state.varNames, resultType: 1, resultTypeName: "空结果", resultTypeDesc: _why };
+                return;
+            }
+        }
     }
 }
 

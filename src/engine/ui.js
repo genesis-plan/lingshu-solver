@@ -300,7 +300,11 @@ function _residualAtDisplayed(values, eqLines, varNames) {
         var f;
         try {
             var A = idx >= 0 ? e.slice(0, idx) : e, B = idx >= 0 ? e.slice(idx + 1) : '0';
-            f = evalAST(parse(tokenize('(' + A + ')-(' + B + ')')), vmap);
+            // ⚠ 2026-10-04：把 vmap 的键（= 已代入的变量名）传给 tokenize。
+            //   否则变量名 `e` 会被当欧拉数 2.718 静默替换 ⇒ 本函数算出的残差是错的
+            //   （实测：a+b+c+d+e+f-60=0 代入真解 (12.5..7.5) 残差报 −5.78，实际应为 0）。
+            //   残差校验算错 ⇒ 会把真解误判成假解，必须修。
+            f = evalAST(parse(tokenize('(' + A + ')-(' + B + ')', Object.keys(vmap))), vmap);
         } catch (err) { f = NaN; }
         if (isFinite(f)) mx = Math.max(mx, Math.abs(f)); else return null;   // 有未识别变量 ⇒ 放弃，交由调用方回退
     }

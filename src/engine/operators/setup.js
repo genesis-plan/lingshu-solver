@@ -20,16 +20,30 @@ function suan1(state) {
             if (cond) {
                 if (cond.type === "domain") {
                     state.domainConstraints.push(cond);
-                    // 将域约束也作为不等式约束加入，供 suan48 枚举使用
+                    // 将域约束也作为不等式约束加入，供 suan48 枚举 + 终态不等式闸门使用
+                    // 🔴 2026-10-04 修 P0：严格性过去在这里被丢弃（min/max 一律写 >= / <=）。
+                    //   实测 `x^2=0` + `x>0` 返回解 x=0 —— x=0 违反 x>0，真解集是空集。
+                    //   病根：parseCondition 早期就把严格性抹了（现已修好，带出 minStrict/maxStrict），
+                    //   这里若不透传，严格信息就在第二道工序再丢一次。
+                    //   ⇒ 严格不等式按严格语义落进 inequalityConstraints，
+                    //     终态闸门 verifyAllConstraints 才有资格判「这个点违反约束」。
                     if (cond.varName && cond.min !== undefined) {
-                        var _vAST = parse(tokenize(cond.varName));
+                        var _vAST = parse(tokenize(cond.varName, state.protNames));
                         var _cAST = { type: "num", value: cond.min };
-                        state.inequalityConstraints.push({ lhs: _vAST, rhs: _cAST, op: ">=", lhsStr: cond.varName, rhsStr: String(cond.min) });
+                        state.inequalityConstraints.push({
+                            lhs: _vAST, rhs: _cAST,
+                            op: (cond.minStrict === true) ? ">" : ">=",
+                            lhsStr: cond.varName, rhsStr: String(cond.min)
+                        });
                     }
                     if (cond.varName && cond.max !== undefined) {
-                        var _vAST2 = parse(tokenize(cond.varName));
+                        var _vAST2 = parse(tokenize(cond.varName, state.protNames));
                         var _cAST2 = { type: "num", value: cond.max };
-                        state.inequalityConstraints.push({ lhs: _vAST2, rhs: _cAST2, op: "<=", lhsStr: cond.varName, rhsStr: String(cond.max) });
+                        state.inequalityConstraints.push({
+                            lhs: _vAST2, rhs: _cAST2,
+                            op: (cond.maxStrict === true) ? "<" : "<=",
+                            lhsStr: cond.varName, rhsStr: String(cond.max)
+                        });
                     }
                     continue;
                 }
@@ -46,8 +60,8 @@ function suan1(state) {
                     var rightFixed = fuzzyFix(rhs, state.protNames);
                     var _ineqLeft = null, _ineqRight = null, _ineqErr = null;
                     try {
-                        _ineqLeft = parse(tokenize(leftFixed));
-                        _ineqRight = parse(tokenize(rightFixed));
+                        _ineqLeft = parse(tokenize(leftFixed, state.protNames));
+                        _ineqRight = parse(tokenize(rightFixed, state.protNames));
                     } catch (e) { _ineqErr = e; }
                     if (_ineqErr) {
                         // 解析失败不静默丢弃：记入用户可见 warning，保持"没解出来也要说清为什么"
@@ -67,7 +81,35 @@ function suan1(state) {
         if (eqStr.indexOf("=") < 0) {
             var cond = parseCondition(eqStr);
             if (cond) {
-                if (cond.type === "domain") { state.domainConstraints.push(cond); continue; }
+                if (cond.type === "domain") {
+                    state.domainConstraints.push(cond);
+                    // 🔴 2026-10-04 修 P0（同上）：这条路径过去**只**推 domainConstraints、
+                    //   不推 inequalityConstraints ⇒ 形如 `x∈[-30,30]`、`x∈(0,1)` 的约束
+                    //   终态闸门完全看不到，违反它的候选解会原样输出给 Agent。
+                    //   （`x>0` 走的是上面 21 行那条路径，因为串里含 `<`/`>`；本条是无比较符的区间形态。）
+                    if (cond.varName) {
+                        try {
+                            var _pAST = parse(tokenize(cond.varName, state.protNames));
+                            if (cond.min !== undefined) {
+                                state.inequalityConstraints.push({
+                                    lhs: _pAST, rhs: { type: "num", value: cond.min },
+                                    op: (cond.minStrict === true) ? ">" : ">=",
+                                    lhsStr: cond.varName, rhsStr: String(cond.min)
+                                });
+                            }
+                            if (cond.max !== undefined) {
+                                state.inequalityConstraints.push({
+                                    lhs: _pAST, rhs: { type: "num", value: cond.max },
+                                    op: (cond.maxStrict === true) ? "<" : "<=",
+                                    lhsStr: cond.varName, rhsStr: String(cond.max)
+                                });
+                            }
+                        } catch (e) {
+                            _lsNoteInternal(e, 'setup.js: 域约束转不等式 AST 失败，仅记 domainConstraints（终态闸门将看不到该约束），有意忽略');
+                        }
+                    }
+                    continue;
+                }
                 if (cond.type === "warn") { state.conditionWarnings.push(cond.message); if (cond.kind === 'integer-unenforced') state.integerConstraintUnenforced = true; continue; }
             }
             continue;
@@ -78,8 +120,8 @@ function suan1(state) {
         var rightFixed = fuzzyFix(parts.slice(1).join("=").trim(), state.protNames);
         var leftAST = null, rightAST = null, _eqErr = null;
         try {
-            leftAST = parse(tokenize(leftFixed));
-            rightAST = parse(tokenize(rightFixed));
+            leftAST = parse(tokenize(leftFixed, state.protNames));
+            rightAST = parse(tokenize(rightFixed, state.protNames));
         } catch (e) { _eqErr = e; }
         if (_eqErr) {
             // 解析失败不静默丢弃：记入用户可见 warning，避免用户困惑"为什么没解出来"

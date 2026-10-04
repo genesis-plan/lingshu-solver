@@ -130,8 +130,8 @@ function suan48(state) {
                 // 解析为 AST（f(x) = 0 形式）
                 var leftFixed = fuzzyFix(c.lhsStr, state.protNames);
                 var rightFixed = fuzzyFix(c.rhsStr, state.protNames);
-                var leftAST = parse(tokenize(leftFixed));
-                var rightAST = parse(tokenize(rightFixed));
+                var leftAST = parse(tokenize(leftFixed, state.protNames));
+                var rightAST = parse(tokenize(rightFixed, state.protNames));
                 eqASTs.push({ type: "binop", op: "-", left: leftAST, right: rightAST });
             }
 

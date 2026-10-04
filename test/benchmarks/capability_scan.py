@@ -4,7 +4,7 @@
 能力扫描：定位现有 CAS（SymPy 1.14 / NumPy / SciPy）在【6 变量以内方程系统】上的真实短板。
 
 方法：每题跑三种路线，记录【是否给对 + 耗时 + 是否严格判定】。
-  · 数��路线：linsolve / solve / nroots —— 数值/符号求解
+  · 数值路线：linsolve / solve / nroots —— 数值/符号求解
   · 线性代数：numpy.linalg.solve / lstsq
   · 严格路线：Sylvester 结式 + Sturm 精确计数
 
@@ -19,14 +19,37 @@ import numpy as np
 
 T0 = time.perf_counter()
 
+# ⚠ 口径常量：与 node 侧 capability_lingshu.mjs 严格一致（改一处必须改两处）。
+#   两侧都 WARMUP 预热 + REPEAT 取均值，否则量到的不是同一个东西。
+WARMUP = 3
+REPEAT = 5
+
+
+def warmup():
+    """预热：把 import 之外的首次调用成本（JIT/缓存/符号表初始化）挪到计时之外"""
+    xw, yw = sp.symbols("x y", real=True)
+    for _ in range(WARMUP):
+        for eqs, syms in (([xw + yw - 3, xw - yw - 1], (xw, yw)),
+                          ([xw ** 2 + yw ** 2 - 4, xw * yw - 1], (xw, yw))):
+            try:
+                sp.linsolve(eqs, syms)
+            except Exception:
+                pass
+            try:
+                sp.solve(eqs, syms, dict=True)
+            except Exception:
+                pass
+
 
 def timed(fn, *a, **kw):
+    """计时跑 REPEAT 次取均值（口径与 node 侧一致）"""
     t = time.perf_counter()
     try:
-        r = fn(*a, **kw)
-        return {"ok": True, "ms": (time.perf_counter() - t) * 1000, "val": r}
+        for _ in range(REPEAT):
+            r = fn(*a, **kw)
+        return {"ok": True, "ms": (time.perf_counter() - t) * 1000 / REPEAT, "val": r}
     except Exception as e:
-        return {"ok": False, "ms": (time.perf_counter() - t) * 1000,
+        return {"ok": False, "ms": (time.perf_counter() - t) * 1000 / REPEAT,
                 "err": type(e).__name__ + ": " + str(e)[:120]}
 
 
@@ -131,12 +154,18 @@ add("E1", "linear", "8方程6元 不相容（应严格判无解）",
      x - 3*y - z + 4*w - 2*v - u + 5],
     (x, y, z, w, v, u))
 
-add("E2", "linear", "6元 秩亏但无解（相容性失败）",
+add("E2", "linear", "6元 秩亏但【相容】（真相：3 维解流形）",
     [x + y + z + w + v + u - 1,
      2*x + 2*y + 2*z + 2*w + 2*v + 2*u - 2,
      x + 2*y + 3*z + 4*w + 5*v + 6*u - 5,
      -3*x - y + 2*z - w + 2*v - u - 1],
     (x, y, z, w, v, u))
+# ⚠ 上一行的 desc 原写「6元 秩亏但无解（相容性失败）」—— 【描述是错的】，已改。
+#   独立 BigInt 精确 RREF 核验（linear_arbiter.mjs 同一套算法）：
+#     rank(A) = 3 = rank([A|b]) ⇒ 【相容】，解集是 3 维仿射簇，不是空集。
+#   当时下这个判断的依据是「6 个未知数只有 4 个方程 ⇒ 看着像无解」，
+#   属于凭直觉下结论。教训：欠定（列数 > 秩）≠ 无解，
+#   无解的判据是 rank(A) < rank([A|b])，两者是完全不同的东西。
 
 
 # ══════════════ 跑扫描 ══════════════
@@ -157,8 +186,13 @@ def run_sympy_solve(c):
     if _is_linear(eqs, syms):
         t = time.perf_counter()
         try:
-            sol = sp.linsolve(eqs, syms)
-            ms = (time.perf_counter() - t) * 1000
+            # ⚠ 口径对齐（与 node 侧 capability_lingshu.mjs 严格一致）：
+            #   两侧都是 WARMUP=3（不计时）+ REPEAT=5 取均值。
+            #   初版两侧都只跑 1 次，但 node 侧是【冷启动】（首次 parse + JIT）而
+            #   Python 侧 import 早已付掉 ⇒ 口径不对称，会得出假的「灵数更慢」结论。
+            for _ in range(REPEAT):
+                sol = sp.linsolve(eqs, syms)
+            ms = (time.perf_counter() - t) * 1000 / REPEAT
             fin = sol is not sp.EmptySet
             tup = list(sol) if fin else []
             pts = []
@@ -175,7 +209,6 @@ def run_sympy_solve(c):
                     "err": type(e).__name__ + ": " + str(e)[:150]}
     r = timed(lambda: sp.solve(eqs, syms, dict=True))
     return {"route": "solve", **r}
-
 
 def run_numpy(c):
     """只有线性系统能走 numpy"""
@@ -202,9 +235,11 @@ def run_numpy(c):
     A, b = np.array(A, dtype=float), np.array(b, dtype=float)
     t = time.perf_counter()
     try:
-        sol, res, rank, sv = np.linalg.lstsq(A, b, rcond=None)
+        # 口径对齐：REPEAT 次取均值（与另两侧一致）
+        for _ in range(REPEAT):
+            sol, res, rank, sv = np.linalg.lstsq(A, b, rcond=None)
         return {"route": "numpy-lstsq", "ok": True,
-                "ms": (time.perf_counter() - t) * 1000, "rank": int(rank),
+                "ms": (time.perf_counter() - t) * 1000 / REPEAT, "rank": int(rank),
                 "resid": float(np.max(np.abs(A.dot(sol) - b))), "sol": sol.tolist()}
     except Exception as e:
         return {"route": "numpy-lstsq", "ok": False, "err": str(e)[:100]}
@@ -212,7 +247,9 @@ def run_numpy(c):
 
 print("=" * 78)
 print("灵数 · 能力扫描  —— 目标：找出【现有 CAS 做不了 / 做得很慢】而我们能严格做的格子")
+print("口径：WARMUP=%d 预热 + REPEAT=%d 取均值（与 node 侧严格一致）" % (WARMUP, REPEAT))
 print("=" * 78)
+warmup()
 
 out = []
 for c in CASES:
@@ -220,6 +257,14 @@ for c in CASES:
            "n": len(c["syms"]), "m": len(c["eqs"])}
     rec["sympy"] = run_sympy_solve(c)
     rec["numpy"] = run_numpy(c)
+    # 题面外置：灵数侧（node）要跑【同一批题】才能对比。
+    # ⚠ 与线性对测同一条纪律：题面必须外置成共享文件，两侧绝不各自造题。
+    #   之前线性对测就是因为两侧各造各的随机题，对比结论全废。
+    # 用 sstr（人可读的 infix 字符串），只把 ** 转成 ^（灵数 parser 的幂运算符）。
+    # 曾试过 srepr：机器可 eval 但极冗长（Add(Mul(Integer(5), Symbol('u'...))），
+    # node 侧还得写个 srepr 解释器，不值当。sstr 直接可读、可人工核对。
+    rec["eqs_src"] = [sp.sstr(e).replace("**", "^") for e in c["eqs"]]
+    rec["vars"] = [str(s) for s in c["syms"]]
     out.append(rec)
 
     s, np_ = rec["sympy"], rec["numpy"]
@@ -233,5 +278,24 @@ for c in CASES:
 
 print("\n" + "=" * 78)
 print("总耗时 %.1f ms" % ((time.perf_counter() - T0) * 1000))
+
+
+def jsonable(o):
+    """把任意对象转成可 JSON 序列化的结构。
+
+    ⚠ json.dump(default=str) 只兜得住【值】，兜不住【键】：
+       sp.solve(..., dict=True) 返回 {x: sol}，Symbol 当键会直接抛
+       TypeError: keys must be str/int/float/bool/None, not Symbol。
+       之前这脚本就是这样白跑一轮（扫描全做完，最后写文件才炸）。
+    """
+    if isinstance(o, dict):
+        return {str(k): jsonable(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [jsonable(v) for v in o]
+    if isinstance(o, (str, int, float, bool)) or o is None:
+        return o
+    return str(o)
+
+
 with open("test/benchmarks/capability_scan.json", "w", encoding="utf-8") as f:
-    json.dump(out, f, ensure_ascii=False, indent=1, default=str)
+    json.dump(jsonable(out), f, ensure_ascii=False, indent=1)
