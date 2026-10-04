@@ -265,11 +265,42 @@ let force = false;
 //   我第一版写成「先循环建祖先、再单独建自己」，
 //   建自己时又用了**本地**的 parent sha（远端不存在）⇒ 又 422。
 //   递归写法天然正确：ensure(sha) 返回该 commit 在远端的等价 sha。
+// ★ 2026-10-05 新增：远端分支头部可能已经是「内容相同、但 sha 不同」的重建版
+//   commit —— 那是**上一次 API 推送**的产物（GitHub 服务端对 commit 对象做
+//   非确定性改写，详见文末注释），本地 sha 在远端永远查不到。
+//
+//   此时绝不能 rebuild 一个副本，两个理由都致命：
+//     ① 造副本 ⇒ 上一个远端 commit（内容本来是对的）变成孤儿对象；
+//     ② 更致命的是：新副本的 sha ≠ remoteNow，脚本走到第 4 步的
+//        `remoteNow === PARENT_SHA` 快进校验必然不成立，
+//        接着 contentSame 检查（拿 remoteNow 的 tree 比 meta.tree）也必然失败
+//        ⇒ 直接中止，一个 commit 都推不出去。
+//
+//   判定必须用**内容**而不是 sha：tree sha 一致 + body 逐字节一致 ⇒ 同一份提交。
+//   （tree 是确定性哈希，所以本地 tree sha 与远端 tree sha 可以直接比。）
+async function findRemoteEquivalent(info) {
+  const cur = await api(`/git/refs/heads/${BRANCH}`, 'GET');
+  if (cur.status !== 200) return null;
+  const rs = cur.json && cur.json.object && cur.json.object.sha;
+  if (!rs) return null;
+  const rc = await api(`/git/commits/${rs}`, 'GET');
+  if (rc.status !== 200) return null;
+  const j = rc.json || {};
+  if (j.tree && j.tree.sha === info.tree && stripHeader(j.message || '') === info.msg) return rs;
+  return null;
+}
+
 async function ensure(sha) {
   if (!sha) return null;
   if (await commitExists(sha)) return sha;              // 远端已有，直接用
   const info = readLocalCommit(sha);
   if (!info) { console.error(`自举链断在 ${sha.slice(0, 7)}：该 commit 不在本地 commits.json`); process.exit(1); }
+  // ★ 先按内容找远端等价 commit；找不到才重建（重建会造孤儿，是下策）
+  const eq = await findRemoteEquivalent(info);
+  if (eq) {
+    console.log(`  复用远端等价 commit ${eq.slice(0, 7)}（tree + body 逐字节一致，sha 不同）`);
+    return eq;
+  }
   console.log(`  重建 ${sha.slice(0, 7)} …`);
   const parentRemote = await ensure(info.parent);      // ★ 递归：先把父链搞定
   const r = await api('/git/commits', 'POST', {
