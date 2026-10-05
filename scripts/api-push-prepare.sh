@@ -6,19 +6,29 @@
 # Bash 里跑，Node 只做纯网络 IO。
 #
 # 用法：
-#   bash scripts/api-push-prepare.sh
+#   bash scripts/api-push-prepare.sh              # 推 HEAD
+#   bash scripts/api-push-prepare.sh 839c064      # 推任意 commit（不动工作区）
 #   export TOK=<github token>
 #   node scripts/api-push.mjs
 #
+# ★ REV 参数化的原因（2026-10-05）：本地领先远端**多个** commit 时，一次只推
+#   HEAD 会把中间的 commit 漏掉（远端将无法快进到 HEAD）。切分支推是坏主意
+#   —— 本仓库 dist/ 与文档有 69 个文件，checkout 会大面积重写工作区，出错
+#   难恢复。正确做法是逐个 commit 走API，完全不碰工作区。
+#
 # 产物（全部在 .push-tmp/，已被 .gitignore 忽略）：
-#   entries.z   git ls-tree -r -z HEAD 的原始输出（NUL 分隔）
+#   entries.z   git ls-tree -r -z $REV 的原始输出（NUL 分隔）
 #   parsed.json  解析后的条目数组（mode/type/sha/path），含路径合法性硬闸
 #   shas.txt    本次 tree 里所有 blob 的 sha，一行一个
-#   blobs.raw   git cat-file --batch 的原始输出（含对象头，Node 按 size 切分）
-#   meta.json   HEAD/parent/tree/message/author/committer
+#   blobs.raw   git cat-file --batch 的原始输出（含对象头，Node 按size 切分）
+#   meta.json   $REV/$REV^/$REV^{tree}/message/author/committer
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p .push-tmp
+
+REV="${1:-HEAD}"
+git rev-parse --verify "$REV^{commit}" > /dev/null   # 存在性硬闸，失败即中止
+echo "准备推送的 commit: $(git rev-parse "$REV")  ($REV)"
 
 # ── 1. 条目表 ──
 # ⚠ 必须用 -z。不带 -z 时 git 在 core.quotePath=true（默认）下会把非 ASCII
@@ -26,7 +36,7 @@ mkdir -p .push-tmp
 #   docs/01-产品作用.md → "docs/01-\344\272\247\345\223\201\344\275\234\347\224\250.md"
 # 直接拿这些字面量当路径用，会推出一个名叫 `"docs` 的垃圾目录，
 # 而且 GitHub 不会报错 —— 静默产出错误内容。-z 是 NUL 分隔，不引号不转义。
-git ls-tree -r -z HEAD > .push-tmp/entries.z
+git ls-tree -r -z "$REV" > .push-tmp/entries.z
 
 node -e '
 const fs = require("fs");
@@ -75,7 +85,7 @@ git cat-file --batch < .push-tmp/shas.txt > .push-tmp/blobs.raw
 #
 #   正解：从头逐行走，遇到**第一个完全空行**才是 header/body 分界。
 #   （message 正文内部也有空行，所以不能用 indexOf('\n\n')，必须逐行判断。）
-git cat-file commit HEAD > .push-tmp/commit-raw.bin
+git cat-file commit "$REV" > .push-tmp/commit-raw.bin
 #
 # ⚠⚠ message 必须**去掉末尾那个换行**再提交给 API，这是 sha 对不上的最后一道原因
 #   （2026-10-03 实测踩了 3 小时才定位）：
@@ -92,9 +102,9 @@ git cat-file commit HEAD > .push-tmp/commit-raw.bin
 J() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.stringify(s.trimEnd())))'; }
 {
   echo "{"
-  printf '  "headSha": "%s",\n' "$(git rev-parse HEAD)"
-  printf '  "parent": "%s",\n' "$(git rev-parse HEAD^)"
-  printf '  "tree": "%s",\n' "$(git rev-parse 'HEAD^{tree}')"
+  printf '  "headSha": "%s",\n' "$(git rev-parse "$REV")"
+  printf '  "parent": "%s",\n' "$(git rev-parse "$REV^")"
+  printf '  "tree": "%s",\n' "$(git rev-parse "$REV^{tree}")"
   printf '  "author": { "name": %s, "email": %s, "date": %s },\n' \
     "$(git log -1 --format=%an | J)" "$(git log -1 --format=%ae | J)" "$(git log -1 --format=%aI | J)"
   printf '  "committer": { "name": %s, "email": %s, "date": %s },\n' \
@@ -160,7 +170,7 @@ echo "准备完成：$(wc -c < .push-tmp/blobs.raw) 字节原始内容"
 # 直接建 commit 会 422「Parent SHA does not exist」。此时要把 parent 在远端
 # 重建一遍，而重建需要它的 tree/parent/body/署名，所以把 HEAD 往回 20 个祖先
 # 的 commit 对象原始字节导出来（base64 落盘，Node 侧再解析）。
-git log -20 --format=%H > .push-tmp/anc.txt
+git log -20 --format=%H "$REV" > .push-tmp/anc.txt
 git cat-file --batch < .push-tmp/anc.txt > .push-tmp/anc-raw.bin
 node -e '
 const fs=require("fs");
