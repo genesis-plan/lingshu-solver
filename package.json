@@ -83,7 +83,7 @@
     "bounds": "node test/test-bounds.js",
     "tropical": "node test/test-tropical.js",
     "rootbound": "node test/test-rootbound.js",
-    "rootbound-parity": "node test/rootbound-parity.mjs",
+    "rootbound-parity": "node test/_gen-rb-cases.mjs && node test/_rootbound-worker.cjs test/_rb-cases.json > test/_rb-A.json && node test/_rootbound-worker.cjs test/_rb-cases.json --no-opt > test/_rb-B.json && node test/rootbound-parity.mjs",
     "bridge": "node test/test-geometry-bridge.js",
     "quiz": "node test/quiz.cjs",
     "branch-budget": "node test/test-branch-budget.mjs",

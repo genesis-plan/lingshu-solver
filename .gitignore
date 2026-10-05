@@ -97,3 +97,13 @@ test/golden/_update_domain_baseline.mjs
 test/golden/_verify_domain_change.mjs
 test/golden/_layout.json
 test/golden/_chunks.json
+
+# rootbound-parity 的中间产物（2026-10-05补）。
+# ⚠ 本仓库是白名单式 gitignore，而 `!test/**` 把整个 test 目录放行了
+#   —— 所以这三个文件一旦生成就会入库。_rb-cases.json 是题集缓存（可随时由
+#   test/_gen-rb-cases.mjs 重建），A/B 两份是优化路径 vs 参照路径的快照。
+#   它们体积小但**纯属过程垃圾**，入库只会让每次跑测试都产生无意义 diff。
+#   （这两个 .json 里含全部题目的半宽浮点，属于测试中间数据，不该进产品仓库。）
+test/_rb-cases.json
+test/_rb-A.json
+test/_rb-B.json
