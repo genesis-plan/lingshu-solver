@@ -136,16 +136,38 @@ function suan7(state) {
             // 跳过已从前提取过值的方程，避免浮点噪声误判
             if (unknownVars.length === 0) {
                 if (!resolvedEqs[ei]) {
-                    // 用网格精度求值：known 经前向传播/二分可能带 ~1e-10 浮点噪声，
-                    // 若直接用 1e-12 阈值会把这个噪声误判为"矛盾"（unsound，丢真解）。
-                    // 网格精度与求解器输出精度一致，是 sound 的判定基准：真矛盾残差在
-                    // 网格尺度下仍远大于 0，数值噪声在网格下归零。
-                    var _knownGrid = {};
-                    for (var _kk in known) _knownGrid[_kk] = roundToGrid(known[_kk]);
-                    var val = evalAST(eq, _knownGrid);
-                    if (isFinite(val) && Math.abs(val) > 1e-12) {
+                    // 🔴🔴 2026-10-05 彻底去网格化：矛盾判据回归**纯后向误差**，删掉网格余量通道。
+                    //
+                    // 事故史（必须留痕，这是同一个坑的两次修复）：
+                    //   第1版：用 1e-12 绝对阈值。`3*x=1` 的 known={x:1/3} 代入得残差
+                    //        ~1e-17 < 1e-12 ⇒ 不判矛盾，对的；但 12 位以上的循环小数会漏。
+                    //   第2版：known 先 roundToGrid 到 6 位网格，残差变1e-6 > 1e-12
+                    //        ⇒ **把 1/3 的量化残差当成矛盾**，输出 provenEmpty=true
+                    //        +「已严格证明：定义域内不存在实数解」。这是最恶劣的一档谎报
+                    //        （Agent 会照原文向用户断言无解），实测 `3*x=1`/`7*x=1` 全中。
+                    //   第3版（2026-10-05，现在）：**删掉网格化本身**（roundToGrid 改为
+                    //        全精度 + ULP 去噪），矛盾阈值改用与残差闸门同源的后向误差
+                    //        判据 max(TOL_ABS_FLOOR, Σ|terms|·τ)。网格余量通道的前提
+                    //        （坐标被量化）已消失，保留它等于**永久放宽矛盾检测**
+                    //        ——真矛盾（x=1 与 x=2 并存，残差 O(1)）抓得住，
+                    //        但任何残差小于 L·h ≈ 1e-6 的伪矛盾会被放过。
+                    //
+                    // 为什么后向误差判据是**更严**而不是更松：
+                    //   τ = 1e-11 相对 ⇒ 对 `3*x=1`（Σ|terms|≈1）阈值 1e-11，
+                    //   而 1/3 的真残差 ~1e-17 ⇒ 差6 个数量级，安全放过；
+                    //   对真矛盾 `x-2` 代入 x=1 残差 1 ⇒ 超阈值 11 个数量级，照样抓住。
+                    //
+                    // fail-closed（保持不变）：本函数一旦宣告就是「已严格证明无解」，
+                    //   判不出来就没有资格说这句话 ⇒ 交给后续算子继续找。
+                    var _qn = Object.keys(known);
+                    var _val = NaN, _scale = 0;
+                    try { _val = evalAST(eq, known); } catch (e1) { _val = NaN; }
+                    try { _scale = evalASTScale(eq, known); } catch (e2) { _scale = 0; }
+                    if (!isFinite(_scale) || _scale <= 0) _scale = 0;
+                    var _ctol = Math.max(1e-6, _scale * 1e-11);
+                    if (isFinite(_val) && Math.abs(_val) > _ctol) {
                         state.done = true;
-                        var msg = "前向传播检测到矛盾：代入已知值后方程不成立（残差=" + val.toExponential(2) + "）";
+                        var msg = "前向传播检测到矛盾：代入已知值后方程不成立（残差=" + _val.toExponential(2) + "）";
                         var knownList = Object.keys(known).sort().map(function(v) { return v + "=" + known[v]; }).join(", ");
                         state.result = { solutions: [], error: "NO_SOLUTION", provenEmpty: true, message: msg, detail: "已知值: " + knownList, executionPath: "前向传播矛盾检测", timeMs: performance.now() - state.startTime, confidence: "high", varNames: state.varNames, resultType: 1, resultTypeName: "空结果", resultTypeDesc: "前向传播检测到矛盾" };
                         return;

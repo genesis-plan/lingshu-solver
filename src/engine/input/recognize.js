@@ -93,8 +93,26 @@ function classifyInput(raw) {
     //     必须在「有等号 ⇒ 方程」之前判，否则整句连同等号一起被当合法方程透传，
     //     解析层再报错——那时用户看到的是语法错误，而不是"这不是数学输入"。
     //     白名单是引擎真有的函数名；白名单外的英文单词出现 ≥2 个 ⇒ 判句子。
-    //     只出现 1 个（如 answer=5）不拦，避免过度收紧误伤合法变量名。
-    const _words = s.match(/[A-Za-z]{2,}/g) || [];
+    //
+    // 🔴 2026-10-05 P0 修复（实测事故：`x+y+z-6, xy+yz+zx-11, xyz-6` 返回 0 解）：
+    //   原实现用 `s.match(/[A-Za-z]{2,}/g)` 扫「词」，这把**连写的隐式乘法**也当成了单词 ——
+    //   `xy+yz+zx=11` 扫出 ['xy','yz','zx'] 三个 2 字母「词」，都不在函数名白名单
+    //   ⇒ 整条判 ILLEGAL ⇒ **方程被静默丢弃**，3 元题退化成 2 元欠定 ⇒ 输出 0 解 + 「计算资源不足」。
+    //   数学上 `xy` 是一个标识符（隐式乘法），不是英文单词；二者的区别不在字母数，
+    //   而在**分隔方式**：英文单词由空格分隔并各自成段，数学记号则与运算符/数字粘连。
+    //   所以判据改为：按空白切段，只把「整段是纯字母（无数字、无运算符）」的段计为单词。
+    //   逐例核对（全部保持原行为，只有连写那条改变）：
+    //     "find the roots of x^2=4" → 词 find/the/roots/of = 4 ⇒ illegal  ✔ 不变
+    //     "solve x^2=4"            → 词 solve = 1 ⇒ equation（沿用旧口径）✔ 不变
+    //     "answer=5"               → 段 'answer=5' 含数字 ⇒ 0 词 ⇒ equation ✔ 不变
+    //     "compute x^2-4"          → 词 compute = 1 ⇒ needsEquals ✔ 不变
+    //     "please help"            → 词 please/help = 2 ⇒ illegal ✔ 不变
+    //     "xy+yz+zx=11"            → 1 段含运算符 ⇒ 0 词 ⇒ equation ✔ **修复**
+    //     "ax+by=c"                → 同上 ✔ **修复**
+    const _segs = s.split(/\s+/).filter(function (t) { return t.length > 0; });
+    const _words = _segs.filter(function (t) {
+        return /^[A-Za-z]{2,}$/.test(t);
+    });
     if (_words.length >= 2) {
         let allKnown = true;
         for (let i = 0; i < _words.length; i++) {

@@ -52,8 +52,28 @@ const MAX_SUPPORT_TERMS = 12;     // 界计算用的支撑截断（只放宽 sla
 const MAX_COMBOS = 50000;         // 跨方程组合枚举上限（超预算 ⇒ proven=false）
 // 单次 rootBounds 的墙钟预算（ms）。实测 6 元稠密题 14112 combos 要 6.5s，
 // 而求解本身只要 40ms —— 根界是优化不是前提，超时就诚实降级（同 MAX_COMBOS 处置）。
-const MAX_MS = 300;
+//
+// ⚠ 2026-10-05：改为**可注入**，理由是可测性 ——
+//   它是「花多少算力换一个 proven」的**定价旋钮**，必须有办法在多个取值上实测
+//   「proven 掉多少 / 端到端快多少」，否则就只能凭感觉定这个数。
+//   见 test/rootbound-value.mjs（用真实题集扫 300/100/50/30/10/0ms）。
+const DEFAULT_MAX_MS = 300;
+const MAX_MS = (() => {
+  const v = parseInt(process.env.LS_RB_MAX_MS ?? '', 10);
+  return Number.isFinite(v) && v >= 0 ? v : DEFAULT_MAX_MS;
+})();
 const MAX_PIVOTS = 4000;          // 单 LP 主元上限（防退化循环）
+
+// ── 2026-10-05 优化开关（仅供 test/rootbound-parity.mjs 做等价性校验）──
+//
+// 为什么要留这个开关：下面三处优化（「组合枚举提到循环外」/「预拼行」/
+// 「Phase I 快照复用」）理论上**只改何时算、不改算什么**，但根界变松只会让域变大、
+// 仍报 proven ⇒ 若快照复用写错半行，**现有测试可能照样全绿而结果已不可信**。
+// ⇒ 必须有一条「关掉全部优化」的参照路径，逐位比对输出。
+//
+// 用法：ROOTBOUND_NO_OPT=1 时全部退回原始的重复计算路径。
+// ⚠ 这是测试专用开关，**不得**在生产路径设置（会退回 6 倍慢）。
+const NO_OPT = process.env.ROOTBOUND_NO_OPT === '1';
 const COEF_FLOOR = 1e-300;        // 系数下溢：|c| 更小视为 0（ln 会炸）
 const BOUND_CEILING = 1e300;      // 超过这个量级就不叫「盒」了，直接判 unbounded
 const LP_TOL = 1e-9;
@@ -85,7 +105,7 @@ function allCols(W) {
  *     max v s.t. −v ≤ −3（= v ≥ 3，无界）被算成 obj=3；
  *     max v s.t. v ≤ −3（不可行）被算成 obj=−3。两例都静默错、不报任何错。
  */
-function lpMax(c, A, b) {
+function lpMax(c, A, b, reuse, sink) {
   const m = A.length;
   if (!m) return { status: 'infeasible', obj: 0, x: null };
   const n = A[0] ? A[0].length : 0;
@@ -95,20 +115,37 @@ function lpMax(c, A, b) {
   const NA = m;
   const RHS = NV + m + NA;     // 最后一列存 rhs
   const W = RHS + 1;
+
+  // ── 2026-10-05 复用路径（性能，不改数学）───────────────────────────────
+  // 实测 CPU profile：rootbound.js 占服务端 **89.7%**，其中 pivot 21.7%。
+  // 原因：dirBounds(k, rows, n) 对**同一组 rows** 调 2 次 lpMax（up/dn），
+  // 而 n 个变量 ⇒ 同一个 rows 的「建表 + Phase I（可行性）」被算了 **2n 次**。
+  //   n=6 ⇒ 12 次，其中 11 次的结果被完全丢弃。
+  // 而 Phase I 只依赖 A、b，**与目标 c 无关** ⇒ 可以只跑一次。
+  //
+  // 实现：reuse = { m, n, T, basis, allCols } 是 Phase I 跑完后的可行基快照。
+  // ⚠ 纪律：必须**深拷贝** T —— 否则第一次 Phase II 的 pivot 会污染快照，
+  //   第二次拿到的是被上一次改过的表 ⇒ 结果错且静默（正是这类 bug 最难查）。
   const T = [];
-  for (let i = 0; i < m; i++) {
-    const row = new Float64Array(W);
-    const flip = b[i] < 0 ? -1 : 1;
-    for (let j = 0; j < n; j++) {
-      if (A[i][j] !== 0) { row[j] += flip * A[i][j]; row[n + j] -= flip * A[i][j]; }
+  let basis;
+  if (reuse && reuse.T && reuse.basis) {
+    for (let i = 0; i < m; i++) T.push(new Float64Array(reuse.T[i]));
+    basis = reuse.basis.slice();
+  } else {
+    for (let i = 0; i < m; i++) {
+      const row = new Float64Array(W);
+      const flip = b[i] < 0 ? -1 : 1;
+      for (let j = 0; j < n; j++) {
+        if (A[i][j] !== 0) { row[j] += flip * A[i][j]; row[n + j] -= flip * A[i][j]; }
+      }
+      row[NV + i] = flip;           // 松弛：与整行同号
+      row[RHS - NA + i] = 1;        // 人工（初值 |b_i| ≥ 0 ⇒ 初始基可行）
+      row[RHS] = Math.abs(b[i]);
+      T.push(row);
     }
-    row[NV + i] = flip;           // 松弛：与整行同号
-    row[RHS - NA + i] = 1;        // 人工（初值 |b_i| ≥ 0 ⇒ 初始基可行）
-    row[RHS] = Math.abs(b[i]);
-    T.push(row);
+    basis = new Array(m);
+    for (let i = 0; i < m; i++) basis[i] = RHS - NA + i;   // 初始基 = 全人工
   }
-  const basis = new Array(m);
-  for (let i = 0; i < m; i++) basis[i] = RHS - NA + i;   // 初始基 = 全人工
 
   // 目标行 z 的约定（教科书版）：
   //   z[j] = 列 j 的归约成本；**z[rhs] = 当前 max 值**；入基 ⇔ z[e] > 0。
@@ -180,12 +217,24 @@ function lpMax(c, A, b) {
   };
 
   // ── Phase I：max(−Σ人工)
-  const zI = new Float64Array(W);
-  for (let j = 0; j < W; j++) zI[j] = (j >= RHS - NA && j < RHS) ? -1 : 0;
-  zI[RHS] = 0;
-  eliminate(zI, allCols(W), (j) => (j >= RHS - NA && j < RHS ? -1 : null));
-  if (drive(zI, allCols(W), false) !== 'ok') return { status: 'infeasible', obj: 0, x: null };
-  if (zI[RHS] < -1e-7) return { status: 'infeasible', obj: 0, x: null };   // Σ人工 > 0 ⇒ 不可行
+  //
+  // 2026-10-05：只有「从零建表」时才跑。带 reuse 时表已是 Phase I 后的可行基，
+  // 直接进 Phase II（标准两阶段单纯形的第二阶段就是从第一阶段的可行基启动）。
+  // ⚠ 这不是近似：Phase I 的作用就是「把初始全人工基变成可行基」，
+  //   既然快照里存的就是那个可行基，重跑一遍只会得到同一个基。
+  //
+  // 若传了 sink（调用方持有的 box），把 Phase I 后的可行基**深拷贝**进去，
+  // 供同一 (A,b) 的下一个目标复用（见 dirBounds 的说明）。
+  // ⚠ 必须在 Phase II 之前快照 —— Phase II 的 pivot 会就地改写 T。
+  if (!reuse) {
+    const zI = new Float64Array(W);
+    for (let j = 0; j < W; j++) zI[j] = (j >= RHS - NA && j < RHS) ? -1 : 0;
+    zI[RHS] = 0;
+    eliminate(zI, allCols(W), (j) => (j >= RHS - NA && j < RHS ? -1 : null));
+    if (drive(zI, allCols(W), false) !== 'ok') return { status: 'infeasible', obj: 0, x: null };
+    if (zI[RHS] < -1e-7) return { status: 'infeasible', obj: 0, x: null };   // Σ人工 > 0 ⇒ 不可行
+    if (sink) sink.ctx = { T: T.map((r) => new Float64Array(r)), basis: basis.slice() };
+  }
 
   // ── Phase II：max cᵀv
   const z = new Float64Array(W);
@@ -213,16 +262,29 @@ function lpMax(c, A, b) {
 
 // ── 单变量方向界（同一约束集上顺手出 max / min，省一半 LP）────────────
 
-/** @returns {{status:'infeasible'|'unbounded'|'ok', max:number|null, min:number|null}} */
-function dirBounds(k, rows, n) {
+/**
+ * 单变量方向界（同一约束集上顺手出 max / min，省一半 LP）
+ *
+ * 2026-10-05 性能修正（CPU profile：rootbound.js 占服务端 89.7%）：
+ *   原实现对 (k, rows) 调 2 次**独立的** lpMax(up) + lpMax(dn)，
+ *   而 n 个变量各自又要重来一遍 ⇒ 同一组 (A,b) 的建表 + Phase I 被算 **2n 次**。
+ *   改法：第一次调用时把「建表 + Phase I 后」的可行基快照存进 `box`，
+ *        第二次（dn）直接复用 ⇒ 建表与 Phase I 各只做 1 次。
+ *   ⚠ 复用时 lpMax 会**深拷贝**快照（见 lpMax 内注释），不会污染。
+ *      这是标准的「多目标共享可行基」两阶段单纯形用法，数学上等价。
+ *
+ * @returns {{status:'infeasible'|'unbounded'|'ok', max:number|null, min:number|null}}
+ */
+function dirBounds(k, rows, n, box) {
   const A = [], b = [];
   for (const rw of rows) { A.push(rw.a); b.push(rw.rhs); }
 
   const cUp = new Array(n).fill(0); cUp[k] = 1;
-  const up = lpMax(cUp, A, b);
+  const up = lpMax(cUp, A, b, null, NO_OPT ? null : box);
   if (up.status === 'infeasible') return { status: 'infeasible', max: null, min: null };
+  const reuse = (!NO_OPT && box && box.ctx) ? box.ctx : null;
   const cDn = new Array(n).fill(0); cDn[k] = -1;
-  const dn = lpMax(cDn, A, b);
+  const dn = lpMax(cDn, A, b, reuse, null);
   const status = (up.status === 'unbounded' || dn.status === 'unbounded') ? 'unbounded' : 'ok';
   return {
     status,
@@ -396,15 +458,58 @@ function rootBounds(equations, vars) {
   // 不是「每个变量各一份」。n 个变量串行累加，per-variable 计时会漏算 n−1 倍。
   const tAll = Date.now();
 
+  // ── 2026-10-05 性能修正（CPU profile 实测）────────────────────────────
+  //
+  // 实测（同进程 profile，300 道 2~6 元线性/多项式题）：
+  //   rootbound.js 占 **89.7%** 的 CPU（lpMax 47.5% + pivot 21.7%
+  //   + enumerateCombos 13.8%），而内核 solve 只占 3.0%。
+  //   ⇒ 真正的瓶颈不是求解器，是「求根的界」。用户要的「极致计算」，
+  //     90% 的算力花在一个**优化**（收紧域）上，不是计算本身。
+  //
+  // 本次修正两处**纯粹是重复劳动**的浪费（不改变任何数学输出）：
+  //
+  //   ❶ 原实现在 `for (k)` 变量循环**内**调用 enumerateCombos(specs, …)，
+  //      而组合枚举只依赖 specs（= 方程结构），**与变量 k 完全无关**
+  //      ⇒ 同一个笛卡尔积被算了 n 遍（n≤6 ⇒ 白白最多 6 倍）。
+  //      改法：提到循环外，只算一次。
+  //
+  //   ❷ 原实现在每个 combo 上 `const rows = []` 重新拼数组。
+  //      combo 的内容只依赖 (specs, 组选择)，也与 k 无关。
+  //      改法：提到循环外预拼一次，n 个变量共用。
+  //
+  // ⚠ 纪律：这两处只改**何时算**，不改**算什么**。
+  //   enumerateCombos 超预算 ⇒ truncated ⇒ proven=false 的降级路径，
+  //   仍在循环外**一次**判定，语义与原来「每个 k 都判一次」完全一致
+  //   （原来每次判的结果必然相同，因为输入相同）。
+  const combosAll = enumerateCombos(specs, MAX_COMBOS);
+  if (!combosAll) {
+    // 组合爆炸 ⇒ 整体降级：halfWidths 一律 Infinity，绝不给「没证完的界」。
+    const halfInf = new Array(n).fill(Infinity);
+    return {
+      proven: false, method: 'tropical_log_space', truncated: true,
+      reason: 'candidate combination budget exceeded → refusing to claim a bound',
+      halfWidths: halfInf,
+      perVar: V.map((nm) => ({ name: nm, pairs: 0, minAbs: null, maxAbs: null })),
+      unbounded: [], free: V.slice(),
+      zeroCoordinateRisk, zeroCoordinateIndices: zIdx,
+      supportTermTotal: sys.equations.reduce((s, p) => s + p.monomials.length, 0),
+      combos: 0
+    };
+  }
+  maxCombos = combosAll.length;
+
+  // 预拼每个 combo 的行（一次），供全部 n 个变量复用。
+  const comboRows = combosAll.map((combo) => {
+    const rows = [];
+    for (const grp of combo) for (const r of grp) rows.push(r);
+    return rows;
+  });
+
   for (let k = 0; k < n; k++) {
     let bestMaxAbs = null;     // 最松的 e^{U}（取 max = 最坏组合）
     let bestMinAbs = null;
     let combosTried = 0;
     let anyOk = false;
-
-    const combos = enumerateCombos(specs, MAX_COMBOS);
-    if (!combos) { truncated = true; break; }
-    maxCombos = Math.max(maxCombos, combos.length);
 
     // —— 时间闸门（2026-10-04 新增）——
     // 实测（MAX_COMBOS=50000）：6 元稠密题 14112 combos 需 **6584ms**，
@@ -412,12 +517,14 @@ function rootBounds(equations, vars) {
     // 根界是**优化**（收紧域 ⇒ 少切盒），不是**正确性前提**。
     // ⇒ 超过预算就停手，走与超 combos 完全相同的降级路径：truncated ⇒ proven=false。
     //   纪律一致：宁可不给界，不给算了一半的界。
-    for (const combo of combos) {
+    for (let ci = 0; ci < comboRows.length; ci++) {
       if (Date.now() - tAll > MAX_MS) { truncated = true; break; }
       combosTried++;
-      const rows = [];
-      for (const grp of combo) for (const r of grp) rows.push(r);
-      const d = dirBounds(k, rows, n);
+      const rows = comboRows[ci];
+      // ⚠ box 每次调用**新建**，绝不能跨变量/跨 combo 复用 ——
+      //   快照对应的是这一组 (A,b) 的可行基；换一组约束就是另一个单纯形问题。
+      //   复用错的对象会拿到别人的基 ⇒ 结果错且静默（这正是最危险的一类 bug）。
+      const d = dirBounds(k, rows, n, {});
       if (d.status === 'infeasible') continue;
       if (d.status === 'unbounded') continue;           // 该组合仍无界 ⇒ 换组合
       anyOk = true;

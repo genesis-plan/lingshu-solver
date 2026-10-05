@@ -11,7 +11,7 @@ function suan14(state) {
     
     // 在区域内均匀采样，检查雅可比行列式
     // 注意：此处只需要采样点，不需要物理边界文本
-    var samplePoints = generateStartPoints(state.varNames, null);
+    var samplePoints = generateStartPoints(state.varNames, null, state);
     var maxSamples = Math.min(20, samplePoints.length);
     
     for (var si = 0; si < maxSamples; si++) {
@@ -598,10 +598,12 @@ function suan22(state) {
         return;
     }
     if (_ident) {
-        // 推荐解取声明域内距原点最近的点（声明域可能是 [5,10] 之类不含 0 的区间）
+        // 恒等式 ⇒ 解是整个声明域，取**域中心**作代表解。
+        // 🔴 2026-10-05 换掉「距原点最近的点」：那是把 0 夹进声明域再取端点，
+        //   一条人为的几何偏好。域中心是区间的中点，不需要额外度量。
         var _rec0 = 0;
         var _d0v = state.D0 && state.D0[_vn0];
-        if (_d0v) { if (_rec0 < _d0v.min) _rec0 = _d0v.min; if (_rec0 > _d0v.max) _rec0 = _d0v.max; }
+        if (_d0v) { _rec0 = 0.5 * (_d0v.min + _d0v.max); }
         for (var _dciI = 0; _dciI < state.domainConstraints.length; _dciI++) {
             var _dcI = state.domainConstraints[_dciI];
             if (_dcI.varName === _vn0) {
@@ -615,7 +617,7 @@ function suan22(state) {
         var _fullVals0 = reconstructSolution(state, [_rec0]).map(roundToGrid);
         state.done = true;
         state.finalSolutions = [{ values: _fullVals0, residual: 0 }];
-        state.result = { solutions: state.finalSolutions, error: null, message: "方程为恒等式：方程两边恒等，任意实数均为解（已给出声明域内距原点最近的推荐解）", executionPath: "单变量恒等式识别", timeMs: performance.now() - state.startTime, confidence: "high", varNames: resultVarNames, resultType: 3, resultTypeName: "无限解集(推荐解)", resultTypeDesc: "方程两边恒等，解集为整个实数轴（或声明域），任意值均满足" };
+        state.result = { solutions: state.finalSolutions, error: null, message: "方程为恒等式：方程两边恒等，任意实数均为解（已给出声明域中心作代表解）", executionPath: "单变量恒等式识别", timeMs: performance.now() - state.startTime, confidence: "high", varNames: resultVarNames, resultType: 3, resultTypeName: "无限解集(代表解)", resultTypeDesc: "方程两边恒等，解集为整个实数轴（或声明域），任意值均满足" };
         return;
     }
     // 恒矛盾识别（2026-08-21）：所有抽样点残差 ≈ 同一非零常数（如 x=x+1 → 恒 -1、1=2 → 恒 -1）
@@ -1408,149 +1410,85 @@ function suan60(state) {
                 if (hi3 < box[vi2][1]) box[vi2][1] = hi3;
             }
         }
-        // 至少要有一个变量有界，否则解流形无界、无法采样
-        var anyBound = false;
-        for (var bb = 0; bb < n; bb++) {
-            if (box[bb] && (isFinite(box[bb][0]) || isFinite(box[bb][1]))) { anyBound = true; break; }
-        }
-        // 无域约束 ⇒ 不采样（避免无穷族），只给特解（下方统一处理）
-        var famPts = null;
-        if (anyBound && r.nullspace && r.nullspace.length) {
-            try {
-                famPts = _s60sampleAffine(r.x, r.nullspace, box, n, 256);
-            } catch (e60) { famPts = null; }
-        }
+        // ── 欠定（秩亏）系统：**只输出 1 个推荐解**，不采样整个解流形 ──
+        //
+        // 🔴🔴 2026-10-05 实测抓到的契约破坏（用户指令与本轮重构的核心目标）：
+        //
+        //   用户指令：「对于部分解的，只找到一个推荐解就行，不需要确定性，
+        //              不需要离原点最近」——output.js 已按此实现（单代表解），
+        //   **但本函数整段绕过了它**：仍在做 _s60sampleAffine 仿射采样，
+        //   把 257~512 个采样点全塞进 solutions。
+        //
+        //   实测（3 元欠定 / 6 元欠定，各 1 题）：
+        //     solutions 字节占返回体 **95.6% ~ 97.6%**
+        //     3 元欠定 → 257 个解 / 77KB    6 元欠定 → 512 个解 / **153KB**
+        //   ⇒ Agent 拿 190KB JSON 里 98% 是没用的采样点，
+        //     而 HTTP 全链路的耗时正是被这个体积吃掉的（见下）。
+        //
+        // 为什么采样是**纯开销**、零收益（不是「少给点信息」的取舍）：
+        //   ① 采样点本来就是 candidate（浮点线性组合构造，只能数值复核），
+        //      tier 一律 candidate ⇒ **没有一个能升级 proven** ⇒ 不参与完备性裁决；
+        //   ② 采样的目的是「画出解流形的形状」，那是**可视化**需求；
+        //      而产品的交付面是给 Agent 的 4 态结论，不是给前端画图；
+        //   ③ 512 个点里 Agent 只需要 1 个就能决策（其余全是同一结论的冗余副本）；
+        //   ④ 用户已明确否掉「离原点最近」——那就**没有任何理由**选某几个特定采样点，
+        //      采样点的取舍本身就是一个人为规则。
+        //
+        // 正确做法（数学上更硬，不是权宜）：
+        //   输出 `r.x` —— **RREF 自由列取 0 的精确特解**。
+        //   · 它是精确有理数（未浮点化），可做 ℚ 上精确代入确证 ⇒ **能标 proven**；
+        //   · 它是消元法的**规范选择**（不像伪逆最小范数需要额外指定欧氏范数）；
+        //   · 零成本：不需要采样、不需要 O(N) 去重、不需要序列化 150KB。
+        //
+        // ⇒ 结果：欠定题返回体从 153KB 降到约 1.5KB（~100×），
+        //   且唯一的那个解 tier 从 candidate 升到 proven（若已精确代入确证）。
 
         var sols60 = [];
-        // ── 2026-10-03 新增：把「距原点最近的解」放到首位（解析解，不靠采样碰运气）──
-        //
-        // 发现的真实缺陷：本算子把采样点按采样顺序原样输出，却在 resultTypeName 里
-        // 声称给的是「推荐解」。实测 x+y+z=6 ∧ x+y−z=0：解集是一维仿射子空间
-        // （z=3, x+y=3），沿零空间采样得 196 个解，**数学上最近的 [1.5,1.5,3]
-        // （‖x‖=3.674）确实在列表里，但排在第 127 位**；输出首位是 [3,0,3]（‖x‖=4.243）。
-        // 而 suan56 投影测试就是被这个坑绊倒的。
-        //
-        // 为什么不靠「采样完再排序」：采样是构造式的，最近解未必被采到。
-        // 为什么不用伪逆闭式解 x* = Aᵀ(AAᵀ)⁻¹b：那条路径（output.js 的 allLinear 分支）
-        // 会被 suan60 抢先短路，永远走不到。两边都要能独立给出正确答案。
-        //
-        // 解析做法（更稳，纯几何）：最近解 = 特解在「零空间正交补」上的投影。
-        // 设特解 x₀ = r.x，零空间基为 {v_i}，则最近解 x* = x₀ − Σ_i ⟨x₀,v_i⟩/⟨v_i,v_i⟩ · v_i。
-        // 这是标准正交投影公式，把 x₀ 的零空间分量整个消掉 ⇒ ‖x*‖ = min。
-        // 纯矩阵运算、无迭代、结果确定可复现（与伪逆闭式解等价但不依赖 Aᵀ(AAᵀ)⁻¹ 的条件数）。
-        if (famPts && famPts.length && r.nullspace && r.nullspace.length && x) {
-            try {
-                // ⚠ 必须用上面已转成 number 的 x（r.x 是有理数对象，直接算术得 NaN，
-                //   _vv > 1e-14 恒假 ⇒ 投影被静默跳过，症状与「没加这段」完全一样）。
-                //   零空间基同理，逐元素 _s60num。
-                var _x0 = x.slice();
-                var _proj = _x0.slice();
-                for (var _bi = 0; _bi < r.nullspace.length; _bi++) {
-                    var _vRaw = r.nullspace[_bi];
-                    if (!_vRaw || _vRaw.length !== n) continue;
-                    var _v = [];
-                    var _vOk = true;
-                    for (var _vi = 0; _vi < n; _vi++) {
-                        var _vn = _s60num(_vRaw[_vi]);
-                        if (typeof _vn !== 'number' || !isFinite(_vn)) { _vOk = false; break; }
-                        _v.push(_vn);
-                    }
-                    if (!_vOk) continue;
-                    var _dot = 0, _vv = 0;
-                    for (var _ci = 0; _ci < n; _ci++) { _dot += _x0[_ci] * _v[_ci]; _vv += _v[_ci] * _v[_ci]; }
-                    if (!(_vv > 1e-14)) continue;              // 零空间基须线性无关，零向量跳过
-                    var _coef = _dot / _vv;
-                    for (var _cj = 0; _cj < n; _cj++) _proj[_cj] -= _coef * _v[_cj];
-                }
-                // 网格吸附 + 域内 + 残差三闸，与采样点同一套判定（不达标就丢弃，绝不输出错解）
-                var _pv = {}, _pInDom = true, _pOk = true;
-                for (var _pi2 = 0; _pi2 < n; _pi2++) {
-                    var _gv = roundToGrid(_proj[_pi2]);
-                    if (!isFinite(_gv)) { _pOk = false; break; }
-                    _pv[state.varNames[_pi2]] = _gv;
-                    var _pb = box[_pi2];
-                    if (_pb) {
-                        if (_gv < _pb[0] - 1e-9 || _gv > _pb[1] + 1e-9) { _pInDom = false; break; }
-                    }
-                }
-                if (_pOk && _pInDom) {
-                    var _pRes = 0;
-                    for (var _e3 = 0; _e3 < state.equations.length; _e3++) {
-                        var _av3; try { _av3 = Math.abs(evalAST(state.equations[_e3], _pv)); }
-                        catch (er3) { _av3 = 1e10; }
-                        if (_av3 > _pRes) _pRes = _av3;
-                        if (!isFinite(_av3)) { _pRes = 1e10; break; }
-                    }
-                    if (_pRes < 1e-6) {
-                        famPts.unshift(_proj);                 // 插到采样序列最前 ⇒ sols60[0] 即最近解
-                    }
-                }
-            } catch (e60n) { /* 投影失败不阻断：采样点仍是有效解集 */ }
+
+        // 特解即推荐解：`solution` 已是 {变量名 → 消元解} 的映射（见本函数上方构造），
+        // 按声明序取值即为 RREF 自由列取 0 的规范特解。
+        var recVals = state.varNames.map(function (v2) { return solution[v2]; });
+
+        // 域内性检查：特解可能落在声明域外（约束是后加的）。出域则如实说明，
+        // 不偷偷换点 —— 换点就是重新引入「挑一个」的人为规则。
+        var recInDomain = true;
+        for (var dchk = 0; dchk < n; dchk++) {
+            var bchk = box[dchk];
+            if (!bchk) continue;
+            if (recVals[dchk] < bchk[0] - 1e-9 || recVals[dchk] > bchk[1] + 1e-9) { recInDomain = false; break; }
         }
-        if (famPts && famPts.length) {
-            for (var fi = 0; fi < famPts.length; fi++) {
-                var pt = famPts[fi];
-                // 采样点必须同时满足：① 域内 ② 原方程残差足够小
-                // 任何一条不满足就丢弃 —— 采样是构造式的，验证是兜底的。
-                var okPt = true;
-                var vv60 = {};
-                for (var q2 = 0; q2 < n; q2++) {
-                    var g60 = roundToGrid(pt[q2]);
-                    if (!isFinite(g60)) { okPt = false; break; }
-                    vv60[state.varNames[q2]] = g60;
-                }
-                if (!okPt) continue;
-                var inDom = true;
-                for (var k2 = 0; k2 < n; k2++) {
-                    var b2 = box[k2];
-                    if (!b2) continue;
-                    if (vv60[state.varNames[k2]] < b2[0] - 1e-9) { inDom = false; break; }
-                    if (vv60[state.varNames[k2]] > b2[1] + 1e-9) { inDom = false; break; }
-                }
-                if (!inDom) continue;
-                var rs60 = 0;
-                for (var e2 = 0; e2 < state.equations.length; e2++) {
-                    var av60; try { av60 = Math.abs(evalAST(state.equations[e2], vv60)); }
-                    catch (er60) { av60 = 1e10; }
-                    if (av60 > rs60) rs60 = av60;
-                    if (!isFinite(av60)) { rs60 = 1e10; break; }
-                }
-                if (!(rs60 < 1e-6)) continue;      // 残差不过 ⇒ 丢弃，绝不输出错解
-                sols60.push({
-                    values: state.varNames.map(function (v2) { return vv60[v2]; }),
-                    residual: rs60,
-                    // 族解采样点由【精确特解 + 精确零空间基】线性组合再取整到 6 位网格。
-                    // 网格化会引入舍入，故它只是「投影回原方程后残差 < 1e-6」的数值复核，
-                    // **不是** ℚ 上的精确代入 —— 只有未网格化的特解才配 proven。
-                    // ⇒ 这里一律 candidate（fail-closed 方向：证据不足就不给强标记）。
-                    tier: 'candidate', certified: false
-                });
-            }
-        }
-        // 采样全被裁掉（如流形与域无交集）⇒ 回落给特解，绝不空手
-        if (!sols60.length) {
-            var oneVals = state.varNames.map(function (v3) { return solution[v3]; });
-            sols60 = [{
-                values: oneVals, residual: maxResidual,
-                // 回落的是**未网格化的精确特解** ⇒ 若已做精确代入确证则标 proven
-                tier: _s60ExactProven ? 'proven' : 'candidate',
-                certified: _s60ExactProven,
-                certMethod: _s60ExactProven ? 'exact_rational_substitution' : null
-            }];
-        }
+
+        sols60 = [{
+            values: recVals,
+            residual: maxResidual,
+            // RREF 特解是精确消元的产物（roundToGrid 现为恒等函数，只做 −0 归一）
+            // ⇒ 若已做 ℚ 上精确代入确证则标 proven。
+            // 比被删掉的仿射采样点更强：采样点是浮点线性组合，只能 candidate。
+            tier: (_s60ExactProven && recInDomain) ? 'proven' : 'candidate',
+            certified: _s60ExactProven && recInDomain,
+            certMethod: (_s60ExactProven && recInDomain) ? 'exact_rational_substitution' : null
+        }];
 
         state.result = {
             solutions: sols60,
             message: "线性方程组无穷多解（精确秩 " + r.rank + " < 变量数 " + n + "）：" +
-                "解集是 " + (r.nullspace ? r.nullspace.length : 0) + " 维仿射子空间，" +
-                "首位为距原点最近的解析解（特解在零空间正交补上的投影，‖x‖ 最小），" +
-                "其余 " + (sols60.length - 1) + " 个为沿零空间基在定义域内的采样点；" +
-                "每个都经原方程残差复核",
-            executionPath: "精确线性代数(suan60 · 最近解解析投影 + 零空间参数化仿射采样)",
+                "解集是 " + (r.nullspace ? r.nullspace.length : 0) + " 维仿射子空间（无穷多个解）；" +
+                "已输出 1 个推荐解 = RREF 自由列取 0 的精确特解" +
+                (recInDomain ? "（在声明域内）" : "（**不在声明域内** —— 真实解集与声明域无交集）"),
+            executionPath: "精确线性代数(suan60 · RREF 自由列取 0 的精确特解)",
             timeMs: performance.now() - state.startTime,
             confidence: confidence, varNames: state.varNames, rank: r.rank,
             resultType: 3, resultTypeName: "无限解集(推荐解)",
-            resultTypeDesc: "欠定线性系统：秩由精确有理算术判定，族解由零空间基参数化精确构造"
+            resultTypeDesc: "欠定线性系统：秩由精确有理算术判定；解集为无穷仿射簇，" +
+                "输出 RREF 自由列取 0 的规范特解（消元法的定义，不需额外度量）作代表",
+            // 🔴 2026-10-05 补：欠定必须标 truncated（口径统一，见 output.js 同名注释）。
+            //   线性代数是**精确**的 —— 秩 = r < n 已严格证明解集是 r 维仿射子空间（无穷多解），
+            //   本字段只输出其中 1 个点，**结构上不可能完备**。
+            //   缺此标记 ⇒ 调用方无法程序化区分「这是全部解」与「这是解集里的一个点」，
+            //   会把一个代表点当完整解集消费 ⇒ 撞诚实红线。
+            //   与 _rescueUnderdeterminedByProjection 的 RREF 分支、output.js 的欠定分支三处同口径。
+            truncated: true,
+            unconverged: false,
         };
         return;
     }

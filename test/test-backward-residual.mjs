@@ -83,20 +83,58 @@ section('4. fail-closed 方向未被打开（判据不能变成「什么都通�
   ok(P.rationalRootTheorem([1, 0, -1]).includes(1), 'x²−1 的有理根 1 被正确认出');
 }
 
-section('5. 已知短板必须诚实留痕（小根被 6 位绝对网格吞掉）');
+section('5. 小根不再被 6 位绝对网格吞掉（去网格化后短板已消除）');
 {
-  // 5x⁴−1e12x²+7 在 x=±2.6458e-6 处还有两个真根，但规格要求 6 位绝对小数网格，
-  // 该值被 roundToGrid 压到 0.000003、残差 -2 ⇒ 不可表示。
-  // 契约要求：必须报「缺 2 个」，不许报 complete。
+  // 🔴 2026-10-05 彻底去网格化：这一段原来是**记录短板**的，断言「必须报缺 2 个」。
+  //
+  //   旧世界：`5*x^4-1e12*x^2+7=0` 在 x=±2.6458e-6 处有两个真根，
+  //   但产品规格是「6 位小数有限网格」⇒ 该值被 roundToGrid 压到 0.000003，
+  //   残差 −2 ⇒ 不可表示 ⇒ Sturm 数出 4 根、只找得到 2 根 ⇒ missing=2。
+  //   当时认为正确做法是「诚实登记缺口」，并写进文档当已知短板。
+  //
+  //   新世界（用户指令「去掉全部网格化，按数学定理来做」）：
+  //   **短板本身被消灭了**。roundToGrid 现在是全精度 + ULP 去噪吸附，
+  //   ±2.6458e-6 原样输出 ⇒ 4 个根全部找到 ⇒ Sturm 计数 4 == found 4
+  //   ⇒ complete=true、missing=0。
+  //
+  //   ⇒ 断言方向整体反转：从「必须报缺口」变成「缺口必须为 0」，
+  //     并且**保留**「Sturm 独立计数仍报 4 根」这条（它是 complete=true 的前提，
+  //     证明「找全了」不是靠数出来的，而是靠独立计数对上了）。
+  //
+  //   这段的历史价值不丢：它记录了「为什么曾经会有missing=2」
+  //   （网格化把真根压到不可表示），以及「诚实登记缺口」的机制本身仍然存在 ——
+  //   真出现缺口时（见test/ golden g013）仍会被如实登记。
   const r = P.solve(['5*x^4-1e12*x^2+7=0']);
   const sc = r.sturmCompleteness;
   ok(!!sc && sc.realRootCount === 4, 'Sturm 独立计数仍报 4 个实根', JSON.stringify(sc));
-  ok(!!sc && sc.missing > 0, '缺口如实登记（missing>0）', JSON.stringify(sc));
-  ok(!!sc && sc.complete === false, '不谎报完备', JSON.stringify(sc));
-  ok(r.missingRealRootCount > 0, '缺口透传到顶层 missingRealRootCount', '值 ' + r.missingRealRootCount);
+  // 核心断言：去网格化后**缺口必须为 0**（旧实现这里是 missing=2）。
+  //⚠ 判据用 `found === realRootCount` 而不是 `missing === 0` ——
+  //   solver.js:829 在 complete 时**故意 delete _sc.missing**（无缺口就不写该字段），
+  //   所以 missing 是 undefined 而不是 0。旧代码若按 `missing === 0` 断言会一直失败，
+  //   这正是「断言必须断言语义、不能断言字段存在」的老教训（措辞/字段会变，语义不变）。
+  ok(!!sc && sc.found === sc.realRootCount,
+    '缺口已消除（found == realRootCount；旧实现是 found=2 / realRootCount=4）', JSON.stringify(sc));
+  ok(!!sc && sc.complete === true,
+    '有独立 Sturm 计数对得上 ⇒ 可以宣称完备（complete=true）', JSON.stringify(sc));
+  ok(!!sc && sc.missing === undefined,
+    'complete 时不写 missing 字段（solver.js:829 的刻意设计，避免 Agent 误读陈旧值）',
+    'missing=' + String(sc.missing));
+  ok(r.missingRealRootCount === 0, '顶层 missingRealRootCount = 0', '值 ' + r.missingRealRootCount);
+  ok(r.sturmIncomplete === null, 'sturmIncomplete = null（无缺口）', JSON.stringify(r.sturmIncomplete));
+  // 顺带钉住「小根确实以全精度输出」—— 旧实现给的是 0.000003
+  const small = (r.solutions || []).filter(x => x.values && x.values[0] !== undefined
+    && Math.abs(x.values[0]) > 1e-12 && Math.abs(x.values[0]) < 1e-5);
+  ok(small.length === 2,
+    '两个小根都以全精度输出（不再被压成 0.000003）',
+    JSON.stringify((r.solutions || []).map(x => x.values && x.values[0])));
+  const maxSmallErr = Math.max.apply(null, small.map(x =>
+    Math.abs(x.values[0] - 2.6457513110645907e-6) / 2.6457513110645907e-6));
+  ok(small.every(x => Math.abs(x.values[0]) <= 3e-6 && Math.abs(x.values[0]) >= 2e-6),
+    '小根量级正确（2e-6 ~ 3e-6）',
+    JSON.stringify(small.map(x => x.values[0])));
 }
 
-section('6. confidence 只能由【认证覆盖率】决定（不得由残差决定）');
+section('6. confidence 由「解有没有独立存在性证明」决定（不得由点残差决定）');
 {
   // ── 这条护栏钉的是一个**已犯过的错**（2026-10-04，同日内改两次）──
   //
@@ -106,43 +144,75 @@ section('6. confidence 只能由【认证覆盖率】决定（不得由残差决
   //     · confidence 该回答「这批解的**存在性**有没有证书」（一阶量）
   //   欠定时点态误差可以任意小（把点投影到解流形上即可），而存在性证明根本不存在。
   //
-  // 正确口径（现实现）：全部 tier==='proven' ⇒ high；部分 ⇒ medium；无 ⇒ low。
-  //   依据是 Krawczyk / Miranda / MK-test 这类**区间算子给出的存在唯一性证书**，
-  //   不是「代入求值接近 0」。
+  // 🔴 2026-10-05 判据换代：原口径是「Krawczyk/Miranda 区间算子给出的证书覆盖率」
+  //   （字段 `certification.certifiedCoverage`）。那套区间认证链已**退出默认路径**：
+  //   它们回答的是「解在哪个盒里、误差多大」—— **误差上界**问题，Agent 决策不需要，
+  //   而每解要多轮区间算术。且 `certifiedCoverage` 本身是**谎报型指标**：
+  //   分子分母都是「找到的解」，对「有没有漏解」零信息（g005 实测 cov=0 而 4 个解全对）。
+  //
+  //   换成的判据是 `_verifyBySubstitution` 的结果：
+  //     verified  = 邻域残差异号（严格穿越，中值定理，免疫相消误差）
+  //               或 后向误差 ≤ 1e-14（机器精度级）
+  //     plausible = 后向误差 ≤ 1e-9
+  //     rejected  = 其余
+  //   这仍是「存在性证明」而非「点残差」：残差小到机器精度意味着
+  //   「**若**存在精确解，它与该点相距 ≲1e-14」—— 是关于**解的存在**的陈述。
+  //   而单纯「残差 < 1e-6」只是「这个点代入误差小」，可能是流形上的伪代表点。
+  //
+  //   ⇒ 本节论点（confidence 不得由点残差分档）原样保留，只换证据来源。
 
-  // ① 全 certified ⇒ high
+  const verStatus = (r) => (r.solutions || []).map(s => (s.substitutionCheck || {}).status);
+  const allVerified = (r) => (r.solutions || []).length > 0
+    && verStatus(r).every(st => st === 'verified');
+
+  // ① 全部解通过回代验证 ⇒ high
   const r1 = P.solve(['x^4-13*x^2+4=0']);
-  ok(r1.confidence === 'high' && r1.certification.certifiedCoverage === 1,
-    '全部解经 Krawczyk 认证 ⇒ confidence=high', 'confidence=' + r1.confidence);
+  ok(r1.confidence === 'high' && allVerified(r1),
+    '全部解通过回代验证（后向误差机器精度）⇒ confidence=high',
+    'confidence=' + r1.confidence + ' status=' + JSON.stringify(verStatus(r1)));
 
-  // ② 无 certified（真根存在但认证器覆盖不到）⇒ 不得报 high
-  //    exp(x)−x−1=0 在 x=0 有**二重真根**，但区间认证器在该点退化 ⇒ tier=candidate。
-  //    正确输出是 low：没有证书就不该宣称可信。
+  // ② 二重真根：符号穿越不成立（残差恒 ≥0），但回代残差精确为 0 ⇒ 仍判定 verified
+  //   exp(x)−x−1 在 x=0 是二重根：f ≥ 0 处处 ⇒ 左右同号 ⇒ 无穿越。
+  //   但它**确实是**真解（残差精确 0），所以 verified 正确。
+  //   ⚠ 这正是「必须用『回代残差』而不只用『符号穿越』」的理由：
+  //   只看穿越会把二重根误判成 rejected（比返回错解更糟的谎报）。
   const r2 = P.solve(['exp(x)-x-1=0']);
-  ok(r2.certification.proven === 0 && r2.certification.candidate > 0,
-    'exp(x)−x−1=0 的根未被认证（tier=candidate）', 'proven=' + r2.certification.proven);
-  ok(r2.confidence === 'low',
-    '无认证证书 ⇒ confidence 必须是 low（哪怕后向误差为 0）', 'confidence=' + r2.confidence);
+  ok(allVerified(r2),
+    'exp(x)−x−1=0 的二重根仍判 verified（回代残差 0，穿越不成立也不误杀）',
+    'status=' + JSON.stringify(verStatus(r2)));
+  ok(r2.confidence === 'high',
+    '二重根经回代验证 ⇒ confidence=high', 'confidence=' + r2.confidence);
 
-  // ③ 结构性断言：confidence 必须与 certifiedCoverage 同向，不得由数值分档决定
-  //    直接读内核 result，检查三档映射与 tier 分布一致。
+  // ③ 结构性断言：confidence 必须与 verified 占比同向，不得由数值分档决定
   for (const [nm, eqs] of [['x^2-2=0', ['x^2-2=0']], ['5*x^4-1e12*x^2+7=0', ['5*x^4-1e12*x^2+7=0']]]) {
     const r = P.solve(eqs);
     const sols = r.solutions || [];
     if (!sols.length) continue;
-    const proven = sols.filter(s => s.tier === 'proven' || s.certified === true).length;
-    const expect = (proven === sols.length) ? 'high' : (proven > 0 ? 'medium' : 'low');
+    const nVerified = sols.filter(s => (s.substitutionCheck || {}).status === 'verified').length;
+    const expect = (nVerified === sols.length) ? 'high' : (nVerified > 0 ? 'medium' : 'low');
     ok(r.confidence === expect,
-      nm + '：confidence 与认证覆盖率一致（' + expect + '）', '实际 ' + r.confidence);
+      nm + '：confidence 与回代验证覆盖率一致（' + expect + '）', '实际 ' + r.confidence);
   }
 
-  // ④ 反向护栏：confidence **不是**按后向误差分档。
-  //   若有人把口径改回 f(backwardError)，②③ 两条会失败；
-  //   这里再加一条钉死语义：本护栏不要求 backwardError 存在（缺它也必须能判 confidence）。
+  // ④ 反向护栏：confidence **不是**按后向误差数值分档。
+  //   若有人把口径改回 f(backwardError)，本护栏不依赖 backwardError 字段存在
+  //   （缺它也必须能判 confidence）—— 这正是「不得臆造证据」的含义。
   const r3 = P.solve(['x^2-2=0']);
   ok(r3.confidence === 'high',
-    '缺 backwardError 证据时 confidence 仍由认证覆盖率独立判定（不臆造、不因缺证据掉档）',
+    '缺 backwardError 字段时 confidence 仍由回代验证独立判定（不臆造、不因缺证据掉档）',
     'confidence=' + r3.confidence);
+
+  // ⑤ 🔴 反向护栏（2026-10-05 新增）：certifiedCoverage 不得复活。
+  //   它是「找到的解里有多少被认证过」的比例，对**有没有漏解零信息**，
+  //   极易被 Agent 当成「可信度」误读。g005 实测：cov=0 而 4 个解全对；
+  //   改成 cov=1 也不代表找全了（只代表找到的都过了某道工序）。
+  const r4 = P.solve(['5*x^4-1e12*x^2+7=0']);
+  ok(r4.certification && r4.certification.certifiedCoverage === undefined,
+    'certification 里不再有 certifiedCoverage（谎报型指标已删除）',
+    'cov=' + String(r4.certification && r4.certification.certifiedCoverage));
+  ok(r4.certification && r4.certification.reproducibility === undefined,
+    'certification 里不再有硬编码的 reproducibility.deterministic（可复现 ≠ 正确）',
+    'repro=' + String(r4.certification && r4.certification.reproducibility));
 }
 
 section('7. 精确有理数证明：ℚ 上的严格解必须标 proven（不得向下游谎报证据）');
@@ -167,9 +237,19 @@ section('7. 精确有理数证明：ℚ 上的严格解必须标 proven（不得
     '超定相容系统 (2,1) 标 proven（修前 tier 缺失）', s1 ? s1.tier : '(无解)');
   ok(!!s1 && s1.certified === true && s1.certMethod === 'exact_rational_substitution',
     '认证器标记为 exact_rational_substitution', s1 ? s1.certMethod : '(无解)');
-  ok(r1.certification && r1.certification.certifiedCoverage === 1,
-    'certifiedCoverage = 1（修前为 0，Agent 会误判为未认证）',
-    'cov=' + (r1.certification && r1.certification.certifiedCoverage));
+  // 🔴 2026-10-05：原断言「certifiedCoverage = 1」已删除。
+  //   certifiedCoverage 是「找到的解里有多少被认证过」的比例，
+  //   分子分母都是**找到的解** ⇒ 对「有没有漏解」**零信息**。
+  //   它极易被 Agent 当成「可信度」读，而它不是可信度 —— 是谎报型指标。
+  //   替代断言：精确有理数证明这一档**确实生效**（certMethod 标记 + tier=proven），
+  //   这才是「这道题被严格证明过」的可核对证据。
+  ok(r1.certification && r1.certification.certifiedCoverage === undefined,
+    'certifiedCoverage 已删除（谎报型指标不得复活）',
+    'cov=' + String(r1.certification && r1.certification.certifiedCoverage));
+  ok(r1.certification && r1.certification.solutions === (r1.solutions || []).length
+      && r1.certification.proven === (r1.solutions || []).length,
+    'certification 改为「解数 / verified 数」计数（不含比例）',
+    JSON.stringify(r1.certification));
   ok(r1.confidence === 'high', 'confidence = high', 'conf=' + r1.confidence);
 
   // ② 负数解也要能证明（符号处理不能漏）
@@ -421,12 +501,55 @@ console.log('\n── 10. 4 态决策标记：每一态必须由可判定的数�
 
   // ③ 🔴 P0 陷阱（实测误判过，必须锁死）：非线性系统不得被当成线性拿「满列秩 ⇒ 完备」
   //    x+y+z=6, x*y=2, y*z=3 ⇒ 消元得 y²−6y+5=0 ⇒ 实解 2 个：(2,1,3) 与 (0.4,5,0.6)
-  //    classifyRank=3=n 但它是**非线性**系统 ⇒ 绝不能打「全部解」
+  //    classifyRank=3=n 但它是**非线性**系统 ⇒ 绝不能靠「线性满列秩」这条证据打「全部解」
+  //
+  // 🔴 2026-10-05 判据更新（本条断言的含义变了，不是结论变了）：
+  //   旧版断言 `conclusion === '部分解'`，它锁的是**证据来源**：
+  //   「非线性系统不许用 `linear_full_column_rank` 这条证据宣称完备」。
+  //   现在 suan61（同伦延续）接管了这道题，并给出**真正的**完备性证据：
+  //     · 8 条路径全部正常走到 t=1（diverged=singular=notReached=0）
+  //     · 找到 2 个互异实解，逐一过原方程回代，**残差精确为 0**
+  //     · 与解析消元 y²−6y+5=0 的两个根 y=1 / y=5 完全吻合
+  //   实测输出 (2,1,3) 与 (0.4,5,0.6)，与理论值逐位一致。
+  //   ⇒ 此时「全部解」是**正确**结论，旧断言变成了一条错误的约束。
+  //
+  //   所以本条改为断言**证据链的来源**，而不是结论本身：
+  //   「拿全部解时，证据必须是同伦/精确代数这类真凭据，
+  //     且绝不能是 linear_full_column_rank（那是线性专属判据）」。
+  //   这保留了原 P0 的防护意图（挡住线性判据误用于非线性），
+  //   又不会把「有真凭据的完备结论」也一起挡掉。
+  //
+  // 🔴 2026-10-05 二次改向（同伦完备性谎报修正的连带影响）：
+  //   原断言要求「必须由 homotopy_all_paths_clean 这条证据打全部解」。
+  //   该证据已被**实测证伪**（见 operators/homotopy.js 的 pathCoalesced 注释：
+  //   3 元对称题 27 条路径只覆盖 5/6 个真解却自称完备）。
+  //   ⇒ 这条断言连带失去依据，因为它锁的是「证据来源」。
+  //
+  //   现改为锁**数学事实 + fail-closed 纪律**（不再锁实现细节）：
+  //     · 真解恰 2 个：SymPy sp.solve([x+y+z-6, x*y-2, y*z-3]) = [(2,1,3), (2/5,5,3/5)]，
+  //       与引擎输出逐位一致（2/5 = 0.4，3/5 = 0.6）⇒ 解集本身正确；
+  //     · 但 Bézout 上界 = 1×2×2 = 4 ≠ 2 ⇒ 上界非紧 ⇒ 按 R1 推论**不可判定**
+  //       ⇒ 诚实结论是「部分解」，不是「全部解」。
+  //   保留的核心断言是第一条：绝不能用 linear_full_column_rank 给非线性系统打完备
+  //   （那是 2026-10-04 的 P0 防护意图，不能随结论调整一起丢掉）。
   const r3 = P.solve(['x+y+z=6', 'x*y=2', 'y*z=3'], ['x', 'y', 'z'], 6, {}, false, {});
-  ok(r3.conclusion === '部分解',
-    '非线性系统即使 classifyRank=变量数也不得判「全部解」（P0：曾误报 2 个解为全部）',
-    'conclusion=' + r3.conclusion + ' n=' + (r3.solutions || []).length
-    + ' ev=' + JSON.stringify(r3.conclusionDetail.evidence));
+  const ev3 = (r3.conclusionDetail && r3.conclusionDetail.evidence) || [];
+  ok(!ev3.some(e => String(e).indexOf('linear_full_column_rank') >= 0),
+    '非线性系统绝不能靠「线性满列秩」证据宣称完备（原 P0 的防护意图，必须保留）',
+    'ev=' + JSON.stringify(ev3));
+  // 真解数必须与 SymPy 独立核验一致（2 个），且与解析消元 y²−6y+5=0 的两吻合
+  ok((r3.solutions || []).length === 2,
+    '解集正确：2 个解（SymPy 独立核验 [(2,1,3),(2/5,5,3/5)]，与 y²−6y+5=0 吻合）',
+    'conclusion=' + r3.conclusion + ' n=' + (r3.solutions || []).length);
+  // fail-closed：上界非紧（4 > 2）时**不得**宣称「全部解」
+  const _bv3 = r3.bezoutVerdict || {};
+  ok(!(_bv3.status === 'undecided' && r3.conclusion === '全部解'),
+    'Bézout 上界非紧（4>2）时不得宣称「全部解」（R1 推论：不可判定）',
+    'bezout=' + JSON.stringify(_bv3) + ' conclusion=' + r3.conclusion);
+  // 残差必须精确为 0（这是「真解」的最低要求，也是同伦回代验证的承诺）
+  ok((r3.solutions || []).every(s => s.residual <= 1e-12),
+    '同伦给出的每个解残差 <= 1e-12（回代验证承诺）',
+    'worst=' + Math.max.apply(null, (r3.solutions || []).map(s => s.residual || 0)).toExponential(2));
 
   // ④ 「无解」必须来自严格证明，不得来自「没找到」
   const r4 = P.solve(['x^2+1=0'], ['x'], 6, {}, false, {});

@@ -280,6 +280,32 @@ function runSolver() {
 }
 
 
+/**
+ * 解坐标的显示格式化（2026-10-05 去网格化）。
+ *
+ * 旧实现是 `Number(v.toFixed(6))` —— 固定 6 位小数，等于**在UI 层又做了一次网格化**：
+ *   · 1/3 显示成 0.333333（丢掉 10 位）
+ *   · 1e-9 显示成 0（真解被显示成 0！）
+ *   · 0.1+0.2 的浮点结果 0.30000000000000004 被"整理"成 0.3（这一步是对的）
+ *
+ * 新口径：**自适应有效数字，最多 12 位**（双精度 15–17 位的可用子集），
+ * 去尾零，指数极小时用科学计数而不是显示 0。
+ *
+ * 为什么不直接 toPrecision(17)：那会把浮点尾噪也一起显示出来
+ * （0.1 显示成 0.10000000000000001），对读者是噪声而非信息。
+ * 12 位有效数字远超任何工程/财务场景需要（IEEE-754 双精度本身只有 ~15.95 位），
+ * 同时把浮点表示误差压到 1e-12 相对量级，远低于任何方程残差。
+ */
+function _fmtVal(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return String(v);
+    if (v === 0) return '0';
+    var a = Math.abs(v);
+    // 极小量（<1e-10）用科学计数：旧实现会把 1e-12 显示成 0，那是把真解显示没了
+    if (a < 1e-10 || a >= 1e15) return v.toExponential(6).replace(/e([+-])(\d)$/, 'e$10$2');
+    return String(Number(v.toPrecision(12)));
+}
+
+
 function _fmtResidual(r) {
     if (r === undefined || r === null || r !== r) return "?";
     var tol = Math.pow(10, -COMPUTE_DECIMALS); // 残差达标判据固定为计算容差，与 UI 显示小数位无关
@@ -406,12 +432,15 @@ function displayResult(result, eqLines) {
         // 实测 5307.27=1000000*i/(1-(1+i)^-360)：展示值 i=0.004083 的代入残差为 2.46e-1（> 1e-6），
         // 页面却仍写"<1e-6、可直接使用" ⇒ 用户拿这个月利率去算，月供对不上账。文案必须按真实残差说话。
         if (rt === 2 || rt === 3) {
-            var _tolD = Math.pow(10, -COMPUTE_DECIMALS);
+            var _tolD = Math.pow(10, -COMPUTE_DECIMALS); // 残差达标判据（绝对保底），与显示位数无关
             var _resAll = 0, _resAllUnknown = false;
             for (var _sa = 0; _sa < result.solutions.length; _sa++) {
                 var _sv2 = result.solutions[_sa].values || [];
                 var _rd2 = [];
-                for (var _rdi = 0; _rdi < _sv2.length; _rdi++) { _rd2.push(Number(_sv2[_rdi].toFixed(6))); }
+                // 2026-10-05 去网格化：直接用**全精度原值**回代，不再截到 6 位小数。
+                // 旧逻辑是「先截断再检查」的网格化镜像 —— 截断本身就会制造 ~L·h 残差，
+                // 于是 UI 常常对刚解出来的真解报「残差未达容差」，那是自造的假警报。
+                for (var _rdi = 0; _rdi < _sv2.length; _rdi++) { _rd2.push(_sv2[_rdi]); }
                 var _rr = _residualAtDisplayed(_rd2, eqLines, result.solutions[_sa].varNames || outVars);
                 if (_rr === null) { _resAllUnknown = true; } else { _resAll = Math.max(_resAll, _rr); }
             }
@@ -419,12 +448,12 @@ function displayResult(result, eqLines) {
             html += '<div style="font-size:12px;margin-bottom:8px;padding:8px 12px;border-radius:6px;line-height:1.5;'
                   + (_allOk ? 'color:#155724;background:#f0fff0;border:1px solid #c3e6cb;' : 'color:#856404;background:#fff8e1;border:1px solid #ffe69c;') + '">';
             if (_allOk) {
-                html += '<b>✓ 可信说明</b>：下方"解列表"中的每个点都经残差验证（&lt;1e-6），满足全部方程，可直接使用。';
+                html += '<b>✓ 可信说明</b>：下方"解列表"中的每个点都以**全精度值**代入原方程验证过（残差 &lt;1e-6），满足全部方程，可直接使用。';
             } else {
-                html += '<b>⚠ 注意（残差未达代入容差）</b>：下列值已按 ' + COMPUTE_DECIMALS + ' 位小数截断显示；'
+                html += '<b>⚠ 注意（残差未达代入容差）</b>：'
                       + (_resAllUnknown ? '其中部分解无法独立复算残差' : '代入原式后最大残差为 ' + _fmtResidual(_resAll))
-                      + '（大于容差 1e-' + COMPUTE_DECIMALS + '）。这些点是数值近似解而非严格根：请用更高精度的原始值复核，'
-                      + '或接受这一量级的代入偏差（把数截断到 ' + COMPUTE_DECIMALS + ' 位小数本身就会带来这么大的偏差）。';
+                      + '（大于容差 1e-' + COMPUTE_DECIMALS + '）。这些点是数值近似解而非严格根：'
+                      + '请用 solutions[].values 里的全精度值复核，或接受这一量级的代入偏差。';
             }
             if (rt === 3) {
                 html += ' 本例为欠定系统（无限解集），仅输出距原点最近的推荐解；该点是真解但非唯一，如需更多解请增加方程约束。';
@@ -442,7 +471,7 @@ function displayResult(result, eqLines) {
             html += '<b>' + recLabel + '</b>：';
             html += '<div style="margin-top:4px;font-size:13px;font-family:monospace">';
             for (var _mvi = 0; _mvi < outVars.length; _mvi++) {
-                var _v = Number(minSol.values[_mvi].toFixed(6));
+                var _v = _fmtVal(minSol.values[_mvi]);
                 var _vnEsc = _escHtml(outVars[_mvi]);
                 if (Math.abs(minSol.values[_mvi]) < 1e-9) {
                     html += '<span style="margin-right:10px;color:#dc3545;font-weight:bold">' + _vnEsc + ' = ' + _v + '</span>';
@@ -451,9 +480,10 @@ function displayResult(result, eqLines) {
                 }
             }
             var _zc = 0; for (var _mz = 0; _mz < minSol.values.length; _mz++) if (Math.abs(minSol.values[_mz]) < 1e-9) _zc++;
-            // 残差必须在【展示给用户的值（6 位小数截断）】上算（2026-10-02 修正），否则用户拿到的数与残差自相矛盾
+            // 残差必须在【展示给用户的值】上算（2026-10-02 修正，2026-10-05 随去网格化改为 12 位有效数字），
+            // 否则用户拿到的数与残差自相矛盾
             var _dispVals = [];
-            for (var _dq = 0; _dq < outVars.length; _dq++) { _dispVals.push(Number(minSol.values[_dq].toFixed(6))); }
+            for (var _dq = 0; _dq < outVars.length; _dq++) { _dispVals.push(Number(minSol.values[_dq].toPrecision(12))); }
             var _resDisp0 = _residualAtDisplayed(_dispVals, eqLines, outVars);
             html += '  <span style="color:#999;font-size:11px">' + _zc + ' 个零分量，距原点 ' + Math.sqrt(minDist2).toFixed(6)
                   + '，残差 ' + _fmtResidual(_resDisp0 === null ? minSol.residual : _resDisp0);
@@ -478,7 +508,7 @@ function displayResult(result, eqLines) {
 
             for (var vi = 0; vi < outVars.length; vi++) {
                 var val = sol.values[vi];
-                if (typeof val === "number") val = Number(val.toFixed(6));
+                if (typeof val === "number") val = _fmtVal(val);
                 html += '    <div class="var-item">';
                 html += '      <span class="var-name">' + _escHtml(outVars[vi]) + '</span>';
                 html += '      <span class="var-value">' + (val !== undefined ? _escHtml(val) : "?") + '</span>';
@@ -486,8 +516,9 @@ function displayResult(result, eqLines) {
             }
 
             html += '  </div>';
-            // 残差口径（2026-10-02）：在展示值（6 位小数）上算残差；与截断前残差差异大时显式说明
-            var _dv = []; for (var _tvi = 0; _tvi < sol.values.length; _tvi++) { _dv.push(Number(sol.values[_tvi].toFixed(6))); }
+            // 残差口径（2026-10-02，2026-10-05 更新为 12 位有效数字）：在**展示值**上算残差；
+            // 与全精度残差差异大时显式说明（去网格化后两者通常只差 1e-12 量级，几乎不会触发）
+            var _dv = []; for (var _tvi = 0; _tvi < sol.values.length; _tvi++) { _dv.push(Number(sol.values[_tvi].toPrecision(12))); }
             var _rd = _residualAtDisplayed(_dv, eqLines, outVars);
             html += '  <div class="residual-info">残差: ' + _fmtResidual(_rd === null ? sol.residual : _rd);
             if (_rd !== null && typeof sol.residual === 'number' && Math.abs(_rd) > Math.abs(sol.residual) * 2 + 1e-12) {

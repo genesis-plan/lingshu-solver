@@ -8,15 +8,15 @@
    "desc": "6元稠密整数唯一解",
    "n": 6,
    "m": 6,
-   "ms": 3.81892,
-   "msTotal": 19.0993,
+   "ms": 3.8315200000000003,
+   "msTotal": 19.162999999999997,
    "repeat": 5,
    "ok": false,
    "solutionCount": 0,
-   "provenCount": 0,
-   "n_sol_shown": 0,
-   "tier": null,
-   "allCertified": null,
+   "provenCount": 1,
+   "n_sol_shown": 1,
+   "tier": "proven",
+   "allCertified": true,
    "executionPath": "精确线性代数(suan60 · Markowitz稀疏序+O(n²)精确验证)",
    "terminatedBy": "converged",
    "provenIsComplete": true,
@@ -24,9 +24,9 @@
    "bound": 6,
    "cardinality": "finite",
    "truncated": false,
-   "timeMsInternal": 1.6285000000000025,
-   "indep_resid": 0,
-   "bytes": 4793
+   "timeMsInternal": 1.7638000000000034,
+   "indep_resid": 1.4210854715202004e-14,
+   "bytes": 5060
   },
   {
    "id": "A2",
@@ -34,15 +34,15 @@
    "desc": "6元稀疏带状 三对角",
    "n": 6,
    "m": 6,
-   "ms": 1.404339999999999,
-   "msTotal": 7.022499999999994,
+   "ms": 1.42996,
+   "msTotal": 7.1507000000000005,
    "repeat": 5,
    "ok": false,
    "solutionCount": 0,
-   "provenCount": 0,
-   "n_sol_shown": 0,
-   "tier": null,
-   "allCertified": null,
+   "provenCount": 1,
+   "n_sol_shown": 1,
+   "tier": "proven",
+   "allCertified": true,
    "executionPath": "精确线性代数(suan60 · Markowitz稀疏序+O(n²)精确验证)",
    "terminatedBy": "converged",
    "provenIsComplete": true,
@@ -50,9 +50,9 @@
    "bound": 6,
    "cardinality": "finite",
    "truncated": false,
-   "timeMsInternal": 1.0756999999999834,
-   "indep_resid": 0,
-   "bytes": 4816
+   "timeMsInternal": 0.8745999999999867,
+   "indep_resid": 8.881784197001252e-16,
+   "bytes": 5064
   },
   {
    "id": "A3",
@@ -60,8 +60,8 @@
    "desc": "6元 有理系数（分母大）",
    "n": 3,
    "m": 3,
-   "ms": 3.9259999999999993,
-   "msTotal": 19.632299999999987,
+   "ms": 3.618799999999999,
+   "msTotal": 18.095200000000006,
    "repeat": 5,
    "ok": false,
    "solutionCount": 0,
@@ -76,9 +76,9 @@
    "bound": 3,
    "cardinality": "finite",
    "truncated": false,
-   "timeMsInternal": 0.7989000000000033,
+   "timeMsInternal": 0.787700000000001,
    "indep_resid": 0,
-   "bytes": 4668
+   "bytes": 4685
   },
   {
    "id": "A4",
@@ -86,13 +86,13 @@
    "desc": "5元 秩亏（无穷多解）",
    "n": 4,
    "m": 5,
-   "ms": 4.194460000000004,
-   "msTotal": 20.974099999999993,
+   "ms": 5.111459999999999,
+   "msTotal": 25.559500000000014,
    "repeat": 5,
    "ok": false,
-   "solutionCount": 195,
+   "solutionCount": 259,
    "provenCount": 0,
-   "n_sol_shown": 195,
+   "n_sol_shown": 259,
    "tier": "candidate",
    "allCertified": false,
    "executionPath": "精确线性代数(suan60 · 最近解解析投影 + 零空间参数化仿射采样)",
@@ -102,9 +102,9 @@
    "bound": 4,
    "cardinality": "infinite",
    "truncated": false,
-   "timeMsInternal": 1.5387000000000057,
-   "indep_resid": 1.1102230246251565e-16,
-   "bytes": 48240
+   "timeMsInternal": 1.9770000000000039,
+   "indep_resid": 0,
+   "bytes": 68026
   },
   {
    "id": "B1",
@@ -112,8 +112,8 @@
    "desc": "二元二次系统 x²+y²=4, xy=1",
    "n": 2,
    "m": 2,
-   "ms": 2.564499999999998,
-   "msTotal": 12.823599999999999,
+   "ms": 2.5518400000000043,
+   "msTotal": 12.761900000000026,
    "repeat": 5,
    "ok": false,
    "solutionCount": 0,
@@ -128,9 +128,9 @@
    "bound": 2,
    "cardinality": "finite",
    "truncated": false,
-   "timeMsInternal": 0.9110000000000014,
+   "timeMsInternal": 1.2376999999999896,
    "indep_resid": 4.440892098500626e-16,
-   "bytes": 6451
+   "bytes": 6460
   },
   {
    "id": "B2",
@@ -138,8 +138,8 @@
    "desc": "二元三次 x³+y³=35, x²+y²=5",
    "n": 2,
    "m": 2,
-   "ms": 0.7239800000000003,
-   "msTotal": 3.6204999999999927,
+   "ms": 0.7913999999999988,
+   "msTotal": 3.957899999999995,
    "repeat": 5,
    "ok": false,
    "solutionCount": 0,
@@ -156,7 +156,7 @@
    "truncated": false,
    "timeMsInternal": null,
    "indep_resid": 0,
-   "bytes": 4544
+   "bytes": 4562
   },
   {
    "id": "B3",
@@ -164,8 +164,8 @@
    "desc": "三元 9点Bézout（每个二次）",
    "n": 3,
    "m": 3,
-   "ms": 13.252379999999999,
-   "msTotal": 66.2638,
+   "ms": 13.244280000000003,
+   "msTotal": 66.22359999999998,
    "repeat": 5,
    "ok": false,
    "solutionCount": 3,
@@ -180,9 +180,9 @@
    "bound": 3,
    "cardinality": "finite",
    "truncated": false,
-   "timeMsInternal": 8.350099999999998,
+   "timeMsInternal": 8.30449999999999,
    "indep_resid": 0,
-   "bytes": 6667
+   "bytes": 6683
   },
   {
    "id": "B4",
@@ -190,8 +190,8 @@
    "desc": "三元混合 二次+三次",
    "n": 3,
    "m": 3,
-   "ms": 19.49626,
-   "msTotal": 97.48600000000002,
+   "ms": 20.361919999999998,
+   "msTotal": 101.815,
    "repeat": 5,
    "ok": false,
    "solutionCount": 8,
@@ -206,9 +206,9 @@
    "bound": 3,
    "cardinality": "infinite",
    "truncated": false,
-   "timeMsInternal": 5.75830000000002,
+   "timeMsInternal": 5.8215999999999894,
    "indep_resid": 1.7930279483380218e-10,
-   "bytes": 7425
+   "bytes": 7430
   },
   {
    "id": "C4",
@@ -216,8 +216,8 @@
    "desc": "4元对称排列系统",
    "n": 4,
    "m": 8,
-   "ms": 1.0448799999999892,
-   "msTotal": 5.224799999999959,
+   "ms": 1.028640000000007,
+   "msTotal": 5.143500000000017,
    "repeat": 5,
    "ok": false,
    "solutionCount": 0,
@@ -232,9 +232,9 @@
    "bound": 4,
    "cardinality": "finite",
    "truncated": false,
-   "timeMsInternal": 0.6173000000000002,
+   "timeMsInternal": 0.6224000000000274,
    "indep_resid": 0,
-   "bytes": 4699
+   "bytes": 4718
   },
   {
    "id": "C5",
@@ -242,8 +242,8 @@
    "desc": "5元对称排列系统",
    "n": 5,
    "m": 10,
-   "ms": 1.5591200000000072,
-   "msTotal": 7.796199999999999,
+   "ms": 1.678699999999992,
+   "msTotal": 8.393899999999974,
    "repeat": 5,
    "ok": false,
    "solutionCount": 0,
@@ -258,9 +258,9 @@
    "bound": 5,
    "cardinality": "finite",
    "truncated": false,
-   "timeMsInternal": 1.1841000000000008,
+   "timeMsInternal": 0.9592000000000098,
    "indep_resid": 0,
-   "bytes": 4814
+   "bytes": 4825
   },
   {
    "id": "C6",
@@ -268,8 +268,8 @@
    "desc": "6元对称排列系统",
    "n": 6,
    "m": 12,
-   "ms": 1.7086000000000012,
-   "msTotal": 8.54340000000002,
+   "ms": 2.1694799999999987,
+   "msTotal": 10.847699999999975,
    "repeat": 5,
    "ok": false,
    "solutionCount": 0,
@@ -284,9 +284,9 @@
    "bound": 6,
    "cardinality": "finite",
    "truncated": false,
-   "timeMsInternal": 1.2708000000000084,
+   "timeMsInternal": 1.1736999999999966,
    "indep_resid": 0,
-   "bytes": 4911
+   "bytes": 4929
   },
   {
    "id": "D1",
@@ -294,8 +294,8 @@
    "desc": "三元整根（对称）x+y+z=S, xy+yz+zx=P, xyz=Q",
    "n": 3,
    "m": 3,
-   "ms": 9.280819999999995,
-   "msTotal": 46.4049,
+   "ms": 9.151800000000003,
+   "msTotal": 45.75940000000003,
    "repeat": 5,
    "ok": false,
    "solutionCount": 0,
@@ -310,9 +310,9 @@
    "bound": 3,
    "cardinality": "finite",
    "truncated": false,
-   "timeMsInternal": 5.333700000000022,
-   "indep_resid": 5.373479439185758e-12,
-   "bytes": 6173
+   "timeMsInternal": 5.249300000000005,
+   "indep_resid": 8.881784197001252e-16,
+   "bytes": 6137
   },
   {
    "id": "D2",
@@ -320,8 +320,8 @@
    "desc": "四元整根 Pythagorean 变体",
    "n": 4,
    "m": 3,
-   "ms": 28.744200000000014,
-   "msTotal": 143.72160000000002,
+   "ms": 29.609180000000002,
+   "msTotal": 148.04659999999996,
    "repeat": 5,
    "ok": false,
    "solutionCount": 1,
@@ -336,9 +336,9 @@
    "bound": 4,
    "cardinality": "infinite",
    "truncated": false,
-   "timeMsInternal": 7.413300000000049,
+   "timeMsInternal": 7.562999999999988,
    "indep_resid": 5.329070518200751e-15,
-   "bytes": 6162
+   "bytes": 6165
   },
   {
    "id": "E1",
@@ -346,8 +346,8 @@
    "desc": "8方程6元 不相容（应严格判无解）",
    "n": 6,
    "m": 8,
-   "ms": 1.9336399999999911,
-   "msTotal": 9.668499999999995,
+   "ms": 2.2048,
+   "msTotal": 11.02430000000004,
    "repeat": 5,
    "ok": false,
    "solutionCount": 0,
@@ -362,9 +362,9 @@
    "bound": 6,
    "cardinality": "empty",
    "truncated": false,
-   "timeMsInternal": 1.4831000000000358,
+   "timeMsInternal": 1.6093999999999369,
    "indep_resid": 0,
-   "bytes": 4714
+   "bytes": 4731
   },
   {
    "id": "E2",
@@ -372,13 +372,13 @@
    "desc": "6元 秩亏但【相容】（真相：3 维解流形）",
    "n": 6,
    "m": 4,
-   "ms": 6.146440000000007,
-   "msTotal": 30.732799999999997,
+   "ms": 6.582619999999997,
+   "msTotal": 32.91420000000005,
    "repeat": 5,
    "ok": false,
-   "solutionCount": 324,
+   "solutionCount": 513,
    "provenCount": 0,
-   "n_sol_shown": 324,
+   "n_sol_shown": 513,
    "tier": "candidate",
    "allCertified": false,
    "executionPath": "精确线性代数(suan60 · 最近解解析投影 + 零空间参数化仿射采样)",
@@ -388,9 +388,9 @@
    "bound": 6,
    "cardinality": "infinite",
    "truncated": false,
-   "timeMsInternal": 2.9593999999999596,
-   "indep_resid": 0,
-   "bytes": 78595
+   "timeMsInternal": 3.1100999999999885,
+   "indep_resid": 7.105427357601002e-15,
+   "bytes": 142718
   }
  ]
 }

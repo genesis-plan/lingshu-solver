@@ -235,24 +235,40 @@ console.log('【⑫ 输出契约（不改形态）】');
     ck('每值均为 number（6 位小数网格）', r.solutions[0].values.every(v => typeof v === 'number'));
 }
 
-// ═══════════ ⑬ 零空间参数化仿射采样（2026-10-03 新增，秩亏族解枚举）═══════════
+// ═══════════ ⑬ 秩亏欠定：RREF 规范特解（2026-10-05 契约变更）═══════════
 //
-// 这组测试锁住三件事：
-//   ① 零空间基在数学上正确：N 的每一列都满足 A·N = 0（精确有理）
-//   ② 采样出的每个点都严格满足原方程组（残差 = 0，不是「小于阈值」）
-//   ③ 回归锁：T_Wikibooks_P2_4var 的 5 个参考解必须全命中（曾因抢断掉到 1/5）
-console.log('【⑬ 零空间参数化仿射采样】');
+// ⚠ 本块在 2026-10-05 **整体改了断言方向**，原因不是代码坏了，是**产品契约变了**。
+//   用户指令：「对于部分解的，只找到一个推荐解就行，不需要确定性，不需要离原点最近」。
+//
+// 改前（2026-10-03 ~ 10-05）：欠定题输出【整条解流形的 257~512 个采样点】。
+//   实测代价（HTTP 全链路真实压测，2~6 元线性题）：
+//     solutions 字段占返回体 **95.6% ~ 97.6%**
+//     3 元欠定 → 257 个解 / **77 KB**     6 元欠定 → 512 个解 / **153 KB**
+//   ⇒ Agent 付 190KB 拿到 98% 用不上的数据，而序列化 + 传输正是端到端耗时的大头。
+//   而那 512 个点**没有一个能升级 proven**（浮点线性组合 ⇒ 只能数值复核 candidate）。
+//
+// 改后：欠定题输出 **1 个** RREF 自由列取 0 的精确特解。
+//   · 153KB → 4.0KB（**~38×**）；
+//   · 且 tier 从 candidate **升到 proven**（精确解可做 ℚ 上代入确证，采样点不能）。
+//
+// 本块保留的数学断言（与契约无关，仍然有效）：
+//   ① 零空间基方向满足 A·d = 0（精确有理，独立手算核验）
+//   ② 推荐解严格满足原方程（第三方手写残差，不调内核任何函数）
+//   ③ 推荐解落在声明域内；域收缩后同步收缩
+console.log('【⑬ 秩亏欠定：RREF 规范特解】');
 {
     // 用例：rank=3/4，解流形 x=1, y=t−1, z=3−t, w=t（t∈[0,3]）
     const eq = ['2*x + z + w = 5', 'y - w = -1', '3*x - z - w = 0', '4*x + y + 2*z + w = 9'];
     const dom = { x: [0, 5], y: [-3, 3], z: [0, 5], w: [0, 5] };
     const r = core.solve(eq, ['x', 'y', 'z', 'w'], 6, dom);
 
-    ck('走零空间采样路径', /零空间/.test(r.executionPath), r.executionPath);
+    ck('走 RREF 特解路径', /RREF 自由列取 0/.test(r.executionPath), r.executionPath);
     ck('秩判定 rank=3', r.rank === 3, 'rank=' + r.rank);
-    ck('给出多个解（不再只给特解）', r.solutions.length > 1, 'len=' + r.solutions.length);
+    // ★ 新契约：欠定只给 1 个推荐解（不再枚举 257~512 个采样点）
+    ck('欠定只输出 1 个推荐解（契约：部分解只给 1 个）', r.solutions.length === 1,
+        'len=' + r.solutions.length);
 
-    // ② 每个解都必须严格满足原方程 —— 第三方手写残差，不调内核任何函数
+    // ② 推荐解必须严格满足原方程 —— 第三方手写残差，不调内核任何函数
     let maxRes = 0, allInBox = true;
     for (const s of r.solutions) {
         const [x, y, z, w] = s.values;
@@ -268,16 +284,18 @@ console.log('【⑬ 零空间参数化仿射采样】');
         if (z < dom.z[0] - 1e-9 || z > dom.z[1] + 1e-9) allInBox = false;
         if (w < dom.w[0] - 1e-9 || w > dom.w[1] + 1e-9) allInBox = false;
     }
-    ck('全部采样点原方程残差 = 0', maxRes === 0, 'maxRes=' + maxRes);
-    ck('全部采样点在定义域内', allInBox);
+    ck('推荐解原方程残差 = 0', maxRes === 0, 'maxRes=' + maxRes);
+    ck('推荐解在定义域内', allInBox);
 
-    // ③ 回归锁：5 个 known 参考解全命中
-    const known = [[1, -1, 3, 0], [1, 0, 2, 1], [1, 1, 1, 2], [1, 2, 0, 3], [1, 1.5, 0.5, 2.5]];
-    let hit = 0;
-    for (const k of known) {
-        if (r.solutions.some(s => s.values.every((v, i) => Math.abs(v - k[i]) <= 0.01))) hit++;
-    }
-    ck('回归锁：known 命中 5/5', hit === 5, 'hit=' + hit);
+    // ★ 新契约带来的升级：精确特解可做 ℚ 上代入确证 ⇒ proven
+    //   （改前那些采样点是浮点线性组合，只能 candidate，一个 proven 都拿不到）
+    ck('推荐解 tier=proven（精确特解，比采样点更强）',
+        r.solutions[0] && r.solutions[0].tier === 'proven',
+        'tier=' + (r.solutions[0] && r.solutions[0].tier));
+
+    // ③ 体积护栏：这是本块改动的直接目标，必须钉死防止回退
+    const bytes = JSON.stringify(r).length;
+    ck('返回体 < 8KB（改前欠定题 77~153KB）', bytes < 8192, bytes + 'B');
 
     // ① 零空间基的数学正确性：A·N = 0（直接用原系数矩阵独立验证）
     const A = [[2, 0, 1, 1], [0, 1, 0, -1], [3, 0, -1, -1], [4, 1, 2, 1]];
@@ -291,7 +309,7 @@ console.log('【⑬ 零空间参数化仿射采样】');
     }
     ck('解流形方向满足 A·d = 0（零空间）', maxAN === 0, 'maxAN=' + maxAN);
 
-    // 域收缩时采样点必须同步收缩（不得给出越界解）
+    // 域收缩时推荐解必须同步收缩（不得给出越界解）
     const tight = core.solve(eq, ['x', 'y', 'z', 'w'], 6, { x: [0, 5], y: [-3, -1], z: [0, 5], w: [0, 1] });
     let tightOk = true;
     for (const s of tight.solutions) {
@@ -300,7 +318,7 @@ console.log('【⑬ 零空间参数化仿射采样】');
         if (w < 0 - 1e-9 || w > 1 + 1e-9) tightOk = false;
         if (Math.abs(2 * x + z + w - 5) > 1e-9) tightOk = false;
     }
-    ck('域收缩后仍全部在域内且残差 0', tightOk, 'n=' + tight.solutions.length);
+    ck('域收缩后仍在域内且残差 0', tightOk, 'n=' + tight.solutions.length);
 }
 
 // 【⑭ rank 语义回归锁 —— 独立精确算术裁决，不是自证】
@@ -405,7 +423,7 @@ console.log('【⑭ rank 语义回归锁（期望值来自独立 BigInt 精确 R
 //
 // ⚠ 判据用「墙钟时间」而不是「解的个数」：死循环的表现就是跑不完，
 //   只断言解数的话，修复前会「慢慢跑完」而测不出来。
-console.log('【⑮ 仿射采样死循环回归锁（3 维解流形 + 大域）】');
+console.log('【⑮ 3 维解流形 + 大域：性能回归锁 + 单解契约】');
 {
     const eqs = [
         'u + v + w + x + y + z = 1',
@@ -418,15 +436,16 @@ console.log('【⑮ 仿射采样死循环回归锁（3 维解流形 + 大域）�
     const t0 = Date.now();
     const r = core.solve(eqs, vars);
     const dt = Date.now() - t0;
-    ck('3 维解流形 + 大域：必须在 3 秒内返回（修复前 60s+ 挂死）', dt < 3000, dt + 'ms');
-    ck('走零空间采样路径', /零空间/.test(r.executionPath || ''), r.executionPath);
-    ck('采样点数量受控（不得爆炸）', r.candidateCount <= 512, 'cand=' + r.candidateCount);
-    // ⚠ 2026-10-04：断言从「措辞匹配」改为「语义匹配」。
-    //   原断言 `/无限解集/.test(resultTypeName)` 在 resultTypeName 收敂为 4 态后必然失败
-    //   ——它匹配的是**旧自由文本**（"无限解集(推荐解)"/"有限解（投影法抢救）"），
-    //   而那些措辞已下沉到 resultTypeNameLegacy。
-    //   教训同「门控字段必须先 grep 核实」：**断言也要断言语义，不能断言措辞**。
-    //   措辞会变，语义不变。改成直接查正维标记。
+    ck('3 维解流形 + 大域：必须在 3 秒内返回（历史事故：修复前 60s+ 挂死）', dt < 3000, dt + 'ms');
+    ck('走 RREF 特解路径', /RREF 自由列取 0/.test(r.executionPath || ''), r.executionPath);
+    // ★ 2026-10-05：仿射采样整块删除后，这里从「采样点数量受控（≤514）」
+    //   变成「只给 1 个解」。死循环的根因（O(N²) 去重 + 无总量上限）已随之消失，
+    //   但**墙钟断言必须保留** —— 它是那道事故唯一有效的护栏：
+    //   死循环的表现是「跑不完」，只断言解数的话，慢到最后也能跑完而测不出来。
+    ck('欠定只输出 1 个解（不再枚举 513 个采样点）', r.solutions.length === 1,
+        'len=' + r.solutions.length);
+    ck('返回体 < 8KB（改前此题为 190KB 级）', JSON.stringify(r).length < 8192,
+        JSON.stringify(r).length + 'B');
     ck('正维解集标记仍在（solutionSpaceDimension>0 或 positiveDim）',
       (r.solutionSpaceDimension > 0) || r.positiveDim === true || r.resultType === 3,
       'ssd=' + r.solutionSpaceDimension + ' pd=' + r.positiveDim + ' rt=' + r.resultType);
@@ -435,7 +454,7 @@ console.log('【⑮ 仿射采样死循环回归锁（3 维解流形 + 大域）�
     ck('旧的无限解集措辞已下沉到 resultTypeNameLegacy（保留可追溯）',
       /无限解集/.test(r.resultTypeNameLegacy || ''), r.resultTypeNameLegacy);
 
-    // 每个采样点都必须严格满足原方程（第三方手写残差）
+    // 推荐解必须严格满足原方程（第三方手写残差）
     let maxRes = 0;
     for (const s of (r.solutions || [])) {
         const [u, v, w, x, y, z] = s.values;
@@ -447,12 +466,7 @@ console.log('【⑮ 仿射采样死循环回归锁（3 维解流形 + 大域）�
         ];
         for (const e of res) if (e > maxRes) maxRes = e;
     }
-    ck('全部采样点原方程残差 = 0（max=' + maxRes.toExponential(1) + '）', maxRes < 1e-6, 'max=' + maxRes);
-
-    // 采样点必须互不相同（去重改 Set 后仍要保证真的去掉了重复）
-    const seen = new Set((r.solutions || []).map(s => s.values.map(q => Math.round(q * 1e9)).join(',')));
-    ck('采样点无重复（' + seen.size + '/' + (r.solutions || []).length + '）',
-        seen.size === (r.solutions || []).length, 'unique=' + seen.size);
+    ck('推荐解原方程残差 < 1e-6（max=' + maxRes.toExponential(1) + '）', maxRes < 1e-6, 'max=' + maxRes);
 }
 
 console.log('\n———— ' + pass + ' passed / ' + fail + ' failed ————');

@@ -133,12 +133,30 @@ function suan49(state) {
     }
 
     if (state.equations.length < state.varNames.length) {
-        // 欠定系统：输出距原点最近的推荐解（不输出包围盒）
+        // 欠定系统：输出 1 个特解（不输出包围盒）
         var outputVarNames = getOutputVarNames(state);
-        // === 线性欠定：伪逆闭式解（最小范数解 x* = Aᵀ(AAᵀ)⁻¹b）===
-        // 数学依据：min ‖x‖² s.t. Ax=b 的唯一最小范数解为 x* = A⁺b = Aᵀ(AAᵀ)⁻¹b，
-        // 即拉格朗日乘子法闭式解（x* 与梯度 A 行空间平行，几何上为原点向解空间作垂线）。
-        // 全程纯矩阵运算、无随机、无迭代，结果确定可复现，且为全局最优（非启发式）。
+        // === 线性欠定：行最简形自由变量取 0 的标准特解 ===
+        //
+        // 🔴 2026-10-05 换掉伪逆最小范数解（用户指令：「不需要离原点最近」）：
+        //   旧实现算 x* = Aᵀ(AAᵀ)⁻¹b，即 min‖x‖² s.t. Ax=b 的**最小范数解**，
+        //   数学上就是「过原点到解空间作垂线的垂足」—— 换句话说，
+        //   它是**离原点最近那个解**，一条人为的几何偏好规则。
+        //   本产品要的���数学定理驱动，不是人为偏好 ⇒ 删掉。
+        //
+        // 换成什么（不是「换一个偏好」，是**取消偏好**）：
+        //   Gauss 消元到行最简形后，**自由列取 0**，回代得特解。
+        //   这是线性代数里消元法的规范约定（RREF 的定义本身就把自由列标准化为 0），
+        //   不含任何「离哪更近」「取哪一边」的价值判断。
+        //
+        // 为什么这不是「换个拍脑袋规则」：
+        //   自由变量取 0 时，RREF 已经把 x_pivot = b' − Σ A'x_free，
+        //   令 free=0 ⇒ x_pivot = b'。这与「距离原点」无关，
+        //   只与「RREF 把单位矩阵摆到前 m 列」这个**行/列交换的产物**有关。
+        //   换基（RREF 的列序）会改结果，但换基本身就是坐标选择，
+        //   而**任何**坐标选择都要定一个规范 —— RREF 是唯一不需要额外度量的那个。
+        //   反观最小范数解要额外度量欧氏范数，还要 Aᵀ(AAᵀ)⁻¹ 可逆（条件数放大）。
+        //
+        // 全程纯矩阵运算、无随机、无迭代，与后者的区别是**少一个度量**而不是换一个度量。
         // 仅在全线性时启用；非线性欠定走下方坐标下降兜底。
         var _pseudoDone = false;
         if (state.eqFeatures && state.eqFeatures.allLinear) {
@@ -153,36 +171,52 @@ function suan49(state) {
                 _bvec.push(-_lc.constant);
             }
             if (_linOk && _A.length > 0 && _A.length < _linVars.length) {
-                // 构建 G = AAᵀ (m×m)，解 Gλ=b，得 x* = Aᵀλ
-                var _m = _A.length;
-                var _G = [];
-                for (var _gi = 0; _gi < _m; _gi++) {
-                    var _rowG = [];
-                    for (var _gj = 0; _gj < _m; _gj++) {
-                        var _acc = 0;
-                        for (var _gk = 0; _gk < _linVars.length; _gk++) _acc += _A[_gi][_gk] * _A[_gj][_gk];
-                        _rowG.push(_acc);
-                    }
-                    _G.push(_rowG);
+                // Gauss-Jordan 消元到 RREF（**同时记录列交换历史**，这样能区分
+                // 自由列与主元列 —— 单纯就地消元会把列序搅乱，事后认不出哪列自由）。
+                var _m = _A.length, _n = _linVars.length;
+                var _M = [], _colOfPivot = new Array(_n).fill(-1);
+                for (var _ri0 = 0; _ri0 < _m; _ri0++) {
+                    _M.push(_A[_ri0].slice().concat([_bvec[_ri0]]));
                 }
-                var _gRes = gaussianSolve(_G, _bvec);
-                if (_gRes) {
-                    // x* = Aᵀλ，并校验残差与声明域
-                    var _lam = _gRes.solution;
-                    var _xstar = [];
+                var _row = 0, _rrefOk = true;
+                for (var _col = 0; _col < _n && _row < _m; _col++) {
+                    // 在 _row..m-1 里找主元（按绝对值最大选行 = 部分主元，数值最稳）
+                    var _piv = -1, _pivAbs = 0;
+                    for (var _rr = _row; _rr < _m; _rr++) {
+                        var _av = Math.abs(_M[_rr][_col]);
+                        if (_av > _pivAbs) { _pivAbs = _av; _piv = _rr; }
+                    }
+                    if (_pivAbs < 1e-13) continue;             // 该列无主元 ⇒ 自由列，RREF 留 0
+                    if (_piv !== _row) { var _sw = _M[_row]; _M[_row] = _M[_piv]; _M[_piv] = _sw; }
+                    var _p = _M[_row][_col];
+                    for (var _cj2 = 0; _cj2 <= _n; _cj2++) _M[_row][_cj2] /= _p;
+                    for (var _rj = 0; _rj < _m; _rj++) {
+                        if (_rj === _row) continue;
+                        var _fac = _M[_rj][_col];
+                        if (_fac === 0) continue;
+                        for (var _ck2 = 0; _ck2 <= _n; _ck2++) _M[_rj][_ck2] -= _fac * _M[_row][_ck2];
+                    }
+                    _colOfPivot[_col] = _row;
+                    _row++;
+                }
+                // RREF 完成后按**原始列序**回填：主元列 = 该行的常数项，自由列 = 0。
+                // ⚠ 不能用「RREF 的第 k 行 = 第 k 列」—— 列交换已打乱，必须靠 _colOfPivot 反查。
+                if (_row > 0) {
+                    var _xpart = new Array(_n).fill(0);
+                    for (var _cj3 = 0; _cj3 < _n; _cj3++) {
+                        if (_colOfPivot[_cj3] >= 0) _xpart[_cj3] = _M[_colOfPivot[_cj3]][_n];
+                    }
+                    var _ptStar = {};
+                    for (var _vi7 = 0; _vi7 < _n; _vi7++) _ptStar[_linVars[_vi7]] = _xpart[_vi7];
+                    // 域内校验（域约束是**问题的一部分**，比任何规范选择都优先）
                     var _xInDomain = true;
-                    for (var _vi6 = 0; _vi6 < _linVars.length; _vi6++) {
-                        var _xv = 0;
-                        for (var _ri = 0; _ri < _m; _ri++) _xv += _A[_ri][_vi6] * _lam[_ri];
-                        _xstar.push(_xv);
-                        var _dom6 = state.D0 && state.D0[_linVars[_vi6]];
-                        if (_dom6) {
-                            if (_xv < _dom6.min - 1e-9 || _xv > _dom6.max + 1e-9) { _xInDomain = false; break; }
+                    for (var _vi8 = 0; _vi8 < _n; _vi8++) {
+                        var _dom8 = state.D0 && state.D0[_linVars[_vi8]];
+                        if (_dom8 && (_xpart[_vi8] < _dom8.min - 1e-9 || _xpart[_vi8] > _dom8.max + 1e-9)) {
+                            _xInDomain = false; break;
                         }
                     }
                     if (_xInDomain) {
-                        var _ptStar = {};
-                        for (var _vi7 = 0; _vi7 < _linVars.length; _vi7++) _ptStar[_linVars[_vi7]] = _xstar[_vi7];
                         var _maxResStar = 0;
                         for (var _rei = 0; _rei < _linEqs.length; _rei++) {
                             var _rres = Math.abs(evalAST(_linEqs[_rei], _ptStar));
@@ -198,15 +232,15 @@ function suan49(state) {
                             confidence: _maxResStar < 1e-5 ? "high" : (_maxResStar < 1e-4 ? "medium" : "low"),
                             resultType: 3,
                             resultTypeName: "无限解集（推荐解）",
-                            resultTypeDesc: "方程数(" + state.equations.length + ")少于变量数(" + state.varNames.length + ")，系统欠定，真实解构成参数化集合（无限多个解）。已按最小范数闭式解 x*=A⁺b（伪逆）输出距原点最近的推荐解（全局最优、确定性可复现、经残差验证）；如需更多代表点，请增加方程约束重新求解。",
-                            executionPath: "欠定系统-伪逆最小范数解（距原点最近）",
+                            resultTypeDesc: "方程数(" + state.equations.length + ")少于变量数(" + state.varNames.length + ")，系统欠定，真实解构成参数化集合（无限多个解）。已按行最简形自由变量取 0 的标准特解输出 1 个代表解（回代残差已复核）；如需更多代表点，请增加方程约束重新求解。",
+                            executionPath: "欠定系统-RREF 自由变量取 0 特解",
                             timeMs: performance.now() - state.startTime,
                             varNames: outputVarNames,
                             unconverged: false,
                             warnings: [
                                 "⚠️ 当前为欠定系统（无限解集）：",
                                 "1. 方程数少于变量数，系统欠定，存在无限多个解。",
-                                "2. 已按伪逆闭式解输出距原点最近的推荐解（全局最优，残差验证通过）。",
+                                "2. 已输出 1 个特解（行最简形自由变量取 0，回代残差已复核）。",
                                 "3. 如需更多代表点，请增加方程约束重新求解。"
                             ]
                         };
@@ -229,8 +263,12 @@ function suan49(state) {
         // 生成采样点：遍历网格变量，通过方程前向传播计算依赖变量
         var samplePoints = [];
         var eqs = state.originalEquations || state.equations;
-        if (hasD0 && outputVarNames.length > 0) {
-            // 前向传播：从已知变量出发，通过方程逐个计算出未知变量
+        // 🔴 2026-10-05 作用域修复：forwardPropagate 原定义在下方 if (hasD0 && outputVarNames.length > 0)
+        //   块内部。块内函数声明在严格模式（ESM 构建产物）里是**块级作用域**，
+        //   而 line ~688 处（缩进探针分支）在该 if 之外调用它 ⇒ 运行时 ReferenceError，
+        //   被 _runOp 的 try/catch 吞掉只记 opErrors ⇒ 欠定采样整段静默失效、结果退化为「计算资源不足」。
+        //   实测症状：x+y+z-6, xy+yz+zx-11, xyz-6 与 cos(x)=0.5 都报 forwardPropagate is not defined。
+        //   修法：把定义提到 suan49 函数体作用域（与 if 同级）。纯作用域修复，算法一行未改。
             function forwardPropagate(pt, eqsList, allVarNames, D0, maxIter) {
                 maxIter = maxIter || 50;
                 var known = {};
@@ -500,6 +538,9 @@ function suan49(state) {
                 if (maxRes >= 1e-4) return null;
                 return { values: known, residual: maxRes };
             }
+
+        if (hasD0 && outputVarNames.length > 0) {
+            // 前向传播：从已知变量出发，通过方程逐个计算出未知变量
             // 预处理：求解单变量方程（如 sin(x)=0.3），为网格采样提供合理起点
             var knownStart = {};
             for (var _ei = 0; _ei < eqs.length; _ei++) {
@@ -666,15 +707,45 @@ function suan49(state) {
                 }
             }
         }
-        // 恒等式前置检测（2026-08-21 修复）：全部方程残差在多点抽样恒 ≈0
-        // （如 x+y+z=x+y+z）→ 解为整个声明域，推荐解 = 域内距原点最近的点。
-        // 必须前置：否则 forwardPropagate 对恒等式二分会把依赖变量设为域下限
-        // （f 恒 0 → known[v]=lo），产出 (0,0,-1e6) 这类坏推荐解。
-        var _isIdI = true;
+        // 欠定系统（无限解集）：只输出 **1 个**代表解。
+        //
+        // 🔴🔴 2026-10-05 拆掉整条「找距原点最近的解」流水线（用户指令：
+        //   「对于部分解的，只找到一个推荐解就行，不需要确定性，不需要离原点最近」）。
+        //
+        // 被删掉的是一整条为了最小化 ‖x‖² 而存在的搜索链（约 260 行）：
+        //   ① KKT 流形投影（x + Jᵀλ = 0 与 F(x)=0 的阻尼牛顿，20+ 起点）
+        //   ② 黄金分割线搜索（8 轮 × 每自由变量 × 100 次内迭代，自适应窗口）
+        //   ③ 域符号角多起点（2^n 个角点，取 30%/70% 分位）
+        //   ④ 域中点按符号翻转（捕捉对称解）
+        //   ⑤ 主准则「‖x‖² 最小」+ 等距时「字典序最小化 |x_i|」的 tie-break
+        //
+        // 为什么整条该删（三个理由，按重要性）：
+        //   ❶ **它优化的目标与产品目标无关。** Agent 要的是「这个系统有没有解 / 有什么解」，
+        //      不是「解里哪个离原点近」。为一个下游不消费的量做全局优化，
+        //      是把算力花在**装饰**上，不是花在**计算**上。
+        //   ❷ **它不稳定，且实测真的错了。** 注释自己记着：
+        //      「实测输出 ‖x‖=353557 却标『最近』，真值约 3.70，差 94492 倍」。
+        //      一个会差 5 个数量级还自称「已求得最近点」的优化，不能进决策路径。
+        //   ❸ **代价与收益完全失衡。** 上面 5 步在 6 元欠定上要跑几十毫秒到数百毫秒，
+        //      而它唯一改变的是「推荐解的坐标」。去掉它，时间全省下来给同伦/分支定界。
+        //
+        // 换成什么：**从已通过回代验证的解里取残差最小者**。
+        //   · 选它的依据是**残差**（这个点有多接近方程的零点）—— 尺度无关的数值事实，
+        //     不是「离原点多远」这种人为偏好；
+        //   · 不做额外搜索 ⇒ 零额外开销，恒等式取域中心（非 0 时取最近端点，
+        //     这是**投影**语义：把原点投到区间上，与「解离多远」无关）。
+        //
+        // fail-closed 不变：找不到任何验证过的解 ⇒ 落到下方的恒等式/无解判定。
+
+        // 恒等式前置检测（全部方程残差在域中心与 (1,…,1) 两点恒 ≈0，如 x+y+z=x+y+z）
+        // ⇒ 解是整个声明域。必须前置：否则 forwardPropagate 对恒等式会把依赖变量
+        // 设成域下限（f 恒 0 ⇒ known[v]=lo），产出 (0,0,−1e6) 这类坏代表解。
+        var _isIdI = false;
         if (eqs.length > 0) {
+            _isIdI = true;
             var _idPtsI = [];
-            var _midI = {}; outputVarNames.forEach(function(v) { _midI[v] = 0; });
-            _idPtsI.push(_midI);
+            var _zeroI = {}; outputVarNames.forEach(function(v) { _zeroI[v] = 0; });
+            _idPtsI.push(_zeroI);
             var _oneI = {}; outputVarNames.forEach(function(v) { _oneI[v] = 1; });
             _idPtsI.push(_oneI);
             for (var _ieI = 0; _ieI < eqs.length && _isIdI; _ieI++) {
@@ -683,199 +754,26 @@ function suan49(state) {
                     if (_rvI > 1e-6) { _isIdI = false; break; }
                 }
             }
-        } else { _isIdI = false; }
-        // 欠定系统（无限解集）：从已校验采样点中选"距原点最近"的点作为推荐解输出，不输出盒子/采样点集合。
-        // 注：2026-08-19 由"输出外包盒+采样点集合"改为"输出一个推荐解"（与三分类结果类型对齐）。
-        // 主准则：距原点最近（‖x‖² 最小）；等距时按字典序最小化 |x_i|（真全序，确定性、可复现——产品承诺）
-        var recSol = null, recD2 = Infinity;
+        }
+
+        var recSol = null;
         if (_isIdI) {
+            // 解是整个声明域 ⇒ 取**域中心**作代表（区间上的投影点，与距离无关）
             recSol = {
                 values: outputVarNames.map(function(v) {
                     var _dI = state.D0 && state.D0[v];
                     if (!_dI) return 0;
-                    if (_dI.min > 0) return _dI.min;
-                    if (_dI.max < 0) return _dI.max;
-                    return 0;
+                    return 0.5 * (_dI.min + _dI.max);
                 }),
                 residual: 0
             };
-            recD2 = 0;
         } else if (uniquePts && uniquePts.length) {
-            // 主准则：距原点最近；等距按字典序最小化 |x_i|（确定性、可复现——产品承诺）
-            recSol = pickRecommended(uniquePts);
-            for (var _rvi = 0; _rvi < recSol.values.length; _rvi++) recD2 += recSol.values[_rvi] * recSol.values[_rvi];
-        }
-        // === 流形最近点精化（2026-08-20）：推荐解必须满足"距原点最近"规则 ===
-        // 此前仅从采样点集合中挑最近者，x+y=3 会返回 (2,1) 而非真正的最近点 (1.5,1.5)。
-        // 这里在解流形上做确定性坐标下降（黄金分割线搜索），以自由变量为参数、
-        // 经 forwardPropagate 重建完整解，最小化 Σv²，使推荐解真正"距原点最近"。
-        // 全程无随机分支，结果确定可复现；失败则回退到采样点最优，不影响原行为。
-        if (recSol) {
-            var _bestArr = recSol.values.slice();
-            var _bestD2 = recD2;
-            var _bestRes = recSol.residual;
-            // 自由度数 = 变量数 - 方程数（至少 1）：前 n-m 个变量作为自由参数，
-            // 其余由 forwardPropagate 依据方程逐个解出（依赖 forwardPropagate 的
-            // "未知变量唯一则可解"机制，结构不支持时返回 null 自动跳过）。
-            var _needFree = Math.max(1, outputVarNames.length - eqs.length);
-            var _freeVars = [];
-            for (var _fvi = 0; _fvi < _needFree && _fvi < outputVarNames.length; _fvi++) _freeVars.push(outputVarNames[_fvi]);
-            if (_freeVars.length > 0) {
-                var _bestMap = {};
-                for (var _bi2 = 0; _bi2 < outputVarNames.length; _bi2++) _bestMap[outputVarNames[_bi2]] = _bestArr[_bi2];
-                // 黄金分割：对自由变量 t，目标 g(t)=Σx(t)²，x(t) 由 forwardPropagate 重建
-                function _gsEval(_tVal, _curFv) {
-                    var _ptC = {};
-                    for (var _fi3 = 0; _fi3 < _freeVars.length; _fi3++) {
-                        var _fn3 = _freeVars[_fi3];
-                        if (_fn3 === _curFv) _ptC[_fn3] = _tVal;
-                        else if (_bestMap[_fn3] !== undefined) _ptC[_fn3] = _bestMap[_fn3];
-                    }
-                    for (var _ks2 in knownStart) { if (knownStart.hasOwnProperty(_ks2)) _ptC[_ks2] = knownStart[_ks2]; }
-                    var _rC = forwardPropagate(_ptC, eqs, outputVarNames, state.D0);
-                    if (!_rC) return Infinity;
-                    var _d2C = 0;
-                    for (var _vi3 = 0; _vi3 < outputVarNames.length; _vi3++) {
-                        var _vv3 = _rC.values[outputVarNames[_vi3]];
-                        if (_vv3 === undefined || !isFinite(_vv3)) return Infinity;
-                        _d2C += _vv3 * _vv3;
-                    }
-                    return _d2C;
-                }
-                // ── 2026-10-03：先试【流形投影法】（见 _suan56Project 头注释）──
-                // KKT：x + Jᵀλ = 0 与 F(x)=0 构成 n+m 维恰定方程组 ⇒ 阻尼牛顿直接解，
-                // 局部二次收敛且【与域宽无关】。这才是「最近解」在数学上正确的算法；
-                // 下面的网格采样 + 黄金分割是启发式，在 ±1e6 宽域上会停在远离原点的局部极小
-                // （实测输出 ‖x‖=353557 却标「最近」，真值约 3.70，差 94492 倍）。
-                // 起点：当前最优 _bestArr（来自采样点）+ knownStart 预解的单变量，作为多起点。
-                // fail-closed：投影必须把残差压到 1e-9 以下才算成功，否则走原路径。
-                var _projDone = false;
-                try {
-                    // 多起点（KKT 投影是局部法，单起点等于没跑 —— 见文件头注释）
-                    var _projStarts = [_bestArr.slice()];
-                    // ② 域中点（原点邻域）：欠定解集的「最近点」通常离原点不远
-                    var _mid = outputVarNames.map(function (vn) {
-                        var _d0 = state.D0 && state.D0[vn];
-                        return (_d0 && isFinite(_d0.min) && isFinite(_d0.max)) ? (_d0.min + _d0.max) / 2 : 0;
-                    });
-                    _projStarts.push(_mid.slice());
-                    // ③ 域的符号角：捕捉负分支 / 异号解（xyz=6 这类正解在负域也有解）
-                    for (var _cbit = 0; _cbit < Math.min(8, 1 << outputVarNames.length); _cbit++) {
-                        var _corner = outputVarNames.map(function (vn, _ci) {
-                            var _d1 = state.D0 && state.D0[vn];
-                            if (!_d1 || !isFinite(_d1.min) || !isFinite(_d1.max)) return 0;
-                            var _t1 = (_cbit >> _ci) & 1;
-                            // 取域的 30% / 70% 分位而非端点：端点常在奇点外
-                            return _d1.min + (0.3 + 0.4 * _t1) * (_d1.max - _d1.min);
-                        });
-                        _projStarts.push(_corner);
-                    }
-                    // ④ 域中点按符号翻转（对称方程常有对称解集）
-                    for (var _fl = 0; _fl < Math.min(4, outputVarNames.length); _fl++) {
-                        var _flt = _mid.slice();
-                        _flt[_fl] = -_flt[_fl];
-                        _projStarts.push(_flt);
-                    }
-                    for (var _psk in knownStart) {
-                        if (knownStart.hasOwnProperty(_psk)) {
-                            var _ptS = {};
-                            for (var _ps1 = 0; _ps1 < outputVarNames.length; _ps1++) _ptS[outputVarNames[_ps1]] = knownStart[outputVarNames[_ps1]];
-                            var _miss = false;
-                            for (var _ps2 = 0; _ps2 < _freeVars.length; _ps2++) {
-                                if (_ptS[_freeVars[_ps2]] === undefined) { _ptS[_freeVars[_ps2]] = _bestMap[_freeVars[_ps2]]; }
-                            }
-                            for (var _ps3 = 0; _ps3 < outputVarNames.length; _ps3++) {
-                                if (_ptS[outputVarNames[_ps3]] === undefined) { _ptS[outputVarNames[_ps3]] = _bestArr[_ps3]; }
-                            }
-                            _projStarts.push(outputVarNames.map(function (vn) { return _ptS[vn]; }));
-                        }
-                    }
-                    var _bestProj = null, _bestProjD2 = Infinity;
-                    for (var _pi = 0; _pi < _projStarts.length; _pi++) {
-                        var _pr = _suan56Project(eqs, outputVarNames, _projStarts[_pi], state.D0, { maxIter: 60 });
-                        if (_pr && _pr.ok) {
-                            var _pd2 = 0;
-                            for (var _pj = 0; _pj < _pr.values.length; _pj++) _pd2 += _pr.values[_pj] * _pr.values[_pj];
-                            if (_pd2 < _bestProjD2) { _bestProjD2 = _pd2; _bestProj = _pr; }
-                        }
-                    }
-                    if (_bestProj) {
-                        _bestArr = _bestProj.values.slice();
-                        _bestD2 = _bestProjD2;
-                        _bestRes = _bestProj.residual;
-                        for (var _pb = 0; _pb < outputVarNames.length; _pb++) _bestMap[outputVarNames[_pb]] = _bestArr[_pb];
-                        _projDone = true;
-                        state.suan56Projection = {
-                            method: 'manifold-projection-gauss-newton',
-                            iters: _bestProj.iters,
-                            residual: _bestProj.residual,
-                            starts: _projStarts.length,
-                            note: 'KKT 条件 x+Jᵀλ=0 与 F(x)=0 的阻尼牛顿解；局部二次收敛，与声明域宽无关'
-                        };
-                    }
-                } catch (e) { _projDone = false; }
-                if (!_projDone) {
-                var _PHI = 0.6180339887498949;
-                for (var _rd = 0; _rd < 8; _rd++) {
-                    var _improved = false;
-                    for (var _fi4 = 0; _fi4 < _freeVars.length; _fi4++) {
-                        var _fv4 = _freeVars[_fi4];
-                        var _dom4 = state.D0[_fv4] || d0Box[_fv4];
-                        if (!_dom4 || !isFinite(_dom4.min) || !isFinite(_dom4.max)) continue;
-                        // 自适应窗口：以当前最优值为中心（避免在 ±1e6 默认大域上迭代不足），
-                        // 窗口半径随轮次减半，全局粗搜 → 局部精搜，保证收敛到流形最近点。
-                        var _center4 = _bestMap[_fv4] !== undefined ? _bestMap[_fv4] : (_dom4.min + _dom4.max) / 2;
-                        var _span4 = (_dom4.max - _dom4.min) / Math.pow(4, _rd + 1);
-                        _span4 = Math.max(_span4, 1e-6, Math.abs(_center4) * 1e-3);
-                        var _lo4 = Math.max(_dom4.min, _center4 - _span4);
-                        var _hi4 = Math.min(_dom4.max, _center4 + _span4);
-                        if (_lo4 >= _hi4) { _lo4 = _dom4.min; _hi4 = _dom4.max; }
-                        var _c4 = _hi4 - (_hi4 - _lo4) * _PHI, _d4 = _lo4 + (_hi4 - _lo4) * _PHI;
-                        var _gc4 = _gsEval(_c4, _fv4), _gd4 = _gsEval(_d4, _fv4);
-                        for (var _gi4 = 0; _gi4 < 100; _gi4++) {
-                            if (!isFinite(_gc4)) { _c4 = (_lo4 + _c4) / 2; _gc4 = _gsEval(_c4, _fv4); continue; }
-                            if (!isFinite(_gd4)) { _d4 = (_d4 + _hi4) / 2; _gd4 = _gsEval(_d4, _fv4); continue; }
-                            if (_gc4 < _gd4) { _hi4 = _d4; _d4 = _c4; _gd4 = _gc4; _c4 = _hi4 - (_hi4 - _lo4) * _PHI; _gc4 = _gsEval(_c4, _fv4); }
-                            else { _lo4 = _c4; _c4 = _d4; _gc4 = _gd4; _d4 = _lo4 + (_hi4 - _lo4) * _PHI; _gd4 = _gsEval(_d4, _fv4); }
-                            if (_hi4 - _lo4 < 1e-9) break;
-                        }
-                        var _tBest = (_lo4 + _hi4) / 2;
-                        var _rBest = forwardPropagate((function() {
-                            var _ptF = {};
-                            for (var _fi5 = 0; _fi5 < _freeVars.length; _fi5++) {
-                                var _fn5 = _freeVars[_fi5];
-                                if (_fn5 === _fv4) _ptF[_fn5] = _tBest;
-                                else if (_bestMap[_fn5] !== undefined) _ptF[_fn5] = _bestMap[_fn5];
-                            }
-                            for (var _ks3 in knownStart) { if (knownStart.hasOwnProperty(_ks3)) _ptF[_ks3] = knownStart[_ks3]; }
-                            return _ptF;
-                        })(), eqs, outputVarNames, state.D0);
-                        if (_rBest) {
-                            var _d2F = 0, _okF = true;
-                            for (var _vi4 = 0; _vi4 < outputVarNames.length; _vi4++) {
-                                var _vv4 = _rBest.values[outputVarNames[_vi4]];
-                                if (_vv4 === undefined || !isFinite(_vv4)) { _okF = false; break; }
-                                _d2F += _vv4 * _vv4;
-                            }
-                            if (_okF && _d2F < _bestD2 - 1e-12) {
-                                var _newArr = [];
-                                for (var _vi5 = 0; _vi5 < outputVarNames.length; _vi5++) _newArr.push(_rBest.values[outputVarNames[_vi5]]);
-                                _bestArr = _newArr; _bestD2 = _d2F; _bestRes = _rBest.residual;
-                                for (var _bi5 = 0; _bi5 < outputVarNames.length; _bi5++) _bestMap[outputVarNames[_bi5]] = _bestArr[_bi5];
-                                _improved = true;
-                            }
-                        }
-                    }
-                    if (!_improved) break;
-                }
-                }   // suan56：投影法未成功才走原黄金分割启发式
-                // 精化成功（严格更近）则替换推荐解，并同步零分量 tie-break 口径
-                if (_bestD2 < recD2 - 1e-12) {
-                    var _zBest = 0;
-                    for (var _zi = 0; _zi < _bestArr.length; _zi++) if (Math.abs(_bestArr[_zi]) < 1e-9) _zBest++;
-                    recSol = { values: _bestArr, residual: _bestRes };
-                    recD2 = _bestD2; recZeros = _zBest;
-                }
+            // 取回代残差最小者（不是离原点最近者）。O(k) 一次遍历，零额外求值。
+            var _bestR = Infinity;
+            for (var _upi = 0; _upi < uniquePts.length; _upi++) {
+                var _cand = uniquePts[_upi];
+                var _rr = typeof _cand.residual === 'number' ? _cand.residual : Infinity;
+                if (_rr < _bestR) { _bestR = _rr; recSol = _cand; }
             }
         }
         if (recSol) {
@@ -884,49 +782,48 @@ function suan49(state) {
                 solutions: [recSol],
                 confidence: "high",
                 resultType: 3,
-                resultTypeName: "无限解集（推荐解）",
-                resultTypeDesc: "方程数(" + state.equations.length + ")少于变量数(" + state.varNames.length + ")，系统欠定，真实解构成参数化集合（无限多个解）。已在解流形上经确定性搜索输出距原点最近的推荐解（经残差验证 <1e-6）；如需更多代表点，请增加方程约束重新求解。",
-                executionPath: "欠定系统-输出推荐解（距原点最近）",
+                resultTypeName: "无限解集（代表解）",
+                resultTypeDesc: "方程数(" + state.equations.length + ")少于变量数(" + state.varNames.length + ")，系统欠定，真实解构成参数化集合（无限多个解）。已输出 1 个代表解（在通过回代验证的解中取残差最小者）；如需更多代表点，请增加方程约束重新求解。",
+                executionPath: "欠定系统-输出单个代表解（残差最小）",
                 timeMs: performance.now() - state.startTime,
                 varNames: outputVarNames,
+                // 🔴 2026-10-05 补：truncated 必须为 true。
+                //   欠定系统（m < n）的解集是**正维流形**（维数 ≥ n − rank(J) ≥ 1），
+                //   本字段只输出 1 个代表解，因此**结构上不可能是完备的**。
+                //   缺这个标记 ⇒ Agent/调用方无法程序化区分「这是全部解」与「这是解集里的一个点」，
+                //   会把一个代表点当成完整解集来消费 —— 这正是诚���红线禁止的。
+                //   口径与 RREF 线性欠定分支（solver.js:_rescueUnderdeterminedByProjection）一致：
+                //   truncated=true 表示「只证存在性，未证穷尽」。
+                truncated: true,
                 unconverged: false,
                 warnings: [
                     "⚠️ 当前为欠定系统（无限解集）：",
                     "1. 方程数少于变量数，系统欠定，存在无限多个解。",
-                    "2. 已在解流形上经确定性搜索输出距原点最近的推荐解（经残差验证 <1e-6）。",
+                    "2. 已输出 1 个代表解（回代残差最小者）。",
                     "3. 如需更多代表点，请增加方程约束重新求解。"
                 ]
             };
             return;
         }
-        // 恒等式兜底（2026-08-21 修复）：欠定且采样未产出 recSol 时，若全部方程
-        // 在多个抽样点残差恒 ≈0（如 x+y+z=x+y+z），则解为整个声明域（无限解），
-        // 推荐解 = 域内距原点最近的点（每变量取靠近 0 的域端点或 0）。
-        if (!recSol) {
-            var _idPtsI = [];
-            var _midI = {}; outputVarNames.forEach(function(v) { _midI[v] = 0; });
-            _idPtsI.push(_midI);
-            var _oneI = {}; outputVarNames.forEach(function(v) { _oneI[v] = 1; });
-            _idPtsI.push(_oneI);
-            var _isIdI = true;
-            for (var _ieI = 0; _ieI < eqs.length && _isIdI; _ieI++) {
-                for (var _iptI = 0; _iptI < _idPtsI.length; _iptI++) {
-                    var _rvI; try { _rvI = Math.abs(evalAST(eqs[_ieI], _idPtsI[_iptI])); } catch(e) { _rvI = 1e10; }
-                    if (_rvI > 1e-6) { _isIdI = false; break; }
-                }
-            }
-            if (_isIdI) {
-                recSol = {
+        // 欠定且采样未产出任何验证解，但方程是恒等式（恒等兜底）
+        if (!recSol && _isIdI) {
+            state.done = true;
+            state.result = {
+                solutions: [{
                     values: outputVarNames.map(function(v) {
                         var _dI = state.D0 && state.D0[v];
                         if (!_dI) return 0;
-                        if (_dI.min > 0) return _dI.min;
-                        if (_dI.max < 0) return _dI.max;
-                        return 0;
+                        return 0.5 * (_dI.min + _dI.max);
                     }),
                     residual: 0
-                };
-            }
+                }],
+                confidence: "high", resultType: 3, resultTypeName: "无限解集（代表解）",
+                resultTypeDesc: "方程为恒等式，解集为整个声明域（任意值均满足）；已输出域中心作代表解。",
+                executionPath: "单变量恒等式识别",
+                timeMs: performance.now() - state.startTime,
+                varNames: outputVarNames
+            };
+            return;
         }
         // 欠定但在声明域内无解（如 x+y=5 且 x,y∈[0,2]）：不得误标为"无限解集"，
         // 如实降级为无解判定，保持"无解就是无解"的真实性承诺。

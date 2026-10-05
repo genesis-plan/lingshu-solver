@@ -420,6 +420,206 @@ function _residualAt(eq, vm) {
  * 放在收口处的原因不变：tier 会被认证层与后面的过滤改写，
  * 分散算必然算在别人的改写之前。
  */
+/**
+ * 回代验证：把候选点代回**用户原方程**，判定它是不是真解。
+ *
+ * 🔴 2026-10-05 新增（用户指令：「去掉安全认证……我们的是极致的计算」）：
+ *   这是 Krawczyk 区间认证的**数学替代品**，用「回代 + 后向误差」判据。
+ *
+ * 为什么它比 Krawczyk 更适合本产品：
+ *   Krawczyk 回答的是「**这个盒子里有且仅有一个零点**」—— 一个**误差上界**问题。
+ *   它必须假设雅可比在该邻域局部可逆（⇒ 根孤立），在正维流形上前提不成立，
+ *   必然认证失败；且每个解都要跑多轮区间算术（实测 800ms 预算）。
+ *   而 Agent 要的是「**这个点是不是解**」—— 一个**判定**问题，
+ *   回代就能回答，且是 O(1) 次求值，零区间开销。
+ *
+ * 判据（Higham 后向误差，尺度无关）：
+ *   绝对残差 |F(x)| 在大系数题上永远很大（相消误差不可消除），
+ *   拿它当判据等于「题写得大 ⇒ 什么都不是解」。
+ *   后向误差 η = max_i |F_i(x)| / (Σ_j |∂F_i/∂x_j · x_j|) 度量的是
+ *   「x 有多接近**某个**精确解」—— 这是与问题尺度无关的正确问法。
+ *
+ * 严格性分档（三档，缺证据就降级，绝不谎报）：
+ *   verified  : 后向误差 ≤ _BE_EXACT  ⇒ 实质上是精确解（机器精度级）
+ *   plausible : 后向误差 ≤ _BE_LOOSE  ⇒ 是解到可接受精度
+ *   rejected  : 超过 ⇒ 不是解
+ *   另加 signChange 证据：残差在邻域左右**符号翻转**（中值定理）⇒ 严格穿越，
+ *   这比任何残差量级都强，且是**相消误差免疫**的判据。
+ *
+ * @returns {{status:string, backwardError:number, signCrossing:boolean, residual:number}}
+ */
+function _verifyBySubstitution(state, sol) {
+    var eqs = (state.userEquations && state.userEquations.length) ? state.userEquations
+        : (state.equations || []);
+    var vns = getOutputVarNames(state);
+    var out = { status: 'rejected', backwardError: Infinity, signCrossing: false, residual: Infinity };
+    if (!eqs || !eqs.length || !sol || !sol.values || sol.values.length !== vns.length) return out;
+
+    var vmap = {};
+    for (var i = 0; i < vns.length; i++) {
+        var v = sol.values[i];
+        if (typeof v !== 'number' || !isFinite(v)) return out;
+        vmap[vns[i]] = v;
+    }
+
+    var maxRes = 0, maxBE = 0;
+    for (var e = 0; e < eqs.length; e++) {
+        var fv;
+        try { fv = evalAST(eqs[e], vmap); } catch (err) { return out; }
+        if (fv === null || fv !== fv || !isFinite(fv)) return out;   // 未定义点不是解
+        var ares = Math.abs(fv);
+        if (ares > maxRes) maxRes = ares;
+        // 后向误差：残差相对该项的「求值规模」。规模为 0（该式恒 0）时
+        // 残差也必须是 0 才算通过，否则视为未定义证据。
+        var scale = 0;
+        try { scale = evalASTScale(eqs[e], vmap); } catch (err2) { scale = 0; }
+        if (!isFinite(scale) || scale <= 0) { if (ares > 0) maxBE = Infinity; continue; }
+        var be = ares / scale;
+        if (be > maxBE) maxBE = be;
+    }
+    out.residual = maxRes;
+    out.backwardError = maxBE;
+
+    // 符号穿越证据（中值定理）：在相对邻域取左右两点，残差异号 ⇒ 真穿越。
+    // 这一条是**免疫相消误差**的：即使两侧残差绝对值都很大，只要异号就有根在中间。
+    var _w = [];
+    for (var i2 = 0; i2 < vns.length; i2++) {
+        var c = sol.values[i2];
+        _w.push(Math.max(1e-7 * Math.max(1, Math.abs(c)), 1e-12));
+    }
+    var vL = {}, vR = {};
+    for (var i3 = 0; i3 < vns.length; i3++) {
+        vL[vns[i3]] = sol.values[i3] - _w[i3];
+        vR[vns[i3]] = sol.values[i3] + _w[i3];
+    }
+    var nEq = eqs.length, sameSign = 0, undef = 0;
+    for (var e2 = 0; e2 < nEq; e2++) {
+        var fl, fr;
+        try { fl = _residualAt(eqs[e2], vL); fr = _residualAt(eqs[e2], vR); }
+        catch (err3) { undef++; continue; }
+        if (fl === null || fr === null || !isFinite(fl) || !isFinite(fr)) { undef++; continue; }
+        if ((fl < 0 && fr > 0) || (fl > 0 && fr < 0)) sameSign++;
+    }
+    // 全部可判定的式子在邻域两端都异号 ⇒ 严格穿越
+    if (sameSign > 0 && sameSign + undef === nEq) out.signCrossing = true;
+
+    if (out.signCrossing) out.status = 'verified';
+    else if (maxBE <= _BE_EXACT) out.status = 'verified';
+    else if (maxBE <= _BE_LOOSE) out.status = 'plausible';
+    return out;
+}
+
+
+/**
+ * 牛顿精化：把已找到的解再往真根上推几步（**纯计算，不是认证**）。
+ *
+ * 🔴 2026-10-05 新增。与 `_certifySolutions` 拆开的原因见调用处注释：
+ *   Krawczyk 层顺带做的盒内牛顿精化，实测能把 g017 `exp(x)=2` 的解
+ *   从误差 6.1e-13 拉到 6.7e-16（= ln2 的双精度最优值）。
+ *   那是**算得更准**，与「给误差上界」是两件事，不该一起关掉。
+ *
+ * 与 `_newtonRefine`（certify.js 内）的区别：
+ *   那个需要传入区间盒（Krawczyk 算出来的包含盒）做约束，本函数不需要 ——
+ *   我们只要「在附近再牛顿几步」，不需要「保证不跑出盒」。
+ *   收敛判据同样用 Higham 后向误差（尺度无关），停滞 3 轮退出。
+ *
+ * ⚠ 值被替换后 residual / substitutionCheck 必须同步重算（历史 P0：
+ *   值换了而派生字段没换 ⇒ 报出 7 个数量级偏差的假残差）。
+ */
+function _refineSolutions(state) {
+    var sols = state && state.result && state.result.solutions;
+    if (!sols || !sols.length) return;
+    var eqs = (state.userEquations && state.userEquations.length) ? state.userEquations : state.equations;
+    var vns = getOutputVarNames(state);
+    if (!eqs || !eqs.length || vns.length === 0) return;
+
+    var n = vns.length;
+    for (var i = 0; i < sols.length; i++) {
+        var sol = sols[i];
+        if (!sol || !sol.values || sol.values.length !== n) continue;
+        // 正维流形上的代表点不精化：那里牛顿的雅可比不可逆，
+        // 推它等于沿流形乱走，会把正确的代表点推成伪解。
+        if (sol.tier === 'structural' || sol.representative === true) continue;
+        if (eqs.length !== n) continue;    // 非方阵：牛顿需要 J 可逆，跳过
+
+        var x = sol.values.slice();
+        var bestRms = Infinity, bestX = null, stall = 0, moved = false;
+        var CONV_REL = 1e-15, CONV_ABS = 1e-15;
+        for (var iter = 0; iter < 12; iter++) {
+            var vmap = {};
+            for (var k = 0; k < n; k++) vmap[vns[k]] = x[k];
+            var F = [], rms = 0, bwd = 0, okAll = true;
+            for (var e = 0; e < n; e++) {
+                var fe;
+                try { fe = evalAST(eqs[e], vmap); } catch (err) { okAll = false; break; }
+                if (!isFinite(fe)) { okAll = false; break; }
+                F.push(fe); rms += fe * fe;
+                var sc = 0;
+                try { sc = evalASTScale(eqs[e], vmap); } catch (err2) { sc = 0; }
+                if (isFinite(sc) && sc > 0) { var be = Math.abs(fe) / sc; if (be > bwd) bwd = be; }
+            }
+            if (!okAll) break;
+            rms = Math.sqrt(rms / n);
+            if (bwd === 0) bwd = rms;
+            if (bwd <= CONV_REL || rms <= CONV_ABS) break;
+            if (rms < bestRms) { bestRms = rms; bestX = x.slice(); stall = 0; }
+            else { stall++; if (stall >= 3) break; }
+
+            // 数值雅可比（中心差分）：与 homotopy.js 同样的口径。
+            // 这里不用区间雅可比 —— 精化不要求误差上界，中心差分足够且快得多。
+            var J = [];
+            for (var r = 0; r < n; r++) {
+                var row = [];
+                for (var c = 0; c < n; c++) {
+                    var h = 1e-8 * Math.max(1, Math.abs(x[c]));
+                    var xp = x.slice(), xm = x.slice();
+                    xp[c] += h; xm[c] -= h;
+                    var mp = {}, mm = {};
+                    for (var k2 = 0; k2 < n; k2++) { mp[vns[k2]] = xp[k2]; mm[vns[k2]] = xm[k2]; }
+                    var fp, fm;
+                    try { fp = evalAST(eqs[r], mp); fm = evalAST(eqs[r], mm); } catch (err3) { fp = NaN; fm = NaN; }
+                    row.push((isFinite(fp) && isFinite(fm)) ? (fp - fm) / (2 * h) : 0);
+                }
+                J.push(row);
+            }
+            var gs;
+            try { gs = gaussianSolve(J, F.map(function (v) { return -v; })); } catch (err4) { gs = null; }
+            if (!gs || !gs.solution) break;
+            var step = 0;
+            for (var s2 = 0; s2 < n; s2++) step += Math.abs(gs.solution[s2]) * Math.max(1, Math.abs(x[s2]));
+            if (!isFinite(step) || step === 0) break;
+            for (var s3 = 0; s3 < n; s3++) x[s3] += gs.solution[s3];
+            moved = true;
+        }
+        if (!moved) continue;
+        // 用最终 x 重算残差（不信任迭代过程中的中间值）
+        var vmap2 = {};
+        for (var k3 = 0; k3 < n; k3++) vmap2[vns[k3]] = x[k3];
+        var maxRes = 0, finite2 = true;
+        for (var e2 = 0; e2 < n; e2++) {
+            var f2;
+            try { f2 = Math.abs(evalAST(eqs[e2], vmap2)); } catch (err5) { f2 = NaN; }
+            if (!isFinite(f2)) { finite2 = false; break; }
+            if (f2 > maxRes) maxRes = f2;
+        }
+        if (!finite2) continue;
+        sol.values = x;
+        sol.residual = maxRes;
+    }
+}
+
+
+// 后向误差阈值（尺度无关）：
+//   _BE_EXACT = 1e-14：双精度 15~17 位有效数字，1e-14 后向误差意味着
+//     「若存在精确解，它与 x 的差不超过 ~1e-14」⇒ 实质就是那个解。
+//   _BE_LOOSE = 1e-9 ：工程可接受精度（与旧口径 1e-6 绝对残差在量级 1 的题上等价，
+//     但对 1e8 量级的题不再误杀）。
+// ⚠ 这两个数是**浮点数表示极限**导出的，不是「拍脑袋的容差」：
+//   u = 2^-53 ≈ 1.1e-16 是双精度单位舍入误差，1e-14 ≈ 100u。
+var _BE_EXACT = 1e-14;
+var _BE_LOOSE = 1e-9;
+
+
 function _resyncConfidence(state) {
     var res = state && state.result;
     if (!res || !res.solutions || !res.solutions.length) return;
@@ -655,30 +855,78 @@ function _finalResidualGate(state) {
     if (!vns || !vns.length) return;
 
     // 原始方程 → AST（解析失败的一律置 null，稍后按「无法验证」放行，绝不误杀）
+    //
+    // 🔴 2026-10-05 P0 修复（实测事故：`xy=6, x+y=5` 返回 0 解 + 「残差闸门剔除 2 个非解候选」）：
+    //   这里重解析原始串时**漏了 fuzzyFix**，而 suan1 的解析管线是
+    //     fuzzyFix(parts[0]) → parse(tokenize(...))
+    //   fuzzyFix 才是补隐式乘法的那一步（"xy" → "x*y"，"2x" → "2*x"）。
+    //   于是本闸门把 `xy=6` 解析成 var('xy') —— 一个**不存在的变量**，
+    //   evalAST 得 NaN ⇒ 非有限 ⇒ bad=true ⇒ **真解 (2,3) 与 (3,2) 被当伪解杀掉**。
+    //   更糟的是这一段 catch 住异常不让它冒头，症状只剩一句 warning，
+    //   Agent 侧看到的是「算出 2 个解但都被剔除」，指向错误方向。
+    //
+    // 为什么原写法看着"更保险"却更危险：它想避开可能已改写的 AST（这点是对的，保留），
+    // 但重解析必须与 suan1 **同管线**，否则闸门验收的是另一套语义。
+    // 不同管线 = 闸门在检查一个用户从未写过的方程。
+    //
+    // 修法：与 suan1 完全同管线（fuzzyFix + protNames），不做其他改动。
+    // protNames 用 state.protNames（suan1 的同一份），退化到 _LS_PROTECTED_NAMES。
+    var _gateProt = state.protNames || _LS_PROTECTED_NAMES;
     var asts = [];
     for (var ei = 0; ei < eqStrs.length; ei++) {
         var a = null;
         try {
             var s = String(eqStrs[ei]);
             var k = s.indexOf('=');
-            if (k < 0) a = parse(tokenize(s, vns));
-            else a = { type: 'binop', op: '-', left: parse(tokenize(s.slice(0, k), vns)), right: parse(tokenize(s.slice(k + 1), vns)) };
+            if (k < 0) a = parse(tokenize(fuzzyFix(s, _gateProt), _gateProt));
+            else {
+                var _lf = fuzzyFix(s.slice(0, k).trim(), _gateProt);
+                var _rf = fuzzyFix(s.slice(k + 1).trim(), _gateProt);
+                a = { type: 'binop', op: '-', left: parse(tokenize(_lf, _gateProt)), right: parse(tokenize(_rf, _gateProt)) };
+            }
         } catch (e) { a = null; }
         asts.push(a);
     }
     if (!asts.some(function (x) { return !!x; })) return;
+    // 🆕 二次防护：重解析出的 AST 若引用了 varNames 里不存在的标识符（典型如上例的 var('xy')），
+    //   说明这次解析与 suan1 不同构 ⇒ 该式无法作为验收依据 ⇒ 置 null 按「无法验证」放行，
+    //   而不是拿它去判真解为伪。宁可少一道验收，不可误杀（fail-closed 的正确方向）。
+    var _gateVns = {};
+    for (var _gv = 0; _gv < vns.length; _gv++) _gateVns[vns[_gv]] = true;
+    for (var _gi = 0; _gi < asts.length; _gi++) {
+        if (!asts[_gi]) continue;
+        var _unknown = false;
+        try {
+            extractVariables(asts[_gi]).forEach(function (nm) { if (!_gateVns[nm]) _unknown = true; });
+        } catch (_e) { _unknown = true; }
+        if (_unknown) {
+            state.result = state.result || {};
+            asts[_gi] = null;
+            var _w = '残差闸门：第 ' + (_gi + 1) + ' 式重解析出现未声明变量（隐式乘法未能还原），该式不参与验收';
+            if (!state.result.warnings) state.result.warnings = [];
+            if (state.result.warnings.indexOf(_w) < 0) state.result.warnings.push(_w);
+        }
+    }
 
-    // 🔴🔴 2026-10-04 修 tol 退化：绝对容差 → 后向稳定相对容差
+    // 🔴🔴 2026-10-05 彻底去网格化：删掉「量化格余量」分支，容差回归**纯后向误差**判据。
     //
-    // 判据（Higham 标准结论）：双精度求值误差上界 = eps · Σ|terms|，
-    // 所以「残差真的是 0」这件事**没有绝对阈值可判**，必须与量纲挂钩。
+    // 背景（为何这个分支必须删，而不是留着无害）：
+    //   它是我 2026-10-05 为修 P0 加的补丁 —— 坐标被roundToGrid 压到 6 位网格后，
+    //   真解（1/3、23/30、√2…）带上‖J‖·h ≈ 2.3e-6 的**量化残差**，
+    //   于是被迫给闸门加一条「网格余量」通道来放它们过关。
+    //   那是**用容差去补精度损失**，方向是反的：你放宽判据只是让劣解混进来，
+    //   并不能让 23/30 本身变得更准。真正的解法是别把解压到 6 位 ——
+    //   现在 roundToGrid 是全精度 + ULP 去噪，残差自然回到机器精度量级（~1e-16），
+    //   这个补丁的存在前提已消失，留着等于**永久放宽闸门**。
     //
+    // 现在的判据（无特例）：残差 ≤ max(TOL_ABS_FLOOR, Σ|terms| · τ)，纯后向误差。
     // τ = 1e-11 的依据：机器 eps = 2.2e-16，τ/eps ≈ 4.5e4 倍余量，
-    //   用来覆盖「表达式求值链的深度」造成的舍入放大（实测 x^2 情形放大到 2e-15 量级，
+    //   用来覆盖「表达式求值链的深度」造成的舍入放大（实测 x^2 放大到 2e-15，
     //   即 ~2e-14 相对误差 ⇒ τ=1e-11 有 500 倍余量，稳）。
     //
-    // ⚠ 保底 1e-6 保留：Σ|terms| 算不出尺度时（表达式全是函数节点，evalASTScale 返回 0）
-    //   退回绝对容差。此时是**偏严**方向（fail-closed），符合「宁可少给不给错」的取舍。
+    // ⚠ TOL_ABS_FLOOR = 10^-COMPUTE_DECIMALS：仅当 Σ|terms| 算不出尺度时
+    //   （表达式全是函数节点，evalASTScale 返回 0）退回绝对容差。
+    //   此刻是**偏严**方向（fail-closed），符合「宁可少给不给错」。
     var TAU_REL = 1e-11;
     var TOL_ABS_FLOOR = 1e-6;
 
@@ -743,14 +991,39 @@ function _assignTiers(state) {
     if (!state || !state.result || !state.result.solutions) return;
     var sols = state.result.solutions;
     // structural 仅对"真正欠定"系统（方程数 < 变量数）的代表点生效；
-    // 满秩系统即便在解处 Jacobian 奇异（如 Powell singular），只要找到孤立解就标 proven/candidate，
+    // 满秩系统即便在解处 Jacobian 奇异（如 Powell singular），只要找到孤立解就标 verified/candidate，
     // 绝不因 local-rank 试探误判为 infinite 而盖戳 structural（2026-08-22 修 B2 误标）。
     var vns = getOutputVarNames(state);
     var underdetermined = (state.equations && state.equations.length < vns.length);
     for (var i = 0; i < sols.length; i++) {
         var sol = sols[i];
-        if (sol.certified === true) sol.tier = 'proven';
-        // structural 仅对真正的"代表点"解生效（欠定/恒等系统由伪逆推荐产生，标记 representative）；
+        // 🔴 2026-10-05（用户指令「去掉安全认证」）：proven 的判据从
+        //   「Krawczyk 区间包含认证过」改成「**回代原方程验证通过**」。
+        //
+        // 为什么换：Krawczyk 回答的是「这个盒子里有且仅有一个零点」——
+        //   一个**误差上界**问题，前提是雅可比局部可逆（⇒ 根孤立）。
+        //   在正维流形上该前提不成立，必然认证失败（历史实测：x−y=0 输出 175 个
+        //   假 proven）；且每个解要跑多轮区间算术，吃掉数百毫秒。
+        // 回代回答的是「这个点是不是解」—— O(1) 次求值，零区间开销，
+        //   且**对正维流形一样成立**（流形上的点照样过回代）。
+        //
+        // 判据分级（_verifyBySubstitution）：
+        //   verified  = 邻域残差异号（严格穿越，中值定理）或 后向误差 ≤ 1e-14
+        //   plausible = 后向误差 ≤ 1e-9
+        //   其余 → candidate
+        // 两级都只表示「这个点是解」，**不表示**「解在哪」——
+        //   误差上界是 certifiedRadius 的活儿，已退出默认路径。
+        var _vf = _verifyBySubstitution(state, sol);
+        sol.substitutionCheck = {
+            status: _vf.status,
+            backwardError: _vf.backwardError,
+            signCrossing: _vf.signCrossing
+        };
+        if (_vf.status === 'verified') sol.tier = 'proven';
+        // 保留：精确有理数代入确证（ℚ 上恒等式，比任何数值判据都强）
+        else if (sol.certMethod === 'exact_rational_substitution' && sol.certified === true) sol.tier = 'proven';
+        else if (sol.certified === true) sol.tier = 'proven';
+        // structural 仅对真正的"代表点"解生效（欠定/恒等系统给出 1 个代表点，标记 representative）；
         // 满秩系统即便在解处 Jacobian 奇异（Powell singular）或存在冗余方程被剔除，
         // 只要找到的孤立解就不盖戳 structural，避免误标（2026-08-22 修 B2）。
         else if (sol.representative === true && underdetermined) sol.tier = 'structural';
@@ -874,8 +1147,29 @@ function _assignCompleteness(state) {
     // 门控③解数被截断：resultant.js 用 truncated + exactCount 标记「精确总数 > 实际返回数」。
     //  ⚠ 这里【曾经】写过一个不存在的 displayCapped 字段 —— 教训：门控字段必须先 grep 核实存在，
     //    凭记忆写门控等于造了一条永不触发的假保护，比没有保护更危险（会给人虚假安全感）。
-    if (state.result.truncated === true) {
+    //
+    // 🔴 2026-10-05 分两种 truncated（原文案对欠定系统是**错的**）：
+    //   · **正维欠定**（m<n 或 rank<n）：解集是仿射簇/流形，**本来就无穷多个解**。
+    //     输出 1 个代表点是**正确且完整**的行为，没有「被截断」这回事。
+    //     原文案「计算被资源上限中止，结果不完整」是**误报** ——
+    //     实测 `x+y+z=6`（n=3,m=1）明明 1.3ms 就出结果，却被告知「资源上限中止」，
+    //     Agent 据此会建议「提高预算/缩小域重试」，而真因是欠定，重试一万次还是无穷多。
+    //   · **搜索被截断**：分支定界预算/盒数到限，这才是真的「被截断」。
+    //   正维证据用 resultType===3 / positiveDim / effectiveDim>0（与 _conclusion4 的
+    //   _posDimAny、下方 ④ 的 _isPosDimTrunc 同口径 —— 三处必须一致）。
+    var _truncIsPosDim = (state.result.resultType === 3) || (state.result.positiveDim === true)
+        || (typeof state.result.effectiveDim === 'number' && state.result.effectiveDim > 0
+            && String(state.result.executionPath || '').indexOf('欠定') >= 0);
+    if (state.result.truncated === true && !_truncIsPosDim) {
         gaps.push('计算被资源上限中止，结果不完整（truncated）');
+    } else if (state.result.truncated === true && _truncIsPosDim) {
+        // 正维欠定的截断**不是缺口**：解集无穷，本就不可能完备。
+        // 用一条明确的说明替代「资源不足」措辞，避免给出假指令。
+        gaps.push('正维（欠定）解集：解集是' +
+            (typeof state.result.effectiveDim === 'number' && state.result.effectiveDim > 0
+                ? (' ' + state.result.effectiveDim + ' 维') : '正维') +
+            '的（仿射）流形，有无穷多个解 ⇒ 结构上不可能完备。' +
+            '已给出的代表解是经验证的真解，但不是全部解。');
     }
     // 门控④精确计数（若有）大于实际返回解数 —— 截断了但没标 truncated 的路径
     if (typeof state.result.exactCount === 'number' && state.result.exactCount > (state.result.solutions || []).length) {
@@ -895,10 +1189,35 @@ function _assignCompleteness(state) {
     //
     //   正确口径：**没做过完备性检查 ⇒ 完备性未验证**，与「检查过且通过」严格区分。
     //   ⇒ 无条件降级，不看有没有候选解、不看解是否已被证明存在。
-    if (state.result.globalBranchSkipped && !hasCompletenessProof) {
-        gaps.push('全局区间分支定界未运行（默认关闭）⇒ 未做过任何完备穷举检查，' +
-            '"没有漏解"这件事**没有任何证据**；proven 只证明"这一个解确实存在"，' +
-            '不证明"没有别的解"。需要完备穷举请显式传 {globalBranch:true}');
+    //
+    // 🔴🔴 门控⑤'（2026-10-05，**P0 谎报**，golden g013 抓出）：
+    //   `unconverged=true` 表示分支定界**跑了但没跑完**（预算/深度到限）。
+    //   门控⑤ 只看 `globalBranchSkipped`（压根没跑）⇒ 漏掉了这一半。
+    //
+    //   事故：g013 `120000*p*(1+p)^360-2500000=0`（公积金月供，361 次方程）
+    //     branchCount=11、unconverged=true（深度 10 层到限）、
+    //     无 truncated（因为 _mergeGlobalBranch 在 complete=true 路径下不置它）、
+    //     candidateCount=0（唯一解已 proven）⇒ **所有 gap 都为空**
+    //     ⇒ completeness.provenIsComplete = **true**（谎报）。
+    //   而这题在 p∈[−2.5e9, 2.5e9] 上是 361 次多项式，实根数根本数不完
+    //   （(1+p)^360 在p≈−1 附近的行为 + 大系数 ⇒ 多个实根）。
+    //   「找到 1 个已认证解 + 一个算不完的穷举」⇒ **绝不能**宣称完备。
+    //
+    //   为什么这是本产品最重的错：Agent 客群靠 provenIsComplete 决定
+    //   「能不能断言找全了」。谎报 true 会让它对只找到 1 个根的 361 次方程
+    //   断言「这就是全部解」—— 而金融场景里漏根= 算错月供。
+    //
+    //   修法：`unconverged` 与 `globalBranchSkipped` **同等对待** ——
+    //   「没做过完备穷举」与「做过但没穷尽」，在「有没有漏解」这个问题上
+    //   都是**零信息**。两者都必须降级，除非拿到独立完备性证据。
+    if ((state.result.unconverged === true || state.result.globalBranchSkipped) && !hasCompletenessProof) {
+        gaps.push(state.result.unconverged === true
+            ? '区间分支定界**未能收敛**（预算或深度到限，穷举未完成）⇒ ' +
+              '"没有漏解"这件事**没有任何证据**；proven 只证明"这一个解确实存在"，' +
+              '不证明"没有别的解"。需要完备穷举请显式传 {globalBranch:true, maxBranch:<更大值>}'
+            : '全局区间分支定界未运行（默认关闭）⇒ 未做过任何完备穷举检查，' +
+              '"没有漏解"这件事**没有任何证据**；proven 只证明"这一个解确实存在"，' +
+              '不证明"没有别的解"。需要完备穷举请显式传 {globalBranch:true}');
     }
 
     var realGaps = gaps.filter(function (g) { return !!g; });
@@ -921,9 +1240,22 @@ function _assignCompleteness(state) {
     }
 
     state.result.completeness = {
-        scope: '变量数≤6、' + _domTxt + '、有限网格(6位小数)、残差容差三档(1e-6/1e-9/1e-3)',
+        // ⚠ 2026-10-05 去网格化后的口径：这里曾经写「有限网格(6位小数)、残差容差三档
+        //   (1e-6/1e-9/1e-3)」，那是**对外报的字段**，网格一撤它就自相矛盾了（一边报全精度
+        //   解集、一边说解在 6 位网格上）。改成：变量数上限 + 实际域 + 全精度输出 + 后向误差判据。
+        //   后向误差判据（Higham）：|F(x)| ≤ max(1e-6, Σ|terms(x)| · τ)，τ = 1e-11。
+        scope: '变量数≤6、' + _domTxt + '、解坐标全精度 double(非有限网格)、残差按后向误差判据验收',
         provenIsComplete: isComplete,
-        candidateMayMiss: hasCandidate ? true : false,
+        // 🔴🔴 2026-10-05 修第二个 P0（golden g013 抓出，字段语义与命名不符）：
+        //   旧值 `hasCandidate ? true : false` 把「存在未认证候选解」当成「可能漏解」，
+        //   于是 g013（unconverged=true、明确写了 incompleteReasons）却报 candidateMayMiss=false
+        //   —— 与同一条记录里的 provenIsComplete=false **互相打架**：
+        //   一边说「不能证明完备」，一边说「不会漏解」。Agent 读后者就会直接采信残缺解集。
+        //   正确判据：**任一完备性缺口 ⇒ 可能漏解**（fail-closed），
+        //   即与 provenIsComplete 严格互补（complete=false ⇔ mayMiss=true）。
+        //   注意：门控②保证「有未认证候选解且无独立完备证据」必进 gaps；
+        //   而有独立完备证据（Sturm/单调分段）时该标志为 false 才是对的 —— 那种情况没漏。
+        candidateMayMiss: realGaps.length > 0,
         emptyProofNote: 'emptyProof=proof_empty 表示已严格证明域内无解；candidate_empty 仅表示未找到，不保证不存在',
         undecidability: '对任意超越系统，Richardson 不可判定定理表明不存在判定"有解/无解/几解"的通用算法；本工具保证边界如上，不对全部输出承诺100%正确',
         reproducibility: '全路径无随机数(Math.random=0)，种子确定性，结果跨运行/平台可复现'
@@ -946,39 +1278,143 @@ function _assignCompleteness(state) {
 }
 
 
+/**
+ * 数值质量块：每解的**后向误差** + 全局解数统计。
+ *
+ * 🔴 2026-10-05 重写（用户指令：「去掉所有人为规则……包裹残差、安全认证……
+ *   我们要的是极致的计算，让智能体得到能决策的结果，而不是认证、确定性这些东西」）。
+ *   删掉的三项，逐条说明为什么它们不属于「数学」：
+ *
+ *   ❶ `cert.enclosure`（Krawczyk 包含盒 [x−r, x+r]）
+ *      误差上界。Agent 决策不需要「解在哪个盒里」，它需要「有没有解」。
+ *      且认证层已退出默认路径 ⇒ 这个字段绝大多数时候是 null（一个恒为空的字段）。
+ *
+ *   ❷ `certification.certifiedCoverage = proven/(proven+candidate)`
+ *      🔴 这是一个**谎报型指标**，必须删。
+ *      它看起来像「认证覆盖率」，实际是「proven 占找到的解的比例」——
+ *      分子分母都是**找到的解**，所以它对「有没有漏解」**零信息**。
+ *      实测反例：g005 旧值 certifiedCoverage=0 而它其实 4 个解全对；
+ *      改成 1.0 也一样不代表找全了（只代表找到的都过了某道工序）。
+ *      一个会被 Agent 当成「可信度」读的数字，必须是数学量 —— 而它不是。
+ *
+ *   ❸ `certification.reproducibility = {deterministic: true, ...}`
+ *      硬编码的 `true`。它不来自任何测量，只是**写死的断言**。
+ *      同输入同输出确实是事实（同伦的 γ 由输入哈希导出、无随机数），
+ *      但把它包装成一个叫 `deterministic` 的字段塞进结果里，
+ *      是让 Agent 以为「结果可信」——而**可复现 ≠ 正确**。
+ *
+ *   换成什么（都是**能算出来的量**）：
+ *   · `backwardError`：Higham 后向误差 |F|/(Σ|∂F/∂x·x|)，尺度无关，
+ *     这是「这个解有多准」的唯一正确问法（绝对残差在大系数题上永远很大）。
+ *   · `solutionCount` / `probedSolutions`：找到几个、验过几个。
+ *   · 完备性信息由 `completeness` 与 `conclusion` 承载（那是定理证据，不是比例）。
+ */
 function _assignCertBlock(state) {
     if (!state || !state.result) return;
     var sols = state.result.solutions || [];
     for (var i = 0; i < sols.length; i++) {
         var sol = sols[i];
-        var enclosure = null;
-        if (sol.certified === true && typeof sol.certifiedRadius === 'number') {
-            enclosure = (sol.values || []).map(function (v) {
-                var r = sol.certifiedRadius;
-                return [+(v - r).toFixed(12), +(v + r).toFixed(12)];
-            });
-        }
+        // 后向误差优先取 _verifyBySubstitution 算出的值（那是回代 + 尺度归一的结果），
+        // 退而取算子自己算的，再退而取绝对残差（最弱，但至少有数字）。
+        var _be = null;
+        if (sol.substitutionCheck && typeof sol.substitutionCheck.backwardError === 'number'
+            && isFinite(sol.substitutionCheck.backwardError)) _be = sol.substitutionCheck.backwardError;
+        else if (typeof sol.backwardError === 'number' && isFinite(sol.backwardError)) _be = sol.backwardError;
+        else if (typeof sol.residual === 'number') _be = sol.residual;
         sol.cert = {
-            status: sol.tier || (sol.certified ? 'proven' : 'candidate'),
-            method: sol.certMethod || sol.source || (sol.certified ? 'krawczyk_newton' : 'numeric_newton'),
-            enclosure: enclosure,
-            backwardError: (typeof sol.residual === 'number') ? sol.residual : null,
-            krawczykRadius: (typeof sol.certifiedRadius === 'number') ? sol.certifiedRadius : null
+            status: sol.tier || 'candidate',
+            // 后向误差（尺度无关）。null = 没能算出来（如非方阵无法定尺度）。
+            backwardError: _be,
+            // 严格穿越证据：残差在邻域两端异号（中值定理）。免疫相消误差。
+            signCrossing: !!(sol.substitutionCheck && sol.substitutionCheck.signCrossing)
         };
     }
-    var pc = state.result.provenCount || 0, cc = state.result.candidateCount || 0;
     state.result.certification = {
-        proven: pc,
-        candidate: cc,
+        solutions: sols.length,
+        proven: state.result.provenCount || 0,
+        candidate: state.result.candidateCount || 0,
         structural: state.result.structuralCount || 0,
         emptyProof: state.result.emptyProof || null,
-        certifiedCoverage: (pc + cc) > 0 ? +(pc / (pc + cc)).toFixed(4) : null,
-        reproducibility: {
-            method: 'SHA-256(reportId)',
-            deterministic: true,
-            note: 'reportId 由「输入+版本+预算」逐位可重算；相同输入跨运行/平台产出相同 reportId 即证明可复现（Decision Physics DP-1）'
-        }
+        // ⚠ 不再有 certifiedCoverage / reproducibility —— 见函数头注释的两条说明
     };
+}
+
+
+/**
+ * 线性欠定的特解：Gauss-Jordan 消元到行最简形，**自由列取 0**。
+ *
+ * 🔴 2026-10-05 新增（用户指令：「不需要离原点最近，把这条规则删掉」）。
+ *
+ * 为什么是「自由列取 0」而不是「离原点最近」：
+ *   旧实现算 x* = A⁺b = argmin‖x‖² s.t. Ax=b，即**过原点向解空间作垂线的垂足**。
+ *   那是一条**人为几何偏好**：题目里没有任何理由让解靠近原点，
+ *   而我们的输出会把它当「推荐解」给 Agent ⇒ 偏好被当成数学结论传递出去了。
+ *
+ *   RREF 的自由列取 0 则是**消元法的定义**：Gauss-Jordan 消元到 RREF 后，
+ *   单位矩阵占据前 rank 列，剩余列（自由列）在系数行里全为 0。
+ *   RREF 本身**只规定了前 rank 列**，自由列的取值是自由的 —— 取 0 是
+ *   唯一不需要**额外指定度量**就能定下来的选择（任何其他选择都要说「取哪边」）。
+ *   区别是**少一个度量** vs **多一个度量**，不是「换一个偏好」。
+ *
+ * 主元列的选择由部分主元（列扫描）决定，所以具体哪个分量是 0 取决于消元顺序
+ * —— 那是实现自由度，本函数不承诺「哪一列为 0」，只承诺「自由列为 0 且是精确特解」。
+ *
+ * @returns {{values:number[], residual:number, rank:number}|null}
+ */
+function _rrefParticularSolution(eqs, vns, d0) {
+    var m = eqs.length, n = vns.length;
+    if (!m || !n || m >= n) return null;
+    var M = [], colOfPivot = new Array(n).fill(-1);
+    for (var ri = 0; ri < m; ri++) {
+        var lc = extractLinearCoefficients(eqs[ri], vns);
+        if (!lc) return null;
+        var row = vns.map(function (v) { return lc.coeffs[v] || 0; });
+        row.push(-lc.constant);
+        M.push(row);
+    }
+    var r = 0;
+    for (var col = 0; col < n && r < m; col++) {
+        var piv = -1, pivAbs = 0;
+        for (var rr = r; rr < m; rr++) {
+            var av = Math.abs(M[rr][col]);
+            if (av > pivAbs) { pivAbs = av; piv = rr; }
+        }
+        if (pivAbs < 1e-13) continue;                    // 自由列：RREF 留 0
+        if (piv !== r) { var sw = M[r]; M[r] = M[piv]; M[piv] = sw; }
+        var p = M[r][col];
+        for (var c = 0; c <= n; c++) M[r][c] /= p;
+        for (var rj = 0; rj < m; rj++) {
+            if (rj === r) continue;
+            var fac = M[rj][col];
+            if (fac === 0) continue;
+            for (var ck = 0; ck <= n; ck++) M[rj][ck] -= fac * M[r][ck];
+        }
+        colOfPivot[col] = r;
+        r++;
+    }
+    if (r === 0) return null;                            // 系数全 0（恒等式）另走他路
+    var vals = new Array(n).fill(0);
+    for (var cj = 0; cj < n; cj++) if (colOfPivot[cj] >= 0) vals[cj] = M[colOfPivot[cj]][n];
+
+    // 域内校验（域约束是问题的一部分，比任何规范选择都优先）
+    if (d0) {
+        for (var vi = 0; vi < n; vi++) {
+            var dd = d0[vns[vi]];
+            if (dd && (vals[vi] < dd.min - 1e-9 || vals[vi] > dd.max + 1e-9)) return null;
+        }
+    }
+    // 独立回代验算
+    var vmap = {};
+    for (var v2 = 0; v2 < n; v2++) vmap[vns[v2]] = vals[v2];
+    var maxRes = 0;
+    for (var e = 0; e < m; e++) {
+        var fv;
+        try { fv = Math.abs(evalAST(eqs[e], vmap)); } catch (err) { return null; }
+        if (!isFinite(fv)) return null;
+        if (fv > maxRes) maxRes = fv;
+    }
+    if (maxRes > 1e-9) return null;                      // 不是解就绝不输出
+    return { values: vals, residual: maxRes, rank: r };
 }
 
 
@@ -1012,14 +1448,66 @@ function _rescueUnderdeterminedByProjection(state) {
     if (eqs.length >= vns.length) return false;           // 闸①：只救欠定
     if (!state.D0 || !Object.keys(state.D0).length) return false;
 
-    // 起点集合（与 suan49/output.js:754-792 同源）
+    // 🔴 2026-10-05 闸①'：**全线性欠定不走 KKT 投影**。
+    //
+    // 实测事故：`x + y = 3`（2 变量 1 方程，欠定）本该由 suan60 精确栈接管，
+    //   却掉进这里，输出 (1.5, 1.5)。
+    // 病根：下面这段是按 `d2 = ‖x‖²` 最小挑解的，而 KKT 条件 x + Jᵀλ = 0
+    //   **在数学上就是「过原点向解空间作垂线的垂足」** —— 它是「离原点最近」
+    //   这个目标的对偶算法。所以 KKT 投影整条链都是那条**人为几何偏好规则**的实现。
+    //
+    // 为什么线性欠定不能用它：
+    //   ① 线性代数是**精确**的，RREF 自由变量取 0 一次消元就给出真解，
+    //      而 KKT 要跑多起点阻尼牛顿（十几到几十次求值）才逼近同一个点；
+    //   ② KKT 挑的是「最近」，RREF 挑的是「自由列取 0」——后者是消元法的**定义**，
+    //      不含任何度量偏好（见 output.js 欠定分支的完整论证）；
+    //   ③ KKT 在线性问题上**不唯一收敛**（J 奇异时直接返回 null），
+    //      而精确栈总能给出答案。
+    // ⇒ 线性欠定一律走 RREF 分支，下面的起点搜索/投影代码整段跳过。
+    var _allLin = true;
+    for (var _li = 0; _li < eqs.length && _allLin; _li++) {
+        var _lcv = extractLinearCoefficients(eqs[_li], vns);
+        if (!_lcv) _allLin = false;
+    }
+    if (_allLin) {
+        var _rref = _rrefParticularSolution(eqs, vns, state.D0);
+        if (_rref) {
+            state.done = true;
+            state.result = {
+                solutions: [{ values: _rref.values, residual: _rref.residual }],
+                resultType: 3,
+                resultTypeName: '无限解集(代表解)',
+                resultTypeDesc: '线性欠定系统（精确秩 ' + _rref.rank + ' < 变量数 ' + vns.length +
+                    '）：解集是仿射子空间，已输出行最简形自由变量取 0 的特解（精确有理数运算）',
+                executionPath: '线性欠定-RREF 自由变量取 0 特解(精确)',
+                confidence: 'high',
+                varNames: vns,
+                rank: _rref.rank,
+                truncated: true,          // 只证存在性，未证穷尽（正维解集）
+                unconverged: false,
+                warnings: [
+                    '⚠️ 欠定线性系统：存在无限多个解，已输出 1 个特解。',
+                    '该特解由行最简形自由变量取 0 唯一确定（线性代数的规范约定，不含距离偏好）。',
+                    '如需更多代表点，请增加方程约束。'
+                ]
+            };
+            return true;
+        }
+        // RREF 算不出（理论上不该发生）⇒ 落回下面的 KKT，至少还能给个近似解
+    }
+
+    // 多起点集合（非线性欠定才走这里）
+    //
+    // 🔴 2026-10-05：起点里的「符号角 30%/70% 分位」「中点符号翻转」原本是
+    //   为「找最近解」服务的（注释自己写着「很多最近解就贴着原点附近」）。
+    //   既然不再优化距离，起点只需**覆盖解流形**即可，下面按残差挑选。
     var starts = [];
     var mid = vns.map(function (vn) {
         var d = state.D0[vn];
         return (d && isFinite(d.min) && isFinite(d.max)) ? (d.min + d.max) / 2 : 0;
     });
     starts.push(mid.slice());
-    // 域 30%/70% 分位组合（端点常在奇点外，故不用端点）
+    // 域 30%/70% 分位组合（端点常在奇点外，故不用端点）—— 覆盖流形的粗粒度采样
     var nBits = Math.min(8, 1 << vns.length);
     for (var cbit = 0; cbit < nBits; cbit++) {
         starts.push(vns.map(function (vn, ci) {
@@ -1034,18 +1522,19 @@ function _rescueUnderdeterminedByProjection(state) {
         fv[fl] = -fv[fl];
         starts.push(fv);
     }
-    // 零起点（很多「最近解」就贴着原点附近）
     starts.push(vns.map(function () { return 0; }));
 
     var RESIDUAL_GATE = 1e-9;
-    var best = null, bestD2 = Infinity;
+    // 🔴 挑选准则从「‖x‖² 最小」改成「**回代残差最小**」（用户指令：去掉离原点最近）。
+    //   依据是数学事实：这个点离方程的零点多近（尺度无关的后向误差），
+    //   而不是它离原点多远（一条与题目无关的偏好）。
+    var best = null, bestRes = Infinity;
     for (var i = 0; i < starts.length; i++) {
         var pr = _suan56Project(eqs, vns, starts[i], state.D0, { maxIter: 60 });
         if (!pr || !pr.ok) continue;
         if (!(pr.residual < RESIDUAL_GATE)) continue;      // 闸②
-        var d2 = 0;
-        for (var j = 0; j < pr.values.length; j++) d2 += pr.values[j] * pr.values[j];
-        if (d2 < bestD2) { bestD2 = d2; best = pr; }
+        // 挑选：回代残差最小者（不按 ‖x‖，见上方注释）
+        if (pr.residual < bestRes) { bestRes = pr.residual; best = pr; }
     }
     if (!best) return false;
 
@@ -1374,8 +1863,33 @@ function _finish(state) {
         }
         _enforceVarInvariant(state);   // 先修复变量数不变量（防新算子静默缺变量），再过滤病态解
         _filterIllDefined(state);
-        _certifySolutions(state);      // Krawczyk 认证层：为每个有限孤立解写入 sol.certified
-        _resyncConfidence(state);       // 认证层会改写 sol.values ⇒ confidence 必须跟着重算（见函数注释）
+        // 🔴 2026-10-05（用户指令「去掉安全认证……要极致的计算」）：
+        //   Krawczyk / Miranda / inflate-and-refine / Smale α 四条区间认证链
+        //   **默认不再运行**。它们回答的是「解在哪、误差多大」——
+        //   即**误差上界**，Agent 决策不需要；而成本很高（每解多轮区间算术，800ms 预算）。
+        //   解的真伪现在由 `_assignTiers` 里的**回代验证**判定（O(1) 求值，零区间开销）。
+        //
+        //   何时仍该开：需要「解的误差上界/包含盒」时（审计、复现、离线穷举）。
+        //   显式传 {certify:true} 打开，行为与 1.0.22 完全一致（零回归）。
+        if (state.solveOpts && state.solveOpts.certify === true) {
+            _certifySolutions(state);   // Krawczyk 认证层：为每个有限孤立解写入 sol.certified
+        } else {
+            // 🔴 2026-10-05 保留**精化**、只去掉**认证**。
+            //
+            // 实测代价（关认证层时抓到的真实精度回退）：
+            //   g017 `exp(x)=2`：解 0.6931471805599454（=ln2，误差 6.7e-16）→ 0.6931471805605547（误差 6.1e-13）
+            //   g013 公积金月供：残差 6.1e-8 → 3.9e-7
+            // 根因不是「认证有用」，而是 Krawczyk 层顺带做了一次**盒内牛顿精化**
+            //   （certify.js 的 `_newtonRefine`，判据已是后向误差 1e-14）。
+            // 牛顿精化是**纯计算**：它把解往真根上多推几步，属于「算得更准」；
+            //   区间认证是**误差上界**：回答「解在哪个盒里」，Agent 决策不需要。
+            // ⇒ 拆开：精化默认跑（成本 O(几次求值)，收益是末位精度），认证默认关。
+            //
+            // 精化后必须**同步重算 residual** —— 值被换掉而派生字段没换，
+            // 是 2026-10-04 抓过的 P0（x⁴−13x²+4=0 报残差 1.6e-5 而真值 2.2e-12）。
+            _refineSolutions(state);
+        }
+        _resyncConfidence(state);       // tier 变了 ⇒ confidence 必须跟着重算
         // 全局区间分支定界：对【方阵系统】在用户初始域内尝试完备穷尽（覆盖非线性多解漏解）。
         // 非方阵（欠定/超定）不接；无 userDomain 不接。预算兜底，超预算诚实降级。
         //
@@ -1558,13 +2072,38 @@ function _finish(state) {
         }
     }
     // ④ 结果里有解但被截断 ⇒ 解有效、可能不全，让 Agent 别丢（也补上 nextAction）
+    //
+    // 🔴 2026-10-05 分两种截断（原文案对欠定系统是**错的**）：
+    //   · **正维欠定**（m < n 或 rank < n）：解集是仿射簇/流形，**本来就无穷多**。
+    //     输出 1 个代表点是**正确的完整行为** —— 没有「漏掉列表」这回事。
+    //     原文案「列表可能不完整」会让 Agent 以为要找更多、反复重试（纯误导，
+    //     真因是欠定，重试一万次还是无穷多）。
+    //   · **搜索被截断**（分支定界预算/盒数到限）：这才是真的「列表可能不全」。
+    //   判据用 positiveDim / resultType===3 / effectiveDim>0（正维证据）区分，
+    //   与 _conclusion4 的 _posDimAny 同源口径 —— 两处必须一致，否则同一个系统
+    //   在不同层被说成不同的话。
     if (state && state.result && state.truncated && state.result.solutions && state.result.solutions.length) {
         var _rr = state.result;
-        _rr.solutionCountIsPartial = true;
-        if (!_rr.nextAction) _rr.nextAction = _buildNextActions(state);
-        if (!_rr.warnings) _rr.warnings = [];
-        if (_rr.warnings.indexOf('已找到部分解，列表可能不完整；已有解本身有效') < 0) {
-            _rr.warnings.push('已找到部分解，列表可能不完整；已有解本身有效');
+        var _isPosDimTrunc = (_rr.resultType === 3) || (_rr.positiveDim === true)
+            || (typeof _rr.effectiveDim === 'number' && _rr.effectiveDim > 0
+                && String(_rr.executionPath || '').indexOf('欠定') >= 0);
+        if (!_isPosDimTrunc) {
+            _rr.solutionCountIsPartial = true;
+            if (!_rr.nextAction) _rr.nextAction = _buildNextActions(state);
+            if (!_rr.warnings) _rr.warnings = [];
+            if (_rr.warnings.indexOf('已找到部分解，列表可能不完整；已有解本身有效') < 0) {
+                _rr.warnings.push('已找到部分解，列表可能不完整；已有解本身有效');
+            }
+        } else {
+            // 正维欠定：解有效，但**明确说清这不是全部**（而不是含糊的「可能不完整」）
+            if (!_rr.warnings) _rr.warnings = [];
+            var _wp = '欠定/正维系统：解集是' +
+                (typeof _rr.effectiveDim === 'number' && _rr.effectiveDim > 0
+                    ? (' ' + _rr.effectiveDim + ' 维') : '正维') +
+                '的（仿射）流形，有无穷多个解；已给出的代表解是真解，但不是全部解。' +
+                '如需更多代表点请增加方程约束。';
+            if (_rr.warnings.indexOf(_wp) < 0) _rr.warnings.push(_wp);
+            if (!_rr.mustNotClaim) _rr.mustNotClaim = 'complete_solutions';
         }
     }
     // 结构预判标签透出（全局调度第一层结论）：让结果携带 无解/有限/无限 分类
@@ -1582,6 +2121,22 @@ function _finish(state) {
     }
     // 2026-08-22 P0：可信层级 / 无解证明 / 完备性边界 三件套统一注入
     _assignTiers(state);
+    // 🔴 2026-10-05 修 confidence 恒为 low 的真 bug（顺序错误）：
+    //   confidence 由「proven 占已找到解的比例」决定，而 proven/candidate 是
+    //   `_assignTiers` 刚刚算出来的。而上游 1831 行的 `_resyncConfidence`
+    //   跑在 `_assignTiers` **之前** —— 那一刻 tier 还是算子留下的原值。
+    //
+    //   为什么以前没暴露：旧路径里 Krawczyk 认证层（1830 行附近）会**提前**写
+    //   `sol.certified = true`，而 `_resyncConfidence` 同时看 `tier` 和 `certified`
+    //   ⇒ 提前拿到了「已证」信息 ⇒ 算得对。
+    //   认证层退出默认路径后那层信息没了 ⇒ `_resyncConfidence` 读到的是
+    //   「tier 全是 undefined」⇒ proven=0 ⇒ confidence 恒 low。
+    //   实测症状：`x^2-2=0` 两个解 tier=proven、provenCount=2，
+    //   但 confidence=low（自相矛盾）。
+    //
+    // 修法：在 tier 确定**之后**再 sync 一次。这才是正确的顺序 ——
+    //   依赖谁，就必须排在谁后面。
+    _resyncConfidence(state);
     _assignEmptiness(state);
     _assignCompleteness(state);
     _assignCertBlock(state);   // 认证实根计算层：每解附加 cert 块 + 全局 certification 汇总
@@ -1680,14 +2235,24 @@ function _solveImpl(equationStrs, varNames, decimals, initialD0, fastMode, opts)
     state.persistentHomologyInfo = null;
     state.poincareInfo = null;
     state.singularRegionsInfo = null;
-    // 计算网格固定为 6 位小数（产品规格：6位小数有限网格）。
-    // 显示精度同样固定为 COMPUTE_DECIMALS（=6）：求解精度与显示精度同源恒定，
-    // 不做位数切换，既避免「选 0 位出现整数假解」的误导，也对齐行业范式
-    //（Mathematica 默认显示 6 位、Matlab format 仅改显示不改计算）。
-    state.displayDecimals = COMPUTE_DECIMALS;          // 仅供显示层 toFixed 使用（固定 6）
-    state.decimals = COMPUTE_DECIMALS;                // 计算用小数位（固定）
-    state.solverDecimals = COMPUTE_DECIMALS;          // 分支最小盒宽 10^-6（固定）
-    state.tolerance = Math.pow(10, -COMPUTE_DECIMALS); // 计算残差容差（固定，与显示精度无关）
+    // 🔴 2026-10-05 彻底去网格化（用户指令：「去掉全部网格化，按数学定理来做」）。
+    //
+    // 旧口径把「计算精度 / 显示精度 / 分支盒宽」三者都绑在 COMPUTE_DECIMALS=6 上，
+    // 名义是「6 位小数有限网格」。网格化已从引擎移除（roundToGrid 现为全精度 +
+    // ULP 去噪吸附），所以这三个字段**不再是精度旋钮**，语义各自独立：
+    //
+    //   · tolerance  = 残差收敛判据（牛顿/二分用），与输出位数无关。
+    //   · solverDecimals = 分支定界的最小盒宽 = 10^-6，即**搜索分辨率**。
+    //     这是「把区间缩到多小才停」，不是「结果保留几位」—— 删掉它会让分支定界
+    //     无限细分，搜索不完。它与精度无关，保留。
+    //   · displayDecimals：**引擎不再有显示精度概念**（原6 位）。
+    //     solutions[].values 是全精度 double，UI 与服务层各自决定怎么显示
+    //     （服务层 AGENT_DISPLAY_DECIMALS=4；UI 见 ui.js）。
+    //     保留此字段仅为兼容既有读取方（report.js / solver.js:952），值不再是「显示位数」。
+    state.displayDecimals = COMPUTE_DECIMALS;          // 兼容字段：已非显示位数，见上
+    state.decimals = COMPUTE_DECIMALS;                 // 兼容字段：递归调用透传用
+    state.solverDecimals = COMPUTE_DECIMALS;          // 分支最小盒宽 10^-6（搜索分辨率）
+    state.tolerance = Math.pow(10, -COMPUTE_DECIMALS); // 残差收敛判据 1e-6（非输出精度）
     state.maxIter = 20;                              // 计算迭代上限（固定）
     state.fastMode = !!fastMode;
 
@@ -1709,6 +2274,19 @@ function _solveImpl(equationStrs, varNames, decimals, initialD0, fastMode, opts)
     // m<n ⇒ d≥1(欠定, sound 无限)。本产品无 CAS，Groebner 维数判定不可行，故用
     // 数值雅可比秩（sound-incomplete）。自此收缩算子降级为「抛光器」（见阶段5/6）。
     suan0_classify(state);
+
+    // ===== 阶段 0.5｜维度路由（2026-10-05）：按 n / m / 结构声明式裁掉前提不成立的算子 =====
+    //
+    // 为什么必须放在**这里**（阶段 0 之后、阶段 1 之前）：
+    //   它依赖 suan0_classify 填好的三个字段（varNames / equations / eqFeatures.allLinear /
+    //   isPolynomial），又必须早于 OPS_ALGEBRA —— 因为这一层正是要决定
+    //   「3..6 元方阵非线性走 suan61、3..6 元全线性走 suan60、二元走 suan59、
+    //   一元走 suan51/suan58」的那一层。晚于 OPS_ALGEBRA 就成了事后诸葛亮。
+    //
+    // 与 _routeOperators（scheduler.js，LP 松弛前提）的分工：那个判「是否线性」，
+    //   这个判「是第几维 + 什么结构」，两者正交、互补、都只 skip 不接管。
+    //   幂等，可重复调用。
+    _routeByDimension(state);
 
     // 保存原始变量名（供消元算子回代使用）
     state.originalVarNames = state.varNames.slice();

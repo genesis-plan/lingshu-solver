@@ -6,7 +6,7 @@
    "x**2 + y**2 + z**2 - 14",
    "x*y*z - 6"
   ],
-  "sympy_ms": 157.4,
+  "sympy_ms": 188.0,
   "sympy_n": 6,
   "sympy_valid": 6,
   "sympy_worst": 0.0,
@@ -20,7 +20,7 @@
    "x*y + y*z + z*x - 11",
    "x*y*z - 6"
   ],
-  "sympy_ms": 161.9,
+  "sympy_ms": 153.7,
   "sympy_n": 6,
   "sympy_valid": 6,
   "sympy_worst": 0.0,
@@ -34,7 +34,7 @@
    "x**2 - y**2 + z**2 - 1",
    "x**2 + y**2 - z**2 - 1"
   ],
-  "sympy_ms": 146.8,
+  "sympy_ms": 144.6,
   "sympy_n": 2,
   "sympy_valid": 2,
   "sympy_worst": 0.0,
@@ -48,7 +48,7 @@
    "x + y + z - 6",
    "x**2 + y**2 + z**2 - 14"
   ],
-  "sympy_ms": 160.4,
+  "sympy_ms": 154.1,
   "sympy_n": 6,
   "sympy_valid": 6,
   "sympy_worst": 0.0,
@@ -62,7 +62,7 @@
    "y**3 - 3*y - x",
    "z - x - y"
   ],
-  "sympy_ms": 208.4,
+  "sympy_ms": 207.7,
   "sympy_n": 9,
   "sympy_valid": 9,
   "sympy_worst": 2.220446049250313e-16,
@@ -76,7 +76,7 @@
    "x + y + z - 1",
    "x - y"
   ],
-  "sympy_ms": 184.7,
+  "sympy_ms": 186.4,
   "sympy_n": 2,
   "sympy_valid": 2,
   "sympy_worst": 4.440892098500626e-16,
@@ -104,7 +104,7 @@
    "y**2 - x*z",
    "z**2 - x*y"
   ],
-  "sympy_ms": 264.6,
+  "sympy_ms": 266.1,
   "sympy_n": 0,
   "sympy_valid": 0,
   "sympy_worst": 0.0,

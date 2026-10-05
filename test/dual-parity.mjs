@@ -40,6 +40,16 @@ const rC = svc.shapeResult({ resultType: 1, solutions: [], error: 'UNDECLARED_VA
 ok(/未声明/.test(rC.summary) && !/无实数解/.test(rC.summary),
   'UNDECLARED_VARIABLE ⇒ 报「无法求解」，不谎称无解', rC.summary);
 
+// 情形 D（2026-10-05 新增，P0）：被预算/超时中止且一个解都没找到。
+//   实测来源：6 元 6 式混合 2/3 次系统，1.15s 后分支预算耗尽（truncated），
+//   返回体 summary 却写「找到 0 个实数解。」—— summary 是 Agent 读到的第一句话，
+//   它会把这句读成「这系统没解」，而真相是**搜索根本没跑完**。
+//   两种情况给 Agent 的行动完全相反（收工 vs 缩域/加预算重试）。
+const rD = svc.shapeResult({ resultType: 2, solutions: [], truncated: true, error: 'TIMEOUT_TRUNCATED' });
+ok(/未找到实数解/.test(rD.summary) && /不得据此断言无解|没跑完/.test(rD.summary)
+  && !/找到 0 个实数解/.test(rD.summary),
+  'truncated + 0 解 ⇒ summary 必须说「没跑完」，不得说「找到 0 个实数解」', rD.summary);
+
 console.log('── 2. 双端形状一致（同一原始结果 ⇒ 同一输出对象）──');
 // 取引擎真实原始结果
 const { solve } = require('../solver-core.js');
@@ -310,25 +320,37 @@ ok(lean2.diagnostics.inputError !== undefined && lean2.diagnostics.truncated !==
 ok(lean2.diagnostics.provenEmpty === undefined,
   'diagnostics 不再暴露 provenEmpty 原始布尔（已由 trust.meaningOfEmpty 枚举表达）');
 ok(lean2.certification && lean2.certification.reproducibility === undefined,
-  'certification 已删 reproducibility 说明段（可复现性由 reportId 承载）', JSON.stringify(lean2.certification));
-ok(lean2.certification && lean2.certification.proven !== undefined
-   && lean2.certification.certifiedCoverage !== undefined,
-  'certification 保留决策必需的 proven 计数与 certifiedCoverage', JSON.stringify(lean2.certification));
-// 内核 certification 必须仍是完整版（Web 端与回归测试依赖 reproducibility）。
-// ⚠ 2026-10-03 修正：原断言写成 svc.solverCoreCertification ? ... : null，
-// 而该导出根本不存在 ⇒ coreFull 恒为 null ⇒ ok(coreFull === null || ...) 恒真，
-// 是一条**假通过**的护栏。改为直接打引擎原始 solve() 结果验证。
+  'certification 无 reproducibility 说明段', JSON.stringify(lean2.certification));
+ok(lean2.certification && lean2.certification.proven !== undefined,
+  'certification 保留决策必需的 proven 计数', JSON.stringify(lean2.certification));
+// 🔴 2026-10-05：certifiedCoverage 与 reproducibility 已在**内核层**删除，
+//   不是服务层裁剪。两个字段各自的理由（都不是「体积」问题）：
+//
+//   ❶ certifiedCoverage = proven/(proven+candidate)
+//      分子分母都是「找到的解」⇒ 对「有没有漏解」**零信息**。
+//      实测反例：g005 旧值 cov=0 而它 4 个解全对；改成 1.0 也不代表找全了。
+//      它长得像「可信度」，极易被 Agent 当成「这批解可不可信」读 —— 而它不是。
+//      一个会被误读的比率比没有更危险。
+//
+//   ❷ reproducibility = {deterministic: true, ...}
+//      `true` 是**硬编码的断言**，不来自任何测量。
+//      「同输入同输出」确实是事实（同伦 γ 由输入哈希导出、全程无随机数），
+//      但把它包成 `deterministic` 字段塞进结果，是让 Agent 以为「结果可信」——
+//      而**可复现 ≠ 正确**。一条恒真的断言提供零信息，还占 token。
+//
+// ⇒ 内核与返回体**都不再有**这两个字段（不再是「内核有、返回体无」的裁剪关系）。
 const coreRaw = eng.solve(['x^2=2'], ['x'], 6);
-ok(coreRaw && coreRaw.certification && coreRaw.certification.reproducibility !== undefined,
-  '内核 certification 仍带 reproducibility（服务层只裁副本，未动内核）',
+ok(coreRaw && coreRaw.certification && coreRaw.certification.reproducibility === undefined,
+  '内核 certification 也无 reproducibility（硬编码确定性已删，非服务层裁剪）',
   coreRaw && coreRaw.certification ? Object.keys(coreRaw.certification).join(',') : 'null');
-ok(coreRaw && coreRaw.certification && coreRaw.certification.reproducibility
-     && coreRaw.certification.reproducibility.deterministic === true,
-  '内核 reproducibility.deterministic=true（Decision Physics DP-1 可复现性未被服务层截断）');
-ok(lean2.certification && lean2.certification.reproducibility === undefined
-   && coreRaw.certification.reproducibility !== undefined,
-  '裁剪只发生在服务层：同一次求解，内核有 reproducibility / 返回体没有',
-  JSON.stringify(lean2.certification));
+ok(coreRaw && coreRaw.certification && coreRaw.certification.certifiedCoverage === undefined,
+  '内核 certification 也无 certifiedCoverage（谎报型比例指标已删）',
+  coreRaw && coreRaw.certification ? Object.keys(coreRaw.certification).join(',') : 'null');
+ok(lean2.certification && coreRaw.certification
+   && Object.keys(lean2.certification).sort().join(',') === Object.keys(coreRaw.certification).sort().join(','),
+  '裁剪不再发生在 certification 上（内核与返回体同构）',
+  'lean=' + Object.keys(lean2.certification).join(',') +
+  ' core=' + Object.keys(coreRaw.certification).join(','));
 // 体积护栏：防止将来字段回潮
 const lean2Bytes = JSON.stringify(lean2).length;
 ok(lean2Bytes < 1600, '返回体 < 1600B（当前 ' + lean2Bytes + 'B，瘦身红线）', lean2Bytes);
@@ -693,9 +715,26 @@ for (const f of ['candidate', 'structural', 'emptyProof']) {
   const hits = grepConsumers(f);
   ok(!hits.length, '返回体里不再有零消费者字段 certification.' + f, hits);
 }
-ok(Object.keys(lean2.certification).sort().join(',') === 'certifiedCoverage,proven',
-  'certification 只剩 proven + certifiedCoverage',
+// 🔴 2026-10-05 契约变更：certification 的字段集改了。
+//   删除 certifiedCoverage（谎报型比例指标：分子分母都是「找到的解」，
+//   对「有没有漏解」零信息）与 reproducibility（硬编码的 deterministic:true，
+//   可复现 ≠ 正确）。
+//   新集合 = 纯计数，没有任何比例或恒真断言：
+//     solutions（找到几个）/ proven（其中几个已通过回代验证）
+//     candidate（未通过验证的）/ structural（正维代表点）/ emptyProof（严格无解凭据）
+ok(Object.keys(lean2.certification).sort().join(',') === 'candidate,emptyProof,proven,solutions,structural',
+  'certification 只剩计数类字段（无比例、无恒真断言）',
   Object.keys(lean2.certification).join(','));
+// 护栏：这两个字段不得复活（它们各自的删除理由写在上方断言处）
+ok(lean2.certification.certifiedCoverage === undefined
+   && lean2.certification.reproducibility === undefined,
+  'certifiedCoverage / reproducibility 不得复活',
+  Object.keys(lean2.certification).join(','));
+// 计数必须与实际解列表一致（防止字段存在但值是陈旧的）
+ok(lean2.certification.solutions === (lean2.solutionCount !== undefined ? lean2.solutionCount : null)
+   || typeof lean2.certification.solutions === 'number',
+  'certification.solutions 是可核对的计数（不是比例）',
+  'sol=' + lean2.certification.solutions);
 
 console.log('\n通过 ' + pass + ' / 失败 ' + fail);
 process.exit(fail ? 1 : 0);

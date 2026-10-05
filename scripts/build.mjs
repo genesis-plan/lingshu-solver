@@ -25,11 +25,13 @@ const ENGINE = 'src/engine';
 const RANK = {
   constants: 1, lex: 2, 'ast/basic': 3, 'interval/core': 4, 'interval/affine': 5,
   'algebra/exact': 6, 'algebra/multivar': 7, 'algebra/resultant': 8, 'algebra/simplex': 9,
+  'algebra/homotopy': 9.5,
   'numeric/polynomial': 10, 'numeric/linear': 11, 'numeric/root': 12, ode: 13,
   'rootbound-poly': 14, certify: 15, conclusion: 16,
   'operators/setup': 17, 'operators/pre': 18, 'operators/screen': 19, 'operators/support': 20,
-  'operators/geometry': 21, 'operators/contract': 22, 'operators/numeric': 23, 'operators/post': 24,
+  'operators/geometry': 21, 'operators/homotopy': 21.5, 'operators/contract': 22, 'operators/numeric': 23, 'operators/post': 24,
   'operators/branch': 25, 'operators/ineq': 26, 'operators/output': 27, 'operators/registry': 28,
+  'pipeline/dimroute': 28.5,
   'pipeline/scheduler': 29, 'pipeline/solver': 30, 'pipeline/report': 31, 'pipeline/output': 32, ui: 33,
 };
 

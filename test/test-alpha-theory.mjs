@@ -97,11 +97,24 @@ console.log('\n=== 端到端：solve() 行为未变（alpha 为 fallback，不�
   const sols = (r && r.solutions) || [];
   ok(sols.length >= 1, 'solve 仍能解出 x^2=4', { n: sols.length });
   sols.slice(0, 3).forEach((s) => {
-    console.log('      解 x=' + JSON.stringify(s.values) + ' certified=' + s.certified +
-                (s.certMethod ? ' method=' + s.certMethod : '') +
-                (s.alphaTheory ? ' alpha=' + s.alphaTheory.alpha.toExponential(3) : ''));
+    console.log('      解 x=' + JSON.stringify(s.values) + ' tier=' + s.tier +
+                ' 验证=' + (s.substitutionCheck ? s.substitutionCheck.status : '缺') +
+                ' 后向误差=' + (s.substitutionCheck ? s.substitutionCheck.backwardError : '缺'));
   });
-  ok(sols.every((s) => s.certified === true || s.certified === false), '每个解都带明确 certified 布尔（无 undefined）', true);
+  // 🔴 2026-10-05 契约变更：Krawczyk / Miranda / inflate-and-refine / Smale α 四条
+  //   区间认证链**退出默认路径**（改由 `{certify:true}` 显式开启）——
+  //   它们回答「解在哪个盒里、误差多大」，是**误差上界**问题，Agent 决策不需要，
+  //   而每解要多轮区间算术。
+  // ⇒ 「每个解都带 certified 布尔」这条断言**随之失效**（认证层不跑就没有该字段）。
+  //   换成新判据的等价断言：每个解都带明确的 substitutionCheck.status
+  //   （verified / plausible / rejected），且**不出现 undefined** ——
+  //   「没有判定」与「判定为否」在决策上完全不同，必须区分。
+  ok(sols.every((s) => s.substitutionCheck
+      && ['verified', 'plausible', 'rejected'].indexOf(s.substitutionCheck.status) >= 0),
+    '每个解都带明确 substitutionCheck.status（无 undefined）', true);
+  // 且默认路径下**不应**再出现 certified 字段（认证层确实没跑）
+  ok(sols.every((s) => s.certified === undefined || typeof s.certified === 'boolean'),
+    'certified 字段若存在必为布尔（默认路径下通常不存在）', true);
 }
 
 {

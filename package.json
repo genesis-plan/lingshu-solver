@@ -70,7 +70,8 @@
     "fingerprint": "node scripts/code-fingerprint.mjs",
     "fingerprint:check": "node scripts/code-fingerprint.mjs --check",
     "tidy": "node scripts/simplify-comments.mjs --dry-run --log",
-    "verify": "npm run build && npm run golden && npm run recognize && npm run implicit-mult && npm run suan56 && npm run suan-family && npm run alpha-routing && npm run tan-singleton && npm run test && npm run silent-vars && npm run backward-residual && npm run branch-budget && npm run geometry && npm run geometry-theorems && npm run polytope && npm run bounds && npm run tropical && npm run rootbound && npm run exclusion && npm run quiz && npm run bridge && npm run audit && npm run parity && npm run tools-parity && npm run fingerprint:check",
+    "homotopy": "node test/test-suan61_homotopy.mjs",
+    "verify": "npm run build && npm run golden && npm run recognize && npm run implicit-mult && npm run suan56 && npm run dim-routing && npm run suan-family && npm run alpha-routing && npm run tan-singleton && npm run test && npm run homotopy && npm run silent-vars && npm run backward-residual && npm run branch-budget && npm run geometry && npm run geometry-theorems && npm run polytope && npm run bounds && npm run tropical && npm run rootbound && npm run rootbound-parity && npm run exclusion && npm run quiz && npm run bridge && npm run audit && npm run parity && npm run tools-parity && npm run fingerprint:check",
     "exclusion": "node test/test-exclusion.mjs",
     "suan56": "node test/test_suan56_projection.mjs",
     "suan-family": "node test/test_suan57_pruning.mjs && node test/test_suan58_basic_trig.mjs && node test/test_suan59_resultant.mjs && node test/test_suan60_linear.mjs && node test/test_suan59_ternary.mjs",
@@ -82,12 +83,14 @@
     "bounds": "node test/test-bounds.js",
     "tropical": "node test/test-tropical.js",
     "rootbound": "node test/test-rootbound.js",
+    "rootbound-parity": "node test/rootbound-parity.mjs",
     "bridge": "node test/test-geometry-bridge.js",
     "quiz": "node test/quiz.cjs",
     "branch-budget": "node test/test-branch-budget.mjs",
     "silent-vars": "node test/test-silent-vars.mjs",
     "backward-residual": "node test/test-backward-residual.mjs",
     "measure:decision": "node test/measure-decision.mjs",
-    "diag:6var": "node test/diag-6var.mjs"
+    "diag:6var": "node test/diag-6var.mjs",
+    "dim-routing": "node test/test-dim-routing.mjs"
   }
 }

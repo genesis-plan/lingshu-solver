@@ -291,104 +291,26 @@ function _s60nullspace(A0, n) {
     return { rref: M, pivots: pivCol, freeCols: freeCols, basis: basis, rank: pivCol.length };
 }
 
-
-function _s60sampleAffine(xp, basis, box, n, maxPer) {
-    const out = [];
-    // ⚠ 总量硬上限（真 bug 修复，本轮实测抓到）：
-    //   原实现 push() 是 O(|out|) 的线性去重，且【没有总量上限】——
-    //   每个零空间方向生成 CAP+1 = 257 个点，方向数 k ⇒ |out| 可达 257^k。
-    //   加上 push 的 O(|out|) 扫描，整体退化到 O(N²)。
-    //   实测触发：E2（4 方程 6 未知、欠定 2 维解流形、域 [-1e6,1e6]）
-    //     CPU profile 显示 90.8% ticks 烧在 _s60sampleAffine 里，
-    //     60 秒被外部 kill 仍未返回（8 秒硬预算也兜不住 ——
-    //     预算检查在【算子粒度】，而这是单个算子内部的死循环）。
-    //   这是生产事故级缺陷：Agent 调用会永久挂起。
-    // 现在：① 总量封顶（与展示上限同一量级即可，超了就是采样而非解集）；
-    //        ② 去重改用量化 key 的 Set，把 push 从 O(N) 降到 O(1)。
-    const CAP = maxPer || 256;
-    const TOTAL_CAP = 512;               // 总量上限：够画出解流形的形状，又不会爆炸
-    const seen = new Set();
-    // 量化 key：按 1e-9 网格取整，避免浮点噪声导致去重失效
-    const keyOf = (arr) => {
-        let s = '';
-        for (let i = 0; i < n; i++) s += Math.round(arr[i] * 1e9) + ',';
-        return s;
-    };
-    const push = (arr) => {
-        const k = keyOf(arr);
-        if (seen.has(k)) return false;
-        if (out.length >= TOTAL_CAP) return false;
-        seen.add(k);
-        out.push(arr);
-        return true;
-    };
-    push(xp.map(v => _s60num(v)));
-
-    let frontier = [xp.map(v => _s60num(v))];   // 当前已有点（double）
-
-    for (const vRaw of basis) {
-        // 总量已封顶 ⇒ 无需继续扩方向（否则白跑）
-        if (out.length >= TOTAL_CAP) break;
-        const v = vRaw.map(q => _s60num(q));
-        const next = [];
-        for (const p of frontier) {
-            if (out.length >= TOTAL_CAP) break;
-            // 解 x(t) = p + t·v 落在 box 内的 t 区间
-            let tMin = -Infinity, tMax = Infinity, dead = false;
-            for (let i = 0; i < n; i++) {
-                const lo = box[i] ? box[i][0] : -Infinity;
-                const hi = box[i] ? box[i][1] : Infinity;
-                const vi = v[i];
-                if (Math.abs(vi) < 1e-12) {
-                    // 该坐标不随 t 变：t=0 点若已越界，整条直线都在 box 外
-                    if (p[i] < lo - 1e-9 || p[i] > hi + 1e-9) { dead = true; break; }
-                    continue;
-                }
-                let a = (lo - p[i]) / vi, b = (hi - p[i]) / vi;
-                if (a > b) { const sw = a; a = b; b = sw; }
-                if (a > tMin) tMin = a;
-                if (b < tMax) tMax = b;
-            }
-            if (dead || !(tMax >= tMin)) continue;
-            if (!isFinite(tMin) && !isFinite(tMax)) continue;   // 整条直线无界 ⇒ 不可采样
-            // 无界方向用 p 自身作为锚（t=0 已在 frontier 里）
-            if (!isFinite(tMin)) tMin = 0;
-            if (!isFinite(tMax)) tMax = 0;
-            if (tMax - tMin < 1e-12) continue;                  // 退化成单点，已在 frontier 中
-
-            // —— 采样格：t ∈ 0.5·ℤ（半整数格）——
-            const k0 = Math.ceil(tMin * 2 - 1e-9);
-            const k1 = Math.floor(tMax * 2 + 1e-9);
-            let cand;
-            if (k1 >= k0 && (k1 - k0 + 1) <= CAP) {
-                cand = [];
-                for (let k = k0; k <= k1; k++) cand.push(k / 2);
-            } else {
-                // 无半格点，或区间过宽（> CAP/2 个半格）⇒ 均匀细分到 CAP 点，防止解爆炸
-                cand = [];
-                for (let s = 0; s <= CAP; s++) cand.push(tMin + (tMax - tMin) * (s / CAP));
-            }
-            for (let ci = 0; ci < cand.length; ci++) {
-                if (out.length >= TOTAL_CAP) break;
-                const t = cand[ci];
-                const pt = new Array(n);
-                for (let i = 0; i < n; i++) pt[i] = p[i] + t * v[i];
-                // 数值兜底：夹到 box 内（浮点加法可能在边界外 1e-12）
-                for (let i = 0; i < n; i++) {
-                    const lo = box[i] ? box[i][0] : -Infinity;
-                    const hi = box[i] ? box[i][1] : Infinity;
-                    if (pt[i] < lo) pt[i] = lo;
-                    if (pt[i] > hi) pt[i] = hi;
-                }
-                next.push(pt);
-                push(pt);
-            }
-        }
-        if (!next.length) break;              // 该方向无处可去，停止扩展
-        frontier = next;
-    }
-    return out;
-}
+// ── 2026-10-05 删除：_s60sampleAffine（零空间参数化仿射采样）整块 ──
+//
+// 用户契约：「对于部分解的，只找到一个推荐解就行，不需要确定性，不需要离原点最近」。
+// 实测该函数是「欠定题返回体 95.6%~97.6% 都是采样点」的元凶：
+//   3 元欠定 → 257 个解 / 77 KB     6 元欠定 → 512 个解 / 153 KB。
+// 而且那 512 个点**没有一个能升级 proven**（浮点线性组合 ⇒ 只能 candidate）。
+//
+// 删除是数学上的进步而非退让：改用 RREF 自由列取 0 的**精确特解**，
+//   · 可做 ℚ 上精确代入确证 ⇒ tier 升到 proven；
+//   · 是消元法的规范选择，不需额外度量（不像伪逆最小范数要指定欧氏范数）；
+//   · 返回体 153KB → 4.0KB。
+//
+// 留下的历史教训（写在此处以免重犯，别删）：
+//   本函数曾有**生产事故级**缺陷：push() 是 O(|out|) 线性去重且无总量上限，
+//   每方向 CAP+1=257 个点、方向数 k ⇒ |out| 可达 257^k，整体退化到 O(N²)。
+//   触发用例 E2（4 方程 6 未知、3 维解流形、域 ±1e6）：
+//   CPU profile 90.8% ticks 烧在此函数，**60 秒被 kill 仍不返回**。
+//   8 秒硬预算兜不住 —— 预算检查在【算子粒度】，这是算子**内部**死循环。
+//   ⇒ 教训：任何「生成候选集」的循环都必须自带总量硬闸 + O(1) 去重，
+//     不能指望外层预算兜底；而最好的闸门是**根本不要生成**不需要的候选。
 
 
 function _s60markowitz(A, k, m, n, u) {

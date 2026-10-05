@@ -37,7 +37,7 @@
    "kind": "sparse-banded",
    "n": 6,
    "m": 6,
-   "lingshu_ms": 0.11620499999999936,
+   "lingshu_ms": 0.10986000000000011,
    "lingshu_kind": "unique",
    "lingshu_rank": 6,
    "lingshu_resid": 2.220446049250313e-16,
@@ -47,7 +47,7 @@
    "truth": "unique",
    "truth_rankA": 6,
    "truth_dim": 0,
-   "speedup": 24.59864033605862,
+   "speedup": 26.019342802218034,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -58,7 +58,7 @@
    "kind": "triangular",
    "n": 6,
    "m": 6,
-   "lingshu_ms": 0.07389500000000027,
+   "lingshu_ms": 0.07327499999999994,
    "lingshu_kind": "unique",
    "lingshu_rank": 6,
    "lingshu_resid": 0,
@@ -68,7 +68,7 @@
    "truth": "unique",
    "truth_rankA": 6,
    "truth_dim": 0,
-   "speedup": 34.84004330385878,
+   "speedup": 35.134834526627856,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -79,7 +79,7 @@
    "kind": "dense-int",
    "n": 6,
    "m": 6,
-   "lingshu_ms": 0.07417500000000032,
+   "lingshu_ms": 0.07610500000000045,
    "lingshu_kind": "unique",
    "lingshu_rank": 6,
    "lingshu_resid": 8.881784197001252e-16,
@@ -89,7 +89,7 @@
    "truth": "unique",
    "truth_rankA": 6,
    "truth_dim": 0,
-   "speedup": 46.53164813194383,
+   "speedup": 45.351619475552575,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -100,7 +100,7 @@
    "kind": "overdet-inconsistent",
    "n": 6,
    "m": 8,
-   "lingshu_ms": 0.2183949999999996,
+   "lingshu_ms": 0.224165,
    "lingshu_kind": "nosol",
    "lingshu_rank": 6,
    "lingshu_resid": 0,
@@ -110,7 +110,7 @@
    "truth": "nosol",
    "truth_rankA": 6,
    "truth_dim": -1,
-   "speedup": 17.68208979164111,
+   "speedup": 17.226953360450796,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -121,7 +121,7 @@
    "kind": "diag-dominant",
    "n": 6,
    "m": 6,
-   "lingshu_ms": 0.08365000000000009,
+   "lingshu_ms": 0.06689500000000023,
    "lingshu_kind": "unique",
    "lingshu_rank": 6,
    "lingshu_resid": 2.220446049250313e-16,
@@ -131,7 +131,7 @@
    "truth": "unique",
    "truth_rankA": 6,
    "truth_dim": 0,
-   "speedup": 48.173998804667995,
+   "speedup": 60.240002989916555,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -142,7 +142,7 @@
    "kind": "sparse-rand-inconsistent",
    "n": 6,
    "m": 6,
-   "lingshu_ms": 0.13628999999999963,
+   "lingshu_ms": 0.12490499999999968,
    "lingshu_kind": "nosol",
    "lingshu_rank": 5,
    "lingshu_resid": 0,
@@ -152,7 +152,7 @@
    "truth": "nosol",
    "truth_rankA": 5,
    "truth_dim": -1,
-   "speedup": 22.928461367339107,
+   "speedup": 25.01837396224848,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -163,7 +163,7 @@
    "kind": "sparse-rand-solvable",
    "n": 6,
    "m": 6,
-   "lingshu_ms": 0.07158000000000016,
+   "lingshu_ms": 0.07137999999999992,
    "lingshu_kind": "unique",
    "lingshu_rank": 6,
    "lingshu_resid": 0,
@@ -173,7 +173,7 @@
    "truth": "unique",
    "truth_rankA": 6,
    "truth_dim": 0,
-   "speedup": 41.62210114367411,
+   "speedup": 41.73872232928275,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -184,7 +184,7 @@
    "kind": "diagonal",
    "n": 6,
    "m": 6,
-   "lingshu_ms": 0.047709999999999295,
+   "lingshu_ms": 0.06350499999999996,
    "lingshu_kind": "unique",
    "lingshu_rank": 6,
    "lingshu_resid": 0,
@@ -194,7 +194,7 @@
    "truth": "unique",
    "truth_rankA": 6,
    "truth_dim": 0,
-   "speedup": 39.53793754285774,
+   "speedup": 29.70403905471563,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -205,7 +205,7 @@
    "kind": "rational",
    "n": 6,
    "m": 6,
-   "lingshu_ms": 0.0756450000000001,
+   "lingshu_ms": 0.08472999999999971,
    "lingshu_kind": "unique",
    "lingshu_rank": 6,
    "lingshu_resid": 1.1102230246251565e-16,
@@ -215,7 +215,7 @@
    "truth": "unique",
    "truth_rankA": 6,
    "truth_dim": 0,
-   "speedup": 38.41397316674055,
+   "speedup": 34.2951138935218,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -226,7 +226,7 @@
    "kind": "underdetermined",
    "n": 6,
    "m": 4,
-   "lingshu_ms": 0.10749500000000012,
+   "lingshu_ms": 0.11677500000000052,
    "lingshu_kind": "family",
    "lingshu_rank": 4,
    "lingshu_resid": 0,
@@ -236,7 +236,7 @@
    "truth": "family",
    "truth_rankA": 4,
    "truth_dim": 2,
-   "speedup": 41.36611005120595,
+   "speedup": 38.07878398590768,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -247,7 +247,7 @@
    "kind": "presolve-heavy",
    "n": 6,
    "m": 6,
-   "lingshu_ms": 0.07955500000000057,
+   "lingshu_ms": 0.08573500000000038,
    "lingshu_kind": "family",
    "lingshu_rank": 4,
    "lingshu_resid": 0,
@@ -257,7 +257,7 @@
    "truth": "family",
    "truth_rankA": 4,
    "truth_dim": 2,
-   "speedup": 42.798127079493504,
+   "speedup": 39.713127658588846,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -268,7 +268,7 @@
    "kind": "ill-conditioned-big-coef",
    "n": 6,
    "m": 6,
-   "lingshu_ms": 0.053810000000000004,
+   "lingshu_ms": 0.053079999999999926,
    "lingshu_kind": "unique",
    "lingshu_rank": 6,
    "lingshu_resid": 0,
@@ -278,7 +278,7 @@
    "truth": "unique",
    "truth_rankA": 6,
    "truth_dim": 0,
-   "speedup": 36.37585950677811,
+   "speedup": 36.8761303703793,
    "arbiter_agrees": {
     "lingshu": true,
     "sympy": true
@@ -289,9 +289,9 @@
   "win": 12,
   "loss": 0,
   "total": 12,
-  "lingshu_ms_total": 1.1384049999999992,
+  "lingshu_ms_total": 1.1504100000000008,
   "sympy_ms_total": 37.48116000024311,
-  "speedup": 32.924275631469584,
+  "speedup": 32.580697316820164,
   "agreeL": 12,
   "agreeRank": 12,
   "agreeS": 12

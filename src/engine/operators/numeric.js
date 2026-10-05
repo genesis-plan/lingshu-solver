@@ -2,7 +2,7 @@
 function suan40(state) {
     if (!state.startPoints || state.startPoints.length === 0) {
         // 如果没有起始点，尝试从默认网格生成
-        state.startPoints = generateStartPoints(state.varNames, state.D0);
+        state.startPoints = generateStartPoints(state.varNames, state.D0, state);
         if (!state.startPoints || state.startPoints.length === 0) return;
     }
 

@@ -559,9 +559,13 @@ function shapeResult(r, eqs, rb, offset) {
       const degenerate = cert.enclosure.every((iv) => Array.isArray(iv) && iv.length === 2 && iv[0] === iv[1]);
       // 退化 ⇒ 不输出 enclosure（信息与 values 逐位重复，见上方注释）
       if (!degenerate) out.enclosure = cert.enclosure;   // 非退化：原样保留，不丢信息
-    } else if (cert.enclosure !== undefined) {
+    } else if (cert.enclosure !== undefined && cert.enclosure !== null) {
       out.enclosure = cert.enclosure;
     }
+    // ⚠ 2026-10-05：`enclosure: null` 也剔掉（原来只有 undefined 走这条）。
+    //   null 的语义是「没有区间认证」—— 而它已由 `status`/`tier`（candidate = 无认证）
+    //   明确表达 ⇒ 写出来的那 22 字节是**零信息的键值对**，却在多解题里线性放大
+    //   （实测 2 解即多 44B）。判据与上面「退化区间不输出」同源：没有可恢复的信息。
     if (cert.backwardError !== undefined && cert.backwardError !== null) {
       out.backwardError = (typeof cert.backwardError === 'number' && cert.backwardError <= CERT_TOL) ? 'ok' : 'loose';
     }
@@ -616,6 +620,18 @@ function shapeResult(r, eqs, rb, offset) {
     }
   } else if (typeName === 'infinite') {
     summary = `无限解集；给出距原点最近的推荐解（共展示 ${sols.length} 个候选）。`;
+  } else if (allSols.length === 0 && (r.truncated === true || r.hardTimeout === true
+      || (r.error && /TIMEOUT|BUDGET|TRUNCAT|预算|超时/i.test(String(r.error))))) {
+    // 🔴🔴 2026-10-05 修 fail-closed 漏洞（measure-decision 抓出：6 元二次 6 式 1159ms 触发
+    //   TIMEOUT_TRUNCATED，而返回体 summary 写的是「找到 0 个实数解。」）。
+    //
+    //   为什么这是 P0 级：summary 是 Agent 读到的**第一句话**，也是唯一的人类可读结论。
+    //   「找到 0 个实数解。」配 canAssert.noSolution=false 会被 LLM 读成
+    //   「这系统确实没解，只是没证明」—— 而真相是**搜索根本没跑完**，
+    //   连「一个都没找到」都不是结论，只是没跑完时的空表。两种情况给 Agent 的行动
+    //   完全相反（收工 vs 缩域/加预算重试），必须在这里就说清，不能只藏在 diagnostics 里。
+    summary = '未找到实数解，且本次搜索被预算/超时中止 ⇒ 不得据此断言无解'
+      + '（这不是「已确认无解」，是没跑完）。可缩小定义域或提高预算后重试。';
   } else {
     // ⚠ 解数必须用 allSols.length（引擎找到的总数），不能用截断后的 sols.length
     //   —— 那会让 Agent 把这一页的 2 个当成「全部 16 个」，是数量级谎报。
@@ -837,23 +853,39 @@ function shapeResult(r, eqs, rb, offset) {
   };
 }
 
-/** 裁剪 certification：只留 Agent 决策必需的汇总计数，去掉 reproducibility 说明段。 */
+/**
+ * 裁剪 certification：只留**可核对的计数**，不返回任何比例或恒真断言。
+ *
+ * 🔴 2026-10-05 重写（用户指令：「去掉所有人为规则……我们要的是极致的计算，
+ *   让智能体得到能决策的结果，而不是认证、确定性这些东西」）。
+ *
+ * 删除 certifiedCoverage —— 它是**谎报型指标**，理由三条：
+ *   ① 分子分��都是「**找到的**解」⇒ 对「有没有漏解」**零信息**。
+ *      实测反例：g005（4 元耦合）旧值 cov=0，而它 4 个解全部正确；
+ *      反过来 cov=1 也不代表找全了（只代表找到的都过了某道工序）。
+ *   ② 它长得像「可信度」，Agent 会**自发**当成「这批解能不能信」来读 ——
+ *      而「找到的解里有多少被验证过」回答不了这个问题。
+ *      一个会被误读的比率，比没有这个字段**更危险**。
+ *   ③ 「有没有漏解」这个问题由 `conclusion`（全部解 / 部分解 / 无解 / 资源不足）
+ *      + `trust.canAssert.allSolutions` 回答，走的是 Sturm / Bézout / 同伦
+ *      这些**独立计数证据**，与「找到的解内部的比例」无关。
+ *
+ * 删除 reproducibility —— 它的 `deterministic: true` 是**硬编码的断言**，
+ *   不来自任何测量。「同输入同输出」确实是事实（同伦 γ 由输入哈希导出、
+ *   全程无 Math.random），但把恒真值包成字段塞给 Agent，
+ *   等于暗示「结果可信」—— 而**可复现 ≠ 正确**。零信息 + 占 token。
+ *
+ * 保留的全是**能与解列表对照核实的计数**（不是比例、不是断言）：
+ *   solutions / proven / candidate / structural / emptyProof
+ */
 function shapeCertification(cert) {
   if (!cert || typeof cert !== 'object') return cert || null;
-  // ⚠⚠ 2026-10-04 瘦身：砍掉 candidate / structural / emptyProof 三项。
-  //
-  // 依据是**实测零消费者**（grep 过 services/ test/ *.js *.html 全量）：
-  //   · candidate / structural —— 同样的信息 trust.provenCount / trust.candidateCount
-  //     已经给了（proven=2 在两处各出现一次，纯重复）；
-  //   · emptyProof —— index.html:13723 是 Web 端**自己**从 cert.status 重算的，
-  //     从不读 certification.emptyProof。
-  //
-  // ⚠ 保留 proven 与 certifiedCoverage：dual-parity 有断言守着，
-  //   它们是「有多少解被区间认证过」的唯一汇总信号。
   return {
+    solutions: cert.solutions,
     proven: cert.proven,
-    // 覆盖率是「有多少解被认证过」的关键信号，Agent 据此判断整体可信度
-    certifiedCoverage: cert.certifiedCoverage
+    candidate: cert.candidate,
+    structural: cert.structural,
+    emptyProof: cert.emptyProof
   };
 }
 

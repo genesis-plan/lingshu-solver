@@ -93,7 +93,12 @@ console.log(`完整返回体 ${String(full).padStart(6)} B ≈ ${String(Math.rou
 const AGENT_ESSENTIAL = ['resultType', 'certified', 'solutionCount', 'trust', 'solutions'];
 const DISPLAY_ONLY = ['summary', 'instructions', 'reportId', 'precisionDecimals', 'truncated'];
 
-const sizeOf = (o, k) => Buffer.byteLength(JSON.stringify(o[k]), 'utf8');
+// ⚠ 2026-10-05 修：值是 undefined 的键**也在 Object.keys 里**（doSolve 里有
+//   recommended / warnings / nextOffset / certification / reportId 这类「有值才写」的键），
+//   而 `JSON.stringify(undefined)` 返回的是 undefined（不是字符串）⇒ byteLength 直接抛
+//   ERR_INVALID_ARG_TYPE，脚本跑到字段拆解这一步就崩。此脚本不在 verify 链里，
+//   所以一直没被发现。`?? null` 把它按「空值 4 字节」计，与全文字节口径一致。
+const sizeOf = (o, k) => Buffer.byteLength(JSON.stringify(o[k] ?? null), 'utf8');
 let ess = 0, disp = 0, other = 0;
 const fieldRows = [];
 for (const k of Object.keys(probe)) {
@@ -117,9 +122,10 @@ const r2cut = JSON.parse(JSON.stringify(r2));
 for (const s of r2cut.solutions || []) s.values = s.values.map(v => Number(v.toFixed(6)));
 if (r2cut.recommended) r2cut.recommended.values = r2cut.recommended.values.map(v => Number(v.toFixed(6)));
 const bCut = Buffer.byteLength(JSON.stringify(r2cut));
-console.log(`\n${CYAN}── 精度截断的代价 ──${RST}`);
-console.log(`values 保留原值(16~18位) ${bFull} B  |  截断到 6 位 ${bCut} B  省 ${Math.round((1-bCut/bFull)*100)}%`);
-console.log(`${DIM}⇒ 截断省不到 2%：真正占体积的是 cert/instructions 等散文，不是数字本身。${RST}`);
+console.log(`\n${CYAN}── 精度截断的代价（历史对照：6 位网格已于 2026-10-05 全部废除）──${RST}`);
+console.log(`values 保留原值(16~18位) ${bFull} B  |  假设截断到 6 位 ${bCut} B  省 ${Math.round((1-bCut/bFull)*100)}%`);
+console.log(`${DIM}⇒ 当年「截断只省 2%」的结论今天依然成立，只是省的对象已经不存在：${RST}`);
+console.log(`${DIM}  现在 values 就是全精度 double，体积大头是 cert/trust 等证据散文，不是数字本身。${RST}`);
 
 
 // 关键：errors 结构的实际收益

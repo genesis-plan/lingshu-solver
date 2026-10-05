@@ -1,0 +1,953 @@
+{
+  "generated": "2026-10-05T13:51:55.879Z",
+  "cases": 2000,
+  "conc": 8,
+  "timing": {
+    "p50": 11.31,
+    "p95": 348.82,
+    "p99": 582.71,
+    "max": 1143.71,
+    "mean": 69.66
+  },
+  "throughput": {
+    "wallMs": 17420,
+    "callsPerSec": 114.8,
+    "conc": 8,
+    "warmup": 40,
+    "rateMax": "200000"
+  },
+  "bytes": {
+    "p50": 1211,
+    "p95": 1444,
+    "max": 1681,
+    "overRedline": 31,
+    "redline": 1600
+  },
+  "failures": {
+    "httpErr": 0,
+    "toolErr": 0,
+    "parseErr": 0,
+    "throttledFinal": 0,
+    "rateLimitHits": 0,
+    "retried": 0,
+    "errorSamples": []
+  },
+  "conclusions": {
+    "全部解": 1421,
+    "部分解": 261,
+    "无解": 214,
+    "计算资源不足": 104
+  },
+  "trustLevels": {
+    "verified": 1559,
+    "complete_but_shown_partially": 65,
+    "verified_empty": 158,
+    "budget_exhausted": 58,
+    "unverified": 160
+  },
+  "issues": {
+    "badResidual": 0,
+    "badResidualSample": [],
+    "ineqViolation": 0,
+    "ineqViolationSample": [],
+    "lieClaims": 0,
+    "lieClaimsSample": [],
+    "contractBad": 0,
+    "contractBadSample": [],
+    "overBudgetBytes": 31,
+    "overBudgetBytesAll": [
+      {
+        "i": 697,
+        "bytes": 1678,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            381
+          ],
+          [
+            "recommended",
+            162
+          ]
+        ]
+      },
+      {
+        "i": 698,
+        "bytes": 1675,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            379
+          ],
+          [
+            "recommended",
+            161
+          ]
+        ]
+      },
+      {
+        "i": 700,
+        "bytes": 1624,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            345
+          ],
+          [
+            "recommended",
+            144
+          ]
+        ]
+      },
+      {
+        "i": 702,
+        "bytes": 1679,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            381
+          ],
+          [
+            "recommended",
+            163
+          ]
+        ]
+      },
+      {
+        "i": 704,
+        "bytes": 1675,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            379
+          ],
+          [
+            "recommended",
+            161
+          ]
+        ]
+      },
+      {
+        "i": 708,
+        "bytes": 1643,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            363
+          ],
+          [
+            "recommended",
+            145
+          ]
+        ]
+      },
+      {
+        "i": 713,
+        "bytes": 1628,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            347
+          ],
+          [
+            "recommended",
+            146
+          ]
+        ]
+      },
+      {
+        "i": 726,
+        "bytes": 1680,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            383
+          ],
+          [
+            "recommended",
+            162
+          ]
+        ]
+      },
+      {
+        "i": 763,
+        "bytes": 1679,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            382
+          ],
+          [
+            "recommended",
+            162
+          ]
+        ]
+      },
+      {
+        "i": 777,
+        "bytes": 1676,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            379
+          ],
+          [
+            "recommended",
+            162
+          ]
+        ]
+      },
+      {
+        "i": 779,
+        "bytes": 1624,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            345
+          ],
+          [
+            "recommended",
+            144
+          ]
+        ]
+      },
+      {
+        "i": 785,
+        "bytes": 1622,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            344
+          ],
+          [
+            "recommended",
+            143
+          ]
+        ]
+      },
+      {
+        "i": 788,
+        "bytes": 1676,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            379
+          ],
+          [
+            "recommended",
+            162
+          ]
+        ]
+      },
+      {
+        "i": 790,
+        "bytes": 1628,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            347
+          ],
+          [
+            "recommended",
+            146
+          ]
+        ]
+      },
+      {
+        "i": 804,
+        "bytes": 1681,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            383
+          ],
+          [
+            "recommended",
+            163
+          ]
+        ]
+      },
+      {
+        "i": 825,
+        "bytes": 1633,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            350
+          ],
+          [
+            "recommended",
+            148
+          ]
+        ]
+      },
+      {
+        "i": 828,
+        "bytes": 1627,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            347
+          ],
+          [
+            "recommended",
+            145
+          ]
+        ]
+      },
+      {
+        "i": 834,
+        "bytes": 1633,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            351
+          ],
+          [
+            "recommended",
+            147
+          ]
+        ]
+      },
+      {
+        "i": 838,
+        "bytes": 1630,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            348
+          ],
+          [
+            "recommended",
+            147
+          ]
+        ]
+      },
+      {
+        "i": 839,
+        "bytes": 1625,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            346
+          ],
+          [
+            "recommended",
+            144
+          ]
+        ]
+      },
+      {
+        "i": 841,
+        "bytes": 1608,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            345
+          ],
+          [
+            "recommended",
+            128
+          ]
+        ]
+      },
+      {
+        "i": 883,
+        "bytes": 1621,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            343
+          ],
+          [
+            "recommended",
+            143
+          ]
+        ]
+      },
+      {
+        "i": 911,
+        "bytes": 1673,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            378
+          ],
+          [
+            "recommended",
+            160
+          ]
+        ]
+      },
+      {
+        "i": 936,
+        "bytes": 1680,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            382
+          ],
+          [
+            "recommended",
+            163
+          ]
+        ]
+      },
+      {
+        "i": 942,
+        "bytes": 1677,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            380
+          ],
+          [
+            "recommended",
+            162
+          ]
+        ]
+      },
+      {
+        "i": 945,
+        "bytes": 1673,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            378
+          ],
+          [
+            "recommended",
+            160
+          ]
+        ]
+      },
+      {
+        "i": 955,
+        "bytes": 1630,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            348
+          ],
+          [
+            "recommended",
+            147
+          ]
+        ]
+      },
+      {
+        "i": 972,
+        "bytes": 1622,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            344
+          ],
+          [
+            "recommended",
+            143
+          ]
+        ]
+      },
+      {
+        "i": 976,
+        "bytes": 1630,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            349
+          ],
+          [
+            "recommended",
+            146
+          ]
+        ]
+      },
+      {
+        "i": 990,
+        "bytes": 1630,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            348
+          ],
+          [
+            "recommended",
+            147
+          ]
+        ]
+      },
+      {
+        "i": 999,
+        "bytes": 1681,
+        "group": "nonlinear3",
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            383
+          ],
+          [
+            "recommended",
+            163
+          ]
+        ]
+      }
+    ],
+    "overBudgetBytesSample": [
+      {
+        "i": 697,
+        "bytes": 1678,
+        "eqs": [
+          "x*y = 8",
+          "x+y = 11"
+        ],
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            381
+          ],
+          [
+            "recommended",
+            162
+          ],
+          [
+            "summary",
+            105
+          ],
+          [
+            "certification",
+            73
+          ],
+          [
+            "reportId",
+            70
+          ]
+        ]
+      },
+      {
+        "i": 698,
+        "bytes": 1675,
+        "eqs": [
+          "x*y = 16",
+          "x+y = 11"
+        ],
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            379
+          ],
+          [
+            "recommended",
+            161
+          ],
+          [
+            "summary",
+            105
+          ],
+          [
+            "certification",
+            73
+          ],
+          [
+            "reportId",
+            70
+          ]
+        ]
+      },
+      {
+        "i": 700,
+        "bytes": 1624,
+        "eqs": [
+          "x*y = 12",
+          "x+y = 11"
+        ],
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            345
+          ],
+          [
+            "recommended",
+            144
+          ],
+          [
+            "summary",
+            105
+          ],
+          [
+            "certification",
+            73
+          ],
+          [
+            "reportId",
+            70
+          ]
+        ]
+      },
+      {
+        "i": 702,
+        "bytes": 1679,
+        "eqs": [
+          "x*y = 3",
+          "x+y = 15"
+        ],
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            381
+          ],
+          [
+            "recommended",
+            163
+          ],
+          [
+            "summary",
+            105
+          ],
+          [
+            "certification",
+            73
+          ],
+          [
+            "reportId",
+            70
+          ]
+        ]
+      },
+      {
+        "i": 704,
+        "bytes": 1675,
+        "eqs": [
+          "x*y = 19",
+          "x+y = 11"
+        ],
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            379
+          ],
+          [
+            "recommended",
+            161
+          ],
+          [
+            "summary",
+            105
+          ],
+          [
+            "certification",
+            73
+          ],
+          [
+            "reportId",
+            70
+          ]
+        ]
+      },
+      {
+        "i": 708,
+        "bytes": 1643,
+        "eqs": [
+          "x*y = 10",
+          "x+y = 7"
+        ],
+        "top": [
+          [
+            "trust",
+            503
+          ],
+          [
+            "solutions",
+            363
+          ],
+          [
+            "recommended",
+            145
+          ],
+          [
+            "summary",
+            105
+          ],
+          [
+            "certification",
+            73
+          ],
+          [
+            "reportId",
+            70
+          ]
+        ]
+      }
+    ],
+    "undecidable": 0,
+    "undecidableSample": [],
+    "noConclusion": 0,
+    "noConclusionSample": []
+  },
+  "byGroup": [
+    {
+      "group": "linear3",
+      "n": 69,
+      "ok": 69,
+      "err": 0,
+      "meanMs": 347.84
+    },
+    {
+      "group": "linear4",
+      "n": 90,
+      "ok": 90,
+      "err": 0,
+      "meanMs": 260.67
+    },
+    {
+      "group": "linear5",
+      "n": 87,
+      "ok": 87,
+      "err": 0,
+      "meanMs": 250.59
+    },
+    {
+      "group": "linear6",
+      "n": 69,
+      "ok": 69,
+      "err": 0,
+      "meanMs": 231.64
+    },
+    {
+      "group": "linear2",
+      "n": 85,
+      "ok": 85,
+      "err": 0,
+      "meanMs": 202.9
+    },
+    {
+      "group": "nonlinear3",
+      "n": 134,
+      "ok": 134,
+      "err": 0,
+      "meanMs": 73.85
+    },
+    {
+      "group": "nonlinear2",
+      "n": 186,
+      "ok": 186,
+      "err": 0,
+      "meanMs": 61.4
+    },
+    {
+      "group": "nosol",
+      "n": 160,
+      "ok": 160,
+      "err": 0,
+      "meanMs": 28.23
+    },
+    {
+      "group": "trans",
+      "n": 200,
+      "ok": 200,
+      "err": 0,
+      "meanMs": 10.46
+    },
+    {
+      "group": "ineq",
+      "n": 240,
+      "ok": 240,
+      "err": 0,
+      "meanMs": 9.97
+    },
+    {
+      "group": "ineq-negative",
+      "n": 240,
+      "ok": 240,
+      "err": 0,
+      "meanMs": 9.84
+    },
+    {
+      "group": "interval",
+      "n": 160,
+      "ok": 160,
+      "err": 0,
+      "meanMs": 9.48
+    },
+    {
+      "group": "poly1",
+      "n": 280,
+      "ok": 280,
+      "err": 0,
+      "meanMs": 9.4
+    }
+  ]
+}

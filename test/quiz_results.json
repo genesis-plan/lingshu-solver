@@ -9,10 +9,10 @@
     "n": 2,
     "vals": [
       [
-        -1.4142135623731626
+        -1.414213562373095
       ],
       [
-        1.4142135623731626
+        1.4142135623730951
       ]
     ],
     "tiers": [
@@ -25,8 +25,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 41.965,
-    "bytes": 1289
+    "ms": 42.046,
+    "bytes": 1231
   },
   {
     "id": "A2",
@@ -38,22 +38,22 @@
     "n": 1,
     "vals": [
       [
-        -1.0000000000000002,
-        -1.0000000000000002,
-        -2.0000000000000004
+        -1.347219358530748,
+        -0.742269619025209,
+        1.9063147202579567
       ]
     ],
     "tiers": [
-      "candidate"
+      "proven"
     ],
-    "proven": 0,
+    "proven": 1,
     "trust": "budget_exhausted",
     "comp": "unknown",
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 59.441,
-    "bytes": 1302
+    "ms": 52.317,
+    "bytes": 1300
   },
   {
     "id": "A3",
@@ -65,7 +65,7 @@
     "n": 1,
     "vals": [
       [
-        1.1673039782614196
+        1.1673039782614187
       ]
     ],
     "tiers": [
@@ -77,8 +77,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 3.267,
-    "bytes": 1103
+    "ms": 3.119,
+    "bytes": 1095
   },
   {
     "id": "A4",
@@ -102,8 +102,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 6.248,
-    "bytes": 1074
+    "ms": 4.4,
+    "bytes": 1066
   },
   {
     "id": "A5",
@@ -133,8 +133,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 9.388,
-    "bytes": 1491
+    "ms": 8.059,
+    "bytes": 1435
   },
   {
     "id": "B1",
@@ -150,16 +150,16 @@
       ]
     ],
     "tiers": [
-      "candidate"
+      "proven"
     ],
-    "proven": 0,
-    "trust": "candidates_only",
+    "proven": 1,
+    "trust": "verified",
     "comp": "unknown",
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 5.762,
-    "bytes": 1039
+    "ms": 4.036,
+    "bytes": 1012
   },
   {
     "id": "B2",
@@ -168,27 +168,27 @@
     "error": null,
     "errorType": null,
     "shape": "solve",
-    "n": 16,
+    "n": 179,
     "vals": [
       [
         0
       ],
       [
-        -999956.375267007
+        -999994.0743788597
       ]
     ],
     "tiers": [
-      "candidate",
+      "proven",
       "proven"
     ],
-    "proven": 1,
+    "proven": 2,
     "trust": "budget_exhausted",
     "comp": "unknown",
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 79.001,
-    "bytes": 1398
+    "ms": 46.384,
+    "bytes": 1342
   },
   {
     "id": "B3",
@@ -203,7 +203,7 @@
         0
       ],
       [
-        0.8767262153951202
+        0.8767262153950625
       ]
     ],
     "tiers": [
@@ -216,8 +216,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1501.873,
-    "bytes": 1336
+    "ms": 1501.721,
+    "bytes": 1280
   },
   {
     "id": "B4",
@@ -229,7 +229,7 @@
     "n": 1,
     "vals": [
       [
-        1.3190736768574476
+        1.3190736768573652
       ]
     ],
     "tiers": [
@@ -241,8 +241,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 5.515,
-    "bytes": 1098
+    "ms": 5.33,
+    "bytes": 1044
   },
   {
     "id": "C1",
@@ -260,8 +260,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 3.562,
-    "bytes": 878
+    "ms": 5.347,
+    "bytes": 923
   },
   {
     "id": "C2",
@@ -279,8 +279,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.685,
-    "bytes": 878
+    "ms": 1.016,
+    "bytes": 923
   },
   {
     "id": "C3",
@@ -298,8 +298,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 6.209,
-    "bytes": 880
+    "ms": 3.853,
+    "bytes": 925
   },
   {
     "id": "D1",
@@ -316,16 +316,16 @@
       ]
     ],
     "tiers": [
-      "candidate"
+      "proven"
     ],
-    "proven": 0,
-    "trust": "candidates_only",
+    "proven": 1,
+    "trust": "budget_exhausted",
     "comp": "unknown",
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 2.229,
-    "bytes": 1102
+    "ms": 1.896,
+    "bytes": 1170
   },
   {
     "id": "D2",
@@ -342,16 +342,16 @@
       ]
     ],
     "tiers": [
-      "candidate"
+      "proven"
     ],
-    "proven": 0,
+    "proven": 1,
     "trust": "budget_exhausted",
     "comp": "unknown",
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 4.229,
-    "bytes": 1144
+    "ms": 2.18,
+    "bytes": 1170
   },
   {
     "id": "D3",
@@ -363,7 +363,7 @@
     "n": 1,
     "vals": [
       [
-        1.4142135623731626
+        1.4142135623730951
       ]
     ],
     "tiers": [
@@ -375,8 +375,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.205,
-    "bytes": 1108
+    "ms": 1.027,
+    "bytes": 1100
   },
   {
     "id": "E1",
@@ -394,8 +394,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 7902.619,
-    "bytes": 872
+    "ms": 7971.739,
+    "bytes": 962
   },
   {
     "id": "E1b",
@@ -407,12 +407,12 @@
     "n": 3,
     "vals": [
       [
-        0.9999721040000029,
-        1.000027895999999,
-        0.9999721039999981,
-        1.0000278960000006,
-        0.9999721039999966,
-        1.0000278960000022
+        0.9999999696312951,
+        1.0000000303687056,
+        0.9999999696312951,
+        1.0000000303687056,
+        0.9999999696312951,
+        1.0000000303687056
       ],
       [
         1,
@@ -424,17 +424,17 @@
       ]
     ],
     "tiers": [
-      "candidate",
-      "candidate"
+      "proven",
+      "proven"
     ],
-    "proven": 0,
+    "proven": 2,
     "trust": "complete_but_shown_partially",
     "comp": "incomplete",
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 2175.635,
-    "bytes": 1798
+    "ms": 2378.89,
+    "bytes": 1755
   },
   {
     "id": "E2",
@@ -452,7 +452,7 @@
     "du": null,
     "verdict": null,
     "corrected": null,
-    "ms": 0.079,
+    "ms": 0.143,
     "bytes": null
   },
   {
@@ -477,8 +477,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.61,
-    "bytes": 1122
+    "ms": 2.006,
+    "bytes": 1105
   },
   {
     "id": "F2",
@@ -506,8 +506,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 94.674,
-    "bytes": 1428
+    "ms": 93.772,
+    "bytes": 1252
   },
   {
     "id": "F3",
@@ -531,8 +531,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.757,
-    "bytes": 1090
+    "ms": 0.745,
+    "bytes": 1073
   },
   {
     "id": "F4",
@@ -548,16 +548,16 @@
       ]
     ],
     "tiers": [
-      "candidate"
+      "proven"
     ],
-    "proven": 0,
-    "trust": "candidates_only",
+    "proven": 1,
+    "trust": "verified",
     "comp": "incomplete",
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 2980.902,
-    "bytes": 1127
+    "ms": 3081.324,
+    "bytes": 1100
   },
   {
     "id": "G1",
@@ -569,7 +569,7 @@
     "n": 1,
     "vals": [
       [
-        1.2599210498948752
+        1.2599210498948732
       ]
     ],
     "tiers": [
@@ -581,8 +581,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.067,
-    "bytes": 1101
+    "ms": 0.978,
+    "bytes": 1093
   },
   {
     "id": "G2",
@@ -610,8 +610,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.246,
-    "bytes": 1232
+    "ms": 0.741,
+    "bytes": 1176
   },
   {
     "id": "G3",
@@ -629,8 +629,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.747,
-    "bytes": 859
+    "ms": 0.71,
+    "bytes": 904
   },
   {
     "id": "G4",
@@ -654,8 +654,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.089,
-    "bytes": 1067
+    "ms": 0.672,
+    "bytes": 1059
   },
   {
     "id": "P1",
@@ -667,10 +667,10 @@
     "n": 2,
     "vals": [
       [
-        -1.4142135623731626
+        -1.414213562373095
       ],
       [
-        1.4142135623731626
+        1.4142135623730951
       ]
     ],
     "tiers": [
@@ -683,8 +683,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.145,
-    "bytes": 1289
+    "ms": 0.732,
+    "bytes": 1231
   },
   {
     "id": "P2",
@@ -712,8 +712,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.151,
-    "bytes": 1234
+    "ms": 0.566,
+    "bytes": 1178
   },
   {
     "id": "P3",
@@ -737,8 +737,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.868,
-    "bytes": 1067
+    "ms": 0.561,
+    "bytes": 1059
   },
   {
     "id": "P4",
@@ -766,8 +766,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 2.775,
-    "bytes": 1447
+    "ms": 1.06,
+    "bytes": 1391
   },
   {
     "id": "P5",
@@ -795,8 +795,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.735,
-    "bytes": 1232
+    "ms": 0.488,
+    "bytes": 1176
   },
   {
     "id": "V1",
@@ -813,8 +813,8 @@
     "du": null,
     "verdict": "verified",
     "corrected": null,
-    "ms": 0.724,
-    "bytes": 603
+    "ms": 0.733,
+    "bytes": 554
   },
   {
     "id": "V2",
@@ -831,8 +831,8 @@
     "du": null,
     "verdict": "refuted_or_unverified",
     "corrected": null,
-    "ms": 0.65,
-    "bytes": 771
+    "ms": 0.72,
+    "bytes": 683
   },
   {
     "id": "V3",
@@ -849,8 +849,8 @@
     "du": null,
     "verdict": "verified",
     "corrected": null,
-    "ms": 0.37,
-    "bytes": 505
+    "ms": 0.47,
+    "bytes": 499
   },
   {
     "id": "V4",
@@ -867,7 +867,7 @@
     "du": null,
     "verdict": "refuted_or_unverified",
     "corrected": null,
-    "ms": 0.495,
-    "bytes": 658
+    "ms": 1.064,
+    "bytes": 613
   }
 ]

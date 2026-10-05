@@ -373,6 +373,71 @@ console.log('缩写表（真实界名必须逐字命中，不靠截断）:');
     !/_$/.test(bc.bestFrom), bc.bestFrom);
 }
 
+// ══ 6b. 全线性方阵短路（P0-H，2026-10-05）════════════════════════════
+// 事故：随机系数线性方阵的 HTTP 全链路 233ms，而内核求解只要 2ms。
+// 逐段插桩：97% 花在 BKK 段。根因不是预算失效，而是**这段计算必然是浪费** ——
+// 线性方阵 deg f_i = 1 ⇒ Bézout = 1，已取到下界，BKK/Kushnirenko/多齐次
+// 三条收紧工具一条都收紧不了。
+// 🔴 关键风险：这条短路动的是**完备性判据的输入**。上界算错 = 谎称找全了。
+// 所以下面四条断言必须锁死：(a) 值仍是 1、(b) 仍 coversAllRealSolutions、
+// (c) 端到端仍能判 complete、(d) 非线性系统**不受影响**（不能误伤）。
+console.log('全线性方阵短路:');
+{
+  // (a) 短路的数学正确性：值必须仍是 1，不能因为跳过而给不出界
+  const lin5 = ['6*a+3*b-3*c+d-3*e=-17', '2*a+8*b+8*c+4*d-2*e=29',
+    '9*a-9*b+9*c-d+7*e=30', '-2*a+8*b+8*c+d+2*e=27', '8*a-6*b-8*c+d-4*e=-33'];
+  const bl = solutionBounds(lin5);
+  eq('5 元线性方阵：仍给出上界 1（不是 null）', bl.best && bl.best.value, 1);
+  eq('  … 且 bestPositive 也是 1（端到端要靠它判 complete）',
+    bl.bestPositive && bl.bestPositive.value, 1);
+  eq('  … 覆盖全部实解（coversAllRealSolutions）', bl.bounds[0].coversAllRealSolutions, true);
+  eq('  … scope 是 C^n（域无关的全局上界）', bl.best.scopeKey, 'C^n');
+  // 跳过的三条必须在 unavailable 里**明说**，不能静默少一条
+  // （静默少一条会让 Agent 以为「本来就没有更紧的界」，那是误导）
+  const names = (bl.bounds || []).map((b) => b.name);
+  eq('  … 只给 Bézout 一条（收紧工具按设计跳过）', names.join(','), 'bezout_total_degree');
+  ok('  … 跳过的三条被记在 skippedRefinements 里（可审计）',
+    Array.isArray(bl.bounds[0].skippedRefinements) && bl.bounds[0].skippedRefinements.length === 3,
+    JSON.stringify(bl.bounds[0].skippedRefinements));
+  ok('  … 且带 skipReason（说明为何跳过）',
+    typeof bl.bounds[0].skipReason === 'string' && bl.bounds[0].skipReason.length > 10,
+    String(bl.bounds[0].skipReason));
+
+  // (c) 端到端：仍然判「全部解」——短路不能把完备性判据弄丢
+  const rLin = svc.doSolve({ equations: lin5, variables: ['a', 'b', 'c', 'd', 'e'] });
+  eq('5 元线性方阵端到端解数 1', (rLin.solutions || []).length, 1);
+  eq('  … 结论为「全部解」', rLin.conclusion, '全部解');
+  eq('  … trust.completeness.bestFrom 可识别', rLin.trust.completeness.bestFrom, 'bezout');
+
+  // (d) 非线性系统**不受影响** —— 短路只认 allLinear && bezout===1
+  const nl = solutionBounds(['x^2+y^2=1', 'x-y=0']);
+  ok('非线性系统未误伤：BKK 仍在算（bounds 里能找到它或明确 unavailable）',
+    (nl.bounds || []).some((b) => b.name === 'bkk_mixed_volume')
+    || (nl.unavailable || []).some((u) => u.name === 'bkk_mixed_volume'),
+    'bounds=' + (nl.bounds || []).map((b) => b.name).join(',')
+    + ' | unavailable=' + (nl.unavailable || []).map((u) => u.name).join(','));
+
+  // 一次线性但含二次项的系统（x^2 + y = 0, y = 1）必须走完整流程
+  const mixed = solutionBounds(['x^2+y=0', 'y=1']);
+  ok('含二次项的「伪线性」系统未被短路（degree>1 ⇒ 继续算）',
+    (mixed.bounds || []).length > 1 || (mixed.unavailable || []).length > 0,
+    'bounds=' + (mixed.bounds || []).map((b) => b.name).join(','));
+
+  // (e) 🔴 P0-I：Laurent（负指数）系统**绝不能**进线性短路。
+  // 这条是 P0-H 自己引入的回归 —— 短路把 Bézout=1 当成紧界，
+  // 而 Bézout 对负指数系统不成立 ⇒ 上界低估 ⇒ 一旦找到数==1 就谎称「找全了」。
+  // 反例的真实解数是 2（消元 y²−y+1=0），不是 1。
+  const lau = solutionBounds(['x^-1+y-1=0', 'x+y^-1-1=0']);
+  ok('Laurent 系统未被线性短路（degree≤1 但 Bézout 对负指数不成立）',
+    !lau.bounds.some((b) => Array.isArray(b.skippedRefinements)),
+    'bounds=' + lau.bounds.map((b) => b.name).join(','));
+  eq('  … best 仍是 2（不是被低估的 1）', lau.best.value, 2);
+  ok('  … 且 best 来自 BKK（唯一对 Laurent 安全的那条）',
+    lau.best.name === 'bkk_mixed_volume', lau.best.name);
+  eq('  … Bézout 那条仍被标 laurentSafe:false（不得进 best）',
+    lau.bounds.find((b) => b.name === 'bezout_total_degree').laurentSafe, false);
+}
+
 // ══ 7. 确定性 ══════════════════════════════════════════════════════
 console.log('确定性:');
 {

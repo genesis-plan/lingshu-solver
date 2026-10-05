@@ -164,6 +164,67 @@ function _collectCompletenessProof(state) {
             ev.push('linear_full_column_rank=' + r.classifyRank + '=' + _nVarsL);
         }
     }
+    // ④ 同伦延续（suan61）：gamma trick 的概率 1 覆盖性 + 全部路径干净收敛
+    //
+    // 🔴 2026-10-05 集成缺口（同伦算子算得出完备性，但结论层不认）：
+    //   suan61 跑完后 `completenessProven = true`、`homotopyInfo.completenessProven = true`，
+    //   但本函数只认 Sturm / Bézout 击满 / 秩判定 / 线性四类证据，
+    //   **没有同伦这一档** ⇒ 实测 `x²+y²+z²=1, x+y+z=0, xy−z=0` 明明
+    //   「8 条路径全干净、2 个实解、每个都过原方程回代」，
+    //   却被判成「部分解（没有独立完备性证据）」。
+    //   对 Agent：明明是找全了，却拿到「可能有遗漏」⇒ 会建议「缩小域重试」，纯误导。
+    //
+    // 为什么这一档**够格**当独立完备性证据（严格性说明，必须写清）：
+    //   gamma trick（Morgan 1982）的定理：在 γ 随机相位下，
+    //   **概率 1 地**每条路径都收敛到 t=1，且**每个孤立复根都被至少一条路径经过**。
+    //   suan61 的 `completenessProven` 正是这两条的合取：
+    //     · 覆盖性：diverged=0 ∧ singular=0 ∧ notReached=0 ⇒ 全部 N 条路径正常走完
+    //       ⇒ 概率 1 事件发生 ⇒ 没有孤立解被漏掉
+    //     · 自洽性：去重实根数 ≤ Bézout 路径数 ⇒ 算术上自洽
+    //     · 每个实解都过了**原方程回代**（不信内部残差）⇒ 没有伪解
+    //   它与 Sturm 是**同等强度**的完备性证据（都给出「确切的个数」），
+    //   而不是采样命中这种「只是下限」的弱证据。
+    //
+    // fail-closed 方向：三项缺口任一非 0 ⇒ suan61 自己就置 completenessProven=false，
+    // 这里读不到 true ⇒ 自然降级为「部分解」。不需要额外的保守逻辑。
+    var hi = r.homotopyInfo;
+    if (r.completenessProven === true && hi && hi.completenessProven === true
+        && hi.diverged === 0 && hi.singular === 0 && hi.notReached === 0
+        && typeof hi.bezoutBound === 'number' && hi.bezoutBound > 0) {
+        ev.push('homotopy_all_paths_clean=' + hi.pathsTracked + '/' + hi.bezoutBound);
+    }
+    // ⑤ 基本三角方程闭式通解（suan58）：**符号穷举**，是全部四档里数学上最硬的一类。
+    //
+    // 🔴 2026-10-05 集成缺口（实测：`cos(x)=0.5` 明明算出了通解，却报「部分解」）：
+    //   suan58 对 `cos(x)=0.5` / `sin(x)=0.3` 这类方程给出
+    //   `x = 2nπ ± arccos(0.5)`（n ∈ ℤ）—— 这是**闭式通解**，
+    //   声明域内根数由整数区间公式**数出**（_s58BasicTrig 里数 n 的整数区间），
+    //   不是采样、不是搜索、没有任何「可能漏掉」的环节。
+    //   但 suan58 只把元数据写进 `state.s58Exact`，**全仓没有任何地方读它**（grep 可证），
+    //   于是本函数四档证据一条都不命中 ⇒ 明明找全了却判「部分解」。
+    //   对 Agent 的后果是纯误导：明明收工了，却被提示「可能有遗漏，缩小域重试」。
+    //
+    // 为什么这一档**比 Sturm 还硬**（不只是同等）：
+    //   Sturm 是「算出实根个数恰好等于解数」—— 需要数值多项式 + 符号链，
+    //   且只在**多项式**情形成立。闭式通解是**把解集本身写成了整数参数族**：
+    //   解集 = { 2nπ ± θ : n ∈ ℤ ∩ I }，其中 I 由声明域算术给出。
+    //   只要声明域正确、θ 由 arccos 定义域精确判定（|c| > 1 的无解分支 suan58 已提前处理），
+    //   那么「域内解集」被**逐个列出**，不存在漏解的机制。
+    //   fail-closed 要求的两点，本函数都显式校验：
+    //     · exact === true（确实走的闭式分支，不是回落到数值扫描）；
+    //     · countCapped !== true 且 truncated !== true（声明域内根数**没被输出上限截断**）。
+    //   任一不满足 ⇒ 不采信 ⇒ 落回「部分解」，与 suan58 自己的 truncated 标记一致。
+    //
+    // ⚠ 为什么原来 truncated 时给「部分解」是对的：
+    //   `cos(x)=0.5` 在默认域 ±1e6 下域内有 636620 个根，接口只允许输出有限个代表解，
+    //   此时「解集已被精确刻画，但接口只展示了其中一部分」——它**不是**「找全了」，
+    //   也不是「可能漏了」，而是「算全了但没全展示」。这类必须留在「部分解」，
+    //   因为调用方拿到的 solutions 确实不含全部根。要改的是文案而非档位。
+    var s58 = r.s58Exact;
+    if (s58 && s58.exact === true && s58.countCapped !== true && s58.truncated !== true
+        && typeof s58.count === 'number' && s58.count > 0 && s58.count === nSol) {
+        ev.push('closed_form_trig_family=' + s58.family + ',count=' + s58.count);
+    }
     var complete = ev.length > 0;
     var reason;
     if (complete) reason = ev.join('；');
@@ -215,13 +276,41 @@ function _conclusion4(state) {
 
     var resourceHungry = false;
     var rReason = '';
+
+    // 🔴🔴 2026-10-05 修独立 P0（结论级谎报，golden g013 抓出）：`unconverged` 的语义被误读。
+    //
+    // 事故：`120000*p*(1+p)^360-2500000=0`（公积金月供，1 变量）
+    //   实际状态：解已求出并**经Krawczyk 区间认证**（provenCount=1）、
+    //             `completenessProven=true`（一维多项式 ⇒ Sturm 完备性已证）。
+    //   但 `unconverged=true`（分支定界那条路深度到限，没走完）⇒
+    //   门控① 命中 ⇒ 对外 conclusion 从「部分解」降级成「**计算资源不足**」。
+    //
+    // 为什么这是谎报而不是保守：
+    //   `unconverged` 只描述**分支定界这一条搜索路径**的状态，
+    //   而 `suan60` 精确栈已经在ℚ 上把题解完了并证明了完备。
+    //   拿「A 路径没走完」去否定「B 路径已证完」，是**证据优先级颠倒**。
+    //   更糟的是它给Agent 一条**假指令**：收到「计算资源不足」会建议
+    //   「提高预算 / 缩小域后重试」—— 而真因是解已被严格证明，重试一万次也一样。
+    //   （历史同源问题：正维代表点那次也是机械套truncated，见上方 _posDimAny 注释。
+    //   本质都是：**用「某条搜索路径的状态」冒充「整体完备性」。**）
+    //
+    // 修法：`unconverged` 降级为「提示」而非「判定」，当且仅当
+    //   **拿不到独立完备性证据**时才允许它触发「计算资源不足」。
+    //   `truncated` / `error` / `hardTimeout` 保持原样在 ① 优先判定
+    //   —— 那三个是「结果集本身被截断」，与完备性证据无关，不能放行。
+    var _cmpEarly = _collectCompletenessProof(state);
+    var _hasIndepCompleteness = (nSol > 0 && _cmpEarly.complete === true);
+    var _unconvergedIsAdvisory = (_hasIndepCompleteness && r.unconverged === true
+        && r.truncated !== true && r.hardTimeout !== true
+        && r.error !== 'TIMEOUT_TRUNCATED' && r.error !== 'RESOURCE_EXHAUSTED');
+
     if (r.bezoutVerdict && r.bezoutVerdict.status === 'bound-violation') {
         // 上界被突破 = 实现有 bug。这是「计算资源不足」里最该报的一种：
         // Agent 拿到「无解」会去断言，但真相是「实现不可信」。
         resourceHungry = true;
         rReason = '已证明根数超过 Bézout 上界（实现有 bug，结果不可信）';
     } else if (!_posDimAny) {
-        if (r.truncated === true || r.unconverged === true) { resourceHungry = true; rReason = '搜索被预算/深度/时间中止，未完成'; }
+        if (r.truncated === true) { resourceHungry = true; rReason = '结果集被截断（未完成）'; }
         else if (r.error === 'TIMEOUT_TRUNCATED') { resourceHungry = true; rReason = '搜索被时间预算中止'; }
         else if (r.error === 'RESOURCE_EXHAUSTED') { resourceHungry = true; rReason = '计算资源耗尽'; }
         else if (r.solutionCountIsPartial === true) { resourceHungry = true; rReason = '已找到部分解，可能还有'; }
@@ -315,18 +404,25 @@ function _slimOutputForAgent(result, conclusion) {
         timeMs: r.timeMs
     };
 
-    // ── 解列表：只留值 + 是否被证明 ──
+    // ── 解列表：只留值 ──
+    //
+    // 🔴 2026-10-05 瘦身（用户指令：「去掉所有人为规则……我们要的是极致的计算，
+    //   让智能体得到能决策的结果，而不是认证、确定性这些东西」）：
+    //   旧版给每个解带 `proven`（是否被证明）+ `via`（用哪个认证器造的）。
+    //   两条都删：
+    //   · `via` 是**认证器名字**（krawczyk_newton / miranda / inflate_refine /
+    //     smale_alpha …）。对决策零信息量 —— Agent 不该关心解是哪个区间算子证出来的。
+    //   · `proven` 看似有用，但它表达的是「认证强度」而不是「这个点是不是解」。
+    //     同一件事的更强形式已经在**结论层**：conclusion 本身就是
+    //     全部解 / 部分解 / 无解 / 计算资源不足 ��四态。
+    //     Agent 判断「能不能用这个解」看 conclusion 就够，不必逐解再读一遍认证标记。
+    //
+    // 保留的唯一解级信息是**子句数与分页**，因为它们决定 Agent 要不要翻页。
     var sols = r.solutions || [];
     out.solutionCount = sols.length;
     if (sols.length) {
         out.solutions = sols.map(function (s) {
-            return {
-                values: s.values,
-                // tier 是「这个解被证明到什么程度」，Agent 做决策必须知道
-                // （proven=严格证明是解；candidate=只是候选，可能是伪解）
-                proven: (s.tier === 'proven') || s.certified === true,
-                via: s.certMethod || s.source || null
-            };
+            return { values: s.values };
         });
     }
 

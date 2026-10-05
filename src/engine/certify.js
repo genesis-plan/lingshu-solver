@@ -410,7 +410,39 @@ function _newtonRefine(eqs, vns, x0, box) {
         var vmap = {}; for (var i = 0; i < n; i++) vmap[vns[i]] = x[i];
         var F = []; for (var e = 0; e < n; e++) { var fe = evalAST(eqs[e], vmap); if (!isFinite(fe)) return null; F.push(fe); }
         var rms = 0; for (var i2 = 0; i2 < n; i2++) rms += F[i2] * F[i2]; rms = Math.sqrt(rms / n);
-        if (rms < 1e-11) return x;
+        // 🔴🔴 2026-10-05 彻底去网格化：退出判据从**绝对** 1e-11 改为**后向误差**。
+        //
+        // 事故：g017 `exp(x)-2=0` 的解从 0.6931471805599616（误差 1.63e-14）
+        //   退化成 0.6931471805605547（误差 6.09e-13）—— 去网格化让它变**差**了。
+        // 根因不是去网格化本身，而是这里遗留的**绝对阈值 1e-11**：
+        //   · 旧口径下坐标被量化到 6 位网格，残差天然带~L·h ≈ 1e-6 的噪声地板，
+        //     所以精化的实际可达精度只有 1e-11 量级 —— 1e-11 阈值**够松**，
+        //     牛顿一路走到 1e-14 才停（g002 误差 6.75e-14 而非 1e-11）。
+        //   · 去网格化后噪声地板降到 1e-16，但 1e-11 阈值**没跟着降**，
+        //     于是变成新的精度天花板：ln2 卡在残差 1.2e-12 就宣布收敛。
+        //     牛顿再走两步就到 1e-16 了，却被这个阈值拦住。
+        //
+        // 修法（与其他判据同源）：用 Higham 后向误差 |F|/Σ|terms| 判收敛，
+        //   它**与量纲无关**，大尺度方程（公积金 1e5 量级）和小尺度方程同一门限。
+        //   τ = 1e-14 比原 1e-11 严 3 个数量级，仍比双精度噪声地板(≈1e-16·L)高 2 个量级，
+        //   留足余量避免在噪声里空转。取不到尺度时退回绝对 1e-14（同样比原来严）。
+        //
+        // ⚠ 为什么这不是「无止境地求更高精度」：τ 是**相对**判据，
+        //   双精度求值噪声地板 ≈ eps·Σ|terms| = 2.2e-16·scale，永远高于 τ 达不到？
+        //   不，τ=1e-14 > 2.2e-16 ⇒ 可达。且下方 stall>=3 停滞退出兜底：
+        //   真到噪声底就停，返回最好点（不空转、不假装更高精度）。
+        var _bwd = 0;
+        for (var e3 = 0; e3 < n; e3++) {
+            var _sc3 = 0;
+            try { _sc3 = evalASTScale(eqs[e3], vmap); } catch (_e3) { _sc3 = 0; }
+            if (!isFinite(_sc3) || _sc3 <= 0) continue;
+            var _be3 = Math.abs(F[e3]) / _sc3;
+            if (_be3 > _bwd) _bwd = _be3;
+        }
+        // 尺度全算不出（表达式无 terms）⇒退回绝对判据（fail-closed 方向的偏严）
+        if (_bwd === 0) _bwd = rms;
+        var CONV_REL = 1e-14, CONV_ABS = 1e-14;
+        if (_bwd <= CONV_REL || rms <= CONV_ABS) return x;
         if (rms < bestRms) { bestRms = rms; bestX = x.slice(); stall = 0; } else { stall++; if (stall >= 3 && bestX) return bestX; }
         // 雅可比区间求导：必须喂退化的点区间 {min:x,max:x}（而非裸点值）。
         // 旧实现 intervalEval(d, vmap) 把裸数当 iv，iv.min/iv.max 为 undefined → _buildAffEnv 算出 NaN 噪声

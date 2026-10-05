@@ -251,6 +251,79 @@ function solutionBounds(equations, vars) {
 
   const unavailable = [];
 
+  // ── 0. 全线性方阵短路：Bézout = 1 已是**可证的最紧界** ──────────────
+  //
+  // 🔴 2026-10-05 P0-H（实测 2000 题真实调用压测发现）：
+  //   随机系数线性方阵的 HTTP 全链路 **233ms**，而内核求解只要 **2ms**。
+  //   逐段插桩定位：97% 的时间花在 `solutionBounds` 的 BKK 段（303ms/次）。
+  //
+  // 数学上这段计算**必然是浪费**：
+  //   若每个方程的每个单项式总次数都 ≤ 1，则 deg f_i = 1 ⇒
+  //   Bézout = ∏ 1 = 1。而**非空解集至少含 1 个解** ⇒ 上界 1 已取到下界，
+  //   任何别的界都不可能更小。
+  //   BKK / Kushnirenko / 多齐次 Bézout 三条全是**收紧** Bézout 的工具，
+  //   对线性系统一条都收紧不了 ⇒ 纯耗时，零信息增益。
+  //
+  // 为什么这条短路比「加缓存」更根本：
+  //   缓存只能对重复题生效，而线性方阵是**一次性**的（系数每次都不同）。
+  //   要砍掉这 200ms，必须承认「这个规模档根本不需要紧界」。
+  //
+  // ⚠ 只在 `bezout === 1` 时短路，不是一见线性就跳：
+  //   欠定/超定的线性系统已在上面被 underdetermined 拦掉；
+  //   若将来出现「有效方程数 > 变量数」的线性情形，Bézout 仍可能是 min over
+  //   subsets 的 1，但那种情形走的是另一条路，此处不覆盖。
+  //
+  // 🔴🔴 2026-10-05 P0-I（**这条短路自己引入的回归，verify 当场抓住**）：
+  //   必须**排除 Laurent（负指数）系统**。
+  //   反例（test-bounds §4 的护栏算例）：x^-1 + y - 1 = 0 , x + y^-1 - 1 = 0
+  //   两式各自最高指数都是 1 ⇒ degree ≤ 1 ⇒ 误入本短路；
+  //   而 Bézout 对 Laurent 系统**不成立**（乘以 x·y 后次数变 2，Bézout=2 才是对的；
+  //   直接用原始次数算出 1）。
+  //   真实解：消元得 y² − y + 1 = 0 ⇒ (C*)² 里 2 个解。
+  //   HEAD 上 best = bkk = 2（正确）；加了短路后 best = bezout = 1 ⇒ **上界低估**。
+  //
+  // 为什么这是最危险的一类缺陷：上界低估 + 找到数恰好等于上界
+  //   ⇒ 判定层输出「找全了」⇒ **谎报**。比慢严重得多。
+  //   也就是说：这个 P0 修得越「成功」，埋的谎报越深。
+  //
+  // 教训可推广：**任何「跳过计算」的短路，都必须逐条核对被跳过的工具所依赖的前提**。
+  //   BKK / Kushnirenko 的前提是「多项式（非负指数）」，短路时必须显式确认这一点。
+  const allLinear = active.every((p) => p.degree <= 1);
+  let bezoutVal = Infinity;
+  for (const S of subsets) {
+    let prod = 1;
+    for (const i of S) prod *= Math.max(0, active[i].degree);
+    if (prod < bezoutVal) bezoutVal = prod;
+  }
+  if (allLinear && !laurent && bezoutVal === 1) {
+    return {
+      available: true,
+      variables: V, nVars: n, nEqs: mEff,
+      definitelyInconsistent: false,
+      bounds: [{
+        name: 'bezout_total_degree',
+        value: 1,
+        scope: 'C^n (projective closure)',
+        scopeKey: 'C^n',
+        coversAllRealSolutions: true,
+        countsMultiplicity: true,
+        laurentSafe: false,
+        optimal: true,
+        basis: 'Bézout: every equation is affine (total degree <= 1), so the product of degrees is 1. '
+          + 'A nonempty solution set contains at least one point, hence the bound 1 is tight and no '
+          + 'refinement (BKK / Kushnirenko / multihomogeneous) can improve it.',
+        skippedRefinements: ['bkk_mixed_volume', 'kushnirenko', 'multihomogeneous_bezout'],
+        skipReason: 'linear system: Bézout=1 is already the tight bound (refinements cannot beat it)'
+      }],
+      best: { name: 'bezout_total_degree', value: 1, scope: 'C^n', scopeKey: 'C^n' },
+      bestPositive: { name: 'bezout_total_degree', value: 1, scope: 'C^n', scopeKey: 'C^n' },
+      unavailable: [],
+      caveats,
+      note: 'Affine square system — Bézout gives the tight bound 1; tighter tools are skipped by design '
+        + '(they provably cannot improve on 1 for a degree-1 system).'
+    };
+  }
+
   // ── 1. Bézout（总次数）────────────────────────────────────────────
   {
     let best = Infinity;
@@ -278,16 +351,47 @@ function solutionBounds(equations, vars) {
     let best = Infinity;
     let ok = false;
     let skipReason = null;
+    // 🔴🔴 2026-10-05 P0-G：共享工作量预算（此前完全缺失 ⇒ 预算被放大 2^n 倍）
+    //
+    // polytope.js 的注释白纸黑字写着：
+    //   「预算必须**跨 2^n 个子集包共享**：单独看每个包都不超闸，合起来照样能把
+    //     一次调用拖到几十秒（实测稀疏 6 变量：64 个包，打穿 120s 超时）」
+    //   「const work = (opts && opts.work) || { used: 0, max: MV_WORK_BASE / n }」
+    // 而 `mixedVolume` 的缺省 work 是**每次调用新建**的。
+    // 本循环对 subsets（2^n 个方阵子集）逐个调 `mixedVolume(polys)` 且**不传 opts.work**
+    // ⇒ 每个子集包都拿到一份满额 `MV_WORK_BASE / n` 预算
+    // ⇒ 实际总预算是设计值的 **2^n 倍**，共享闸形同虚设。
+    //
+    // 实测代价（2000 题真实调用压测，random 方阵线性）：
+    //   n=3 → 113ms   n=4 → 31ms   n=5 → **224ms**   n=6 → 5.6ms
+    // 而内核求解本身只要 1~2ms，5 元线性题的 HTTP 全链路却是 **233ms**
+    // ⇒ 端到端里 96% 的时间花在算一条**根本用不上的 BKK 界**上
+    // （线性系统的 BKK 值恒为 1，而 Bézout 已经给了 1，取 min 毫无变化）。
+    //
+    // 为什么这不只是「慢」：
+    //   解数上界是 fail-closed 的核心输入（「找到数 == 上界 ⇒ 找全了」）。
+    //   一条界的**可得性**若取决于机器快慢，就会出现
+    //   「快机器给 BKK、慢机器不给 BKK」⇒ 同题不同结论 ⇒ 结论不可复现。
+    //   时间预算必须与规模预算一样，是**确定性**的资源闸。
+    //
+    // 修法：与 polytope.js 的设计口径完全一致 —— 建**一个** work 对象，
+    // 跨全部 subsets 循环共享；超预算即 break（后续包必然也超），
+    // 且走既有的 `skipReason` 分支把 BKK 标为 unavailable（不假装算出来了）。
+    const work = { used: 0, max: Math.round(2e6 / Math.max(1, active.length)) };
     for (const S of subsets) {
       const polys = S.map((i) => active[i].monomials.map((mo) => mo.exps.slice()));
       try {
-        const r = mixedVolume(polys);
+        const r = mixedVolume(polys, { work });
         if (r.mixedVolume < best) best = r.mixedVolume;
         ok = true;
       } catch (e) {
         // 规模闸 / 输入不支持：这条界**不给出**，但绝不假装算出来了。
         // 把原因带出去，让上层 trust 块能明说「BKK 未给出」，而不是静默少一条。
         if (!skipReason) skipReason = (e && e.type) || 'unknown';
+        // 共享预算耗尽 ⇒ 剩下的包只会再撞同一道墙，直接收手。
+        // （不回 break 的话，n=6 的 64 个包会把同一条墙再撞 63 次，
+        //   每次都重新走一遍输入校验与预检 —— 纯浪费。）
+        if ((e && e.type) === 'resource_limit') break;
       }
     }
     if (ok) {

@@ -1,7 +1,11 @@
 {
   "src/engine/algebra/exact.js": {
-    "hash": "743c70b038c4f02a",
-    "lines": 677
+    "hash": "04593b0b4dd5d13b",
+    "lines": 602
+  },
+  "src/engine/algebra/homotopy.js": {
+    "hash": "1f7cb6252224114c",
+    "lines": 398
   },
   "src/engine/algebra/multivar.js": {
     "hash": "4f88d8191a56d50e",
@@ -20,20 +24,20 @@
     "lines": 1199
   },
   "src/engine/certify.js": {
-    "hash": "a7e237b5dc984c9a",
-    "lines": 1002
+    "hash": "e03b5ff46961ee20",
+    "lines": 1012
   },
   "src/engine/conclusion.js": {
-    "hash": "7a7fe23c1205801e",
-    "lines": 173
+    "hash": "8b9491ebd5a6ff3f",
+    "lines": 185
   },
   "src/engine/constants.js": {
     "hash": "45498057b40dc786",
     "lines": 90
   },
   "src/engine/input/recognize.js": {
-    "hash": "fcbf09dd4daaa235",
-    "lines": 93
+    "hash": "83165fd3363a759a",
+    "lines": 96
   },
   "src/engine/interval/affine.js": {
     "hash": "2338a2e886acfc7a",
@@ -56,16 +60,16 @@
     "lines": 446
   },
   "src/engine/numeric/root.js": {
-    "hash": "c34fde1230c9bd7a",
-    "lines": 367
+    "hash": "418b9ed0bd62667d",
+    "lines": 353
   },
   "src/engine/ode.js": {
     "hash": "02e93a32796fef11",
     "lines": 230
   },
   "src/engine/operators/algebra.js": {
-    "hash": "77ec42e1136ea647",
-    "lines": 1442
+    "hash": "1d95430740a68f0a",
+    "lines": 1360
   },
   "src/engine/operators/branch.js": {
     "hash": "8d5b8adfbb980e62",
@@ -79,29 +83,33 @@
     "hash": "da74b04fef578be3",
     "lines": 329
   },
+  "src/engine/operators/homotopy.js": {
+    "hash": "2b956f59e8196331",
+    "lines": 287
+  },
   "src/engine/operators/ineq.js": {
     "hash": "64ae4635c747fed1",
     "lines": 187
   },
   "src/engine/operators/numeric.js": {
-    "hash": "5db482bf4d26bd33",
+    "hash": "23a8fa65341aaf79",
     "lines": 284
   },
   "src/engine/operators/output.js": {
-    "hash": "7651e1464b594df2",
-    "lines": 816
+    "hash": "99a37f0ffab45f1b",
+    "lines": 675
   },
   "src/engine/operators/post.js": {
     "hash": "86aad79b6dd2f160",
     "lines": 140
   },
   "src/engine/operators/pre.js": {
-    "hash": "27ec87f8f565fe85",
-    "lines": 599
+    "hash": "e00577524bc0ab75",
+    "lines": 602
   },
   "src/engine/operators/registry.js": {
-    "hash": "65d5034947a1a2c2",
-    "lines": 73
+    "hash": "f931f785ea6dabd2",
+    "lines": 74
   },
   "src/engine/operators/screen.js": {
     "hash": "c3bbf5c1a7fcf053",
@@ -114,6 +122,10 @@
   "src/engine/operators/support.js": {
     "hash": "f4a86da60f3ee65c",
     "lines": 367
+  },
+  "src/engine/pipeline/dimroute.js": {
+    "hash": "5a80b3c5baf9c4c7",
+    "lines": 82
   },
   "src/engine/pipeline/output.js": {
     "hash": "a67925527c75e63d",
@@ -128,20 +140,20 @@
     "lines": 235
   },
   "src/engine/pipeline/solver.js": {
-    "hash": "4b237508ef112b89",
-    "lines": 1155
+    "hash": "d4a7af232d8d3825",
+    "lines": 1413
   },
   "src/engine/rootbound-poly.js": {
     "hash": "9caea2be0c923dc5",
     "lines": 145
   },
   "src/engine/ui.js": {
-    "hash": "7462f11e210c5d81",
-    "lines": 404
+    "hash": "459526b67dc0766c",
+    "lines": 411
   },
   "services/bounds.js": {
-    "hash": "e282b7ea5b71a25c",
-    "lines": 376
+    "hash": "fc4847af6e98a913",
+    "lines": 413
   },
   "services/geometry/common.js": {
     "hash": "c9156087d45fedd0",
@@ -184,12 +196,12 @@
     "lines": 580
   },
   "services/rootbound.js": {
-    "hash": "c1b411aecb662029",
-    "lines": 304
+    "hash": "e5071daf1ea67629",
+    "lines": 335
   },
   "services/solver-service.js": {
-    "hash": "d2c4343e6ed6978e",
-    "lines": 449
+    "hash": "9fe58108c91a25b5",
+    "lines": 456
   },
   "services/tool-metadata.js": {
     "hash": "1f665f91c12a66ef",

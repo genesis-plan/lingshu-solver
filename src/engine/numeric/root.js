@@ -1,75 +1,103 @@
 /* 模块 numeric/root：构建期拼接区块（内部标识符保持原样，裸名引用保留）。改这个模块只动本文件，不要动 index.html。 */
+
+// ── 坐标输出：恒等函数（2026-10-05，用户指令「去掉所有人为规则、格子」）────
+//
+// 🔴 本函数从「去网格化的漏网之鱼」到「**完全恒等**」，共三步：
+//   ① 2026-10-05 早：硬量化 `Math.round(x*1e6)/1e6`，把坐标砍到 6 位小数。
+//      实测 P0：4/5/6 元线性方阵的精确解 [0.6, 23/30, 14/15, 1.1] 被量化成
+//      [0.6, 0.766667, 0.933333, 1.1] ⇒ 回代残差 2e-6 > 判据 ⇒ **返回 0 解**。
+//   ② 同期晚：改成「全精度 + ULP 级吸附」（只修正浮点表示误差，不修正数学值）。
+//   ③ 现在：连 ULP 吸附也**删掉**，退化为「原样返回 + −0 归一」。
+//
+// 为什么连 ULP 吸附也删（它是纯去噪、看着无害）：
+//   ULP 吸附的判据是「把 x 吸到 6 位小数 r6，若 |x−r6| ≤ 4·ulp 则返回 r6」。
+//   这仍然**内置了一个 6 位小数的格点**——只不过把格点宽度从"硬砍"放宽到"4 ULP 宽的
+//   软吸附区"。软硬之别是程度问题，不是性质问题：它依然在替调用方决定"哪个值更代表
+//   这个解"，而这个决定权属于数学，不属于格式化层。
+//
+//   剩下的唯一动作是 **−0 归一**：−0 与 0 在数学上是同一个数，但 JSON 里会输出 "-0"
+//   这种噪声字符。这是**表示层**问题不是数学问题，所以留在输出层修是恰当的。
+//
+// 保留本函数名的原因：31 处调用点仍需要"一个集中的出口"，
+//   这样将来若真有全局数值策略，改一个函数即可（而不是 31 处散改）。
 function roundToGrid(x) {
-    if (!isFinite(x)) return x;
-    var scale = Math.pow(10, COMPUTE_DECIMALS);
-    var scaled = x * scale;
-    var nearest = Math.round(scaled);
-    // 如果已在网格点上（浮点误差范围内），直接返回该网格点
-    if (Math.abs(scaled - nearest) < 1e-6) {
-        return nearest / scale;
-    }
-    // 四舍五入到最近的网格点
-    return Math.round(scaled) / scale;
+    if (typeof x !== 'number' || !isFinite(x)) return x;
+    return x === 0 ? 0 : x;   // 唯一动作：−0 归一（0 与 −0 数学等价）
 }
 
 
-function generateStartPoints(varNames, contractedDomain) {
+/**
+ * 生成 Newton 的确定性起点集。
+ *
+ * 🔴 2026-10-05 重写（用户指令「去掉所有人为规则……按数学定理来」）：
+ *   旧实现是一批**拍脑袋的魔法数**：原点、全±1、全±10、混合±5、四分/四分之三点。
+ *   那些 5 和 10 没有任何数学依据 —— 只是「常见工程题的答案落在这个量级」的经验猜测。
+ *   而且数量上就注定失败：旧实现最多给 15 个起点，
+ *   而 6 元二次方阵的 Bézout 上界是 64 ⇒ **起点数差一个数量级**，
+ *   多起点 Newton 在结构上就不可能找全（这正是 suan61 同伦存在的理由）。
+ *
+ * 换成两个有定义的来源：
+ *   ① **同伦延续给出的实解**（state.homotopySeeds）
+ *      唯一有理论保证的起点来源：gamma trick 下每条路径终点逼近 F 的根，
+ *      从它出发 Newton 二次收敛。由 operators/homotopy.js 注入。
+ *   ② **与分支定界共享的规范点集**（本函数）
+ *      域中心 + 各维 {1/4, 1/2, 3/4} 分位点。留它的理由不是「碰运气」，
+ *      而是**与 branch.js 的二分树同源**：盒 [a,b] 二分得中点 (a+b)/2，
+ *      下一层中点是 3a/4 与 3b/4 ⇒ 三个分位点正是分支定界前两层的节点。
+ *      两者共享点集，「Newton 起点」与「分支定界能排除的盒」才落在同一套几何划分上。
+ *
+ * 删掉：±1/±5/±10 量级猜测，以及 0 作为「万能起点」的优先地位
+ *   （0 只在它恰是盒中心时才有意义）。
+ *
+ * @param {string[]} varNames 变量名
+ * @param {Object} contractedDomain 收缩后定义域 {v:{min,max}}
+ * @param {Object} [state] 求解状态（读 homotopySeeds）
+ */
+function generateStartPoints(varNames, contractedDomain, state) {
     const n = varNames.length;
     const points = [];
 
-    // 使用 D0（传入的收缩后域）作为起始点生成依据
-    // 当 D0 为空时，默认使用 [-1000000, 1000000]
-    // 根据边界调整起始值
-    function getStartValue(v, base) {
-        if (contractedDomain && contractedDomain[v]) {
-            const b = contractedDomain[v];
-            const min = b.min === -Infinity ? -1000000 : b.min;
-            const max = b.max === Infinity ? 1000000 : b.max;
-            if (base < min) return min;
-            if (base > max) return max;
-            return base;
+    // ── 来源①：同伦延续终点（优先级最高，数学保证最强）──
+    if (state && state.homotopySeeds && state.homotopySeeds.length) {
+        for (const seed of state.homotopySeeds) {
+            if (!seed || seed.length !== n) continue;
+            points.push(seed.slice());
         }
-        return base;
     }
 
-    // 原点
-    points.push(varNames.map(v => getStartValue(v, 0)));
-    // 全+1
-    points.push(varNames.map(v => getStartValue(v, 1)));
-    // 全-1
-    points.push(varNames.map(v => getStartValue(v, -1)));
-    // 全+10
-    points.push(varNames.map(v => getStartValue(v, 10)));
-    // 全-10
-    points.push(varNames.map(v => getStartValue(v, -10)));
-
-    // 混合符号点（多变量时覆盖不同象限）
-    if (n >= 2) {
-        points.push(varNames.map((v, i) => getStartValue(v, i % 2 === 0 ? 5 : -5)));
-        points.push(varNames.map((v, i) => getStartValue(v, i % 2 === 0 ? -5 : 5)));
-        points.push(varNames.map((v, i) => getStartValue(v, i % 2 === 0 ? 10 : -10)));
-        points.push(varNames.map((v, i) => getStartValue(v, i % 2 === 0 ? -10 : 10)));
-    }
-
-    // 3个确定性网格点（基于 D0 区间）
-    const gridFractions = [0.25, 0.5, 0.75];
-    for (let r = 0; r < 3; r++) {
-        const pt = [];
-        for (let i = 0; i < n; i++) {
-            const v = varNames[i];
-            if (contractedDomain && contractedDomain[v]) {
-                const b = contractedDomain[v];
-                const min = b.min === -Infinity ? -1000000 : b.min;
-                const max = b.max === Infinity ? 1000000 : b.max;
-                pt.push(min + gridFractions[r] * (max - min));
-            } else {
-                pt.push((r - 1) * 66);
-            }
+    // 域中心（盒的对称点）
+    const center = [], lo = [], hi = [];
+    for (let i = 0; i < n; i++) {
+        const v = varNames[i];
+        const b = contractedDomain && contractedDomain[v];
+        if (b) {
+            const mn = b.min === -Infinity ? -1000000 : b.min;
+            const mx = b.max === Infinity ? 1000000 : b.max;
+            lo.push(mn); hi.push(mx);
+            center.push(0.5 * (mn + mx));
+        } else {
+            lo.push(-1000000); hi.push(1000000); center.push(0);
         }
-        points.push(pt);
+    }
+    points.push(center.slice());
+
+    // ── 来源②：与分支定界共享的规范点集 ──
+    // 分数取 {1/4, 1/2, 3/4}：branch.js 初始二分树的节点与这三点同源
+    // （盒 [a,b] 二分后是 [a,(a+b)/2] 与 [(a+b)/2,b]，中点即 1/2），
+    // 1/4 与 3/4 是下一层的两个中点 ⇒ 与分支定界的几何划分对齐。
+    const fracs = [0.25, 0.5, 0.75];
+    for (let r = 0; r < fracs.length; r++) {
+        points.push(lo.map((mn, i) => mn + fracs[r] * (hi[i] - mn)));
     }
 
-    return points;
+    // 去重（这些点由确定算术生成，重复只可能来自退化域，精确比较即可）
+    const seen = new Set();
+    return points.filter(p => {
+        const key = p.join('|');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 }
 
 

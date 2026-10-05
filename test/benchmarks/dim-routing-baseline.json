@@ -1,0 +1,138 @@
+[
+ {
+  "t": "n0-true",
+  "ms": 14.41,
+  "conclusion": "部分解",
+  "n": 0,
+  "sols": 1,
+  "fired": ""
+ },
+ {
+  "t": "n0-false",
+  "ms": 0.82,
+  "conclusion": "无解",
+  "n": 0,
+  "sols": 0,
+  "fired": ""
+ },
+ {
+  "t": "n1-poly3",
+  "ms": 5.72,
+  "conclusion": "全部解",
+  "n": 1,
+  "sols": 3,
+  "fired": ""
+ },
+ {
+  "t": "n1-trans",
+  "ms": 11.45,
+  "conclusion": "部分解",
+  "n": 1,
+  "sols": 1,
+  "fired": ""
+ },
+ {
+  "t": "n1-trig",
+  "ms": 6.07,
+  "conclusion": "计算资源不足",
+  "n": 0,
+  "sols": 100,
+  "fired": ""
+ },
+ {
+  "t": "n1-rat",
+  "ms": 1.36,
+  "conclusion": "全部解",
+  "n": 0,
+  "sols": 1,
+  "fired": ""
+ },
+ {
+  "t": "n2-lin",
+  "ms": 1.29,
+  "conclusion": "全部解",
+  "n": 2,
+  "sols": 1,
+  "fired": ""
+ },
+ {
+  "t": "n2-poly",
+  "ms": 2.22,
+  "conclusion": "全部解",
+  "n": 2,
+  "sols": 2,
+  "fired": ""
+ },
+ {
+  "t": "n2-sym",
+  "ms": 1.4,
+  "conclusion": "全部解",
+  "n": 2,
+  "sols": 1,
+  "fired": ""
+ },
+ {
+  "t": "n3-lin",
+  "ms": 3.33,
+  "conclusion": "全部解",
+  "n": 3,
+  "sols": 1,
+  "fired": ""
+ },
+ {
+  "t": "n3-poly",
+  "ms": 60.56,
+  "conclusion": "全部解",
+  "n": 3,
+  "sols": 6,
+  "fired": ""
+ },
+ {
+  "t": "n3-under",
+  "ms": 2.65,
+  "conclusion": "部分解",
+  "n": 3,
+  "sols": 1,
+  "fired": ""
+ },
+ {
+  "t": "n4-lin",
+  "ms": 1.52,
+  "conclusion": "全部解",
+  "n": 4,
+  "sols": 1,
+  "fired": ""
+ },
+ {
+  "t": "n4-under",
+  "ms": 0.91,
+  "conclusion": "部分解",
+  "n": 4,
+  "sols": 1,
+  "fired": ""
+ },
+ {
+  "t": "n5-lin",
+  "ms": 1.38,
+  "conclusion": "无解",
+  "n": 5,
+  "sols": 0,
+  "fired": ""
+ },
+ {
+  "t": "n6-lin",
+  "ms": 1.82,
+  "conclusion": "无解",
+  "n": 6,
+  "sols": 0,
+  "fired": ""
+ },
+ {
+  "t": "n6-under",
+  "ms": 0.65,
+  "conclusion": "部分解",
+  "n": 6,
+  "sols": 1,
+  "fired": ""
+ }
+]
