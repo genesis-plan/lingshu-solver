@@ -5,11 +5,11 @@
    "x*y - 6",
    "x + y - 5"
   ],
-  "sympy_solve_ms": 3.556,
+  "sympy_solve_ms": 3.769,
   "sympy_solve_n": 2,
   "sympy_solve_valid": 2,
   "sympy_solve_worst_res": 0.0,
-  "sympy_nroots_ms": 1.872,
+  "sympy_nroots_ms": 1.789,
   "sympy_nroots_n": 2
  },
  {
@@ -18,11 +18,11 @@
    "x**2 + y**2 - 25",
    "x + y - 1"
   ],
-  "sympy_solve_ms": 3.805,
+  "sympy_solve_ms": 3.747,
   "sympy_solve_n": 2,
   "sympy_solve_valid": 2,
   "sympy_solve_worst_res": 0.0,
-  "sympy_nroots_ms": 1.789,
+  "sympy_nroots_ms": 1.737,
   "sympy_nroots_n": 2
  },
  {
@@ -31,11 +31,11 @@
    "x**2 + y**2 - 4",
    "x*y - 1"
   ],
-  "sympy_solve_ms": 30.755,
+  "sympy_solve_ms": 32.723,
   "sympy_solve_n": 4,
   "sympy_solve_valid": 4,
   "sympy_solve_worst_res": 4.440892098500626e-16,
-  "sympy_nroots_ms": 4.635,
+  "sympy_nroots_ms": 4.068,
   "sympy_nroots_n": 4
  },
  {
@@ -44,11 +44,11 @@
    "x**3 - 3*x - y",
    "x**2 + y**2 - 4"
   ],
-  "sympy_solve_ms": 67.518,
+  "sympy_solve_ms": 66.577,
   "sympy_solve_n": 6,
   "sympy_solve_valid": 6,
   "sympy_solve_worst_res": 8.881784197001252e-16,
-  "sympy_nroots_ms": 6.632,
+  "sympy_nroots_ms": 5.835,
   "sympy_nroots_n": 6
  },
  {
@@ -57,11 +57,11 @@
    "x**3 - y",
    "y**3 - x"
   ],
-  "sympy_solve_ms": 42.123,
+  "sympy_solve_ms": 42.238,
   "sympy_solve_n": 3,
   "sympy_solve_valid": 3,
   "sympy_solve_worst_res": 0.0,
-  "sympy_nroots_ms": 10.676,
+  "sympy_nroots_ms": 9.489,
   "sympy_nroots_n": 3
  },
  {
@@ -70,11 +70,11 @@
    "x**2 + y**2 - 1",
    "x**2 - y"
   ],
-  "sympy_solve_ms": 7.073,
+  "sympy_solve_ms": 7.19,
   "sympy_solve_n": 2,
   "sympy_solve_valid": 2,
   "sympy_solve_worst_res": 1.1102230246251565e-16,
-  "sympy_nroots_ms": 3.73,
+  "sympy_nroots_ms": 3.646,
   "sympy_nroots_n": 2
  },
  {
@@ -83,11 +83,11 @@
    "x**4 - 1",
    "x**2 + y**2 - 5"
   ],
-  "sympy_solve_ms": 5.695,
+  "sympy_solve_ms": 5.579,
   "sympy_solve_n": 4,
   "sympy_solve_valid": 4,
   "sympy_solve_worst_res": 0.0,
-  "sympy_nroots_ms": 44.469,
+  "sympy_nroots_ms": 37.455,
   "sympy_nroots_n": 4
  },
  {
@@ -96,11 +96,11 @@
    "x**3 - y**2",
    "x + y - 1"
   ],
-  "sympy_solve_ms": 372.823,
+  "sympy_solve_ms": 365.298,
   "sympy_solve_n": 1,
   "sympy_solve_valid": 1,
   "sympy_solve_worst_res": 5.551115123125783e-17,
-  "sympy_nroots_ms": 2.717,
+  "sympy_nroots_ms": 2.442,
   "sympy_nroots_n": 1
  },
  {
@@ -109,11 +109,11 @@
    "x**2 + y**2 + 1",
    "x - y"
   ],
-  "sympy_solve_ms": 3.07,
+  "sympy_solve_ms": 2.967,
   "sympy_solve_n": 0,
   "sympy_solve_valid": 0,
   "sympy_solve_worst_res": 0.0,
-  "sympy_nroots_ms": 1.755,
+  "sympy_nroots_ms": 1.697,
   "sympy_nroots_n": 0
  },
  {
@@ -122,11 +122,11 @@
    "x**3 - 3*x - y",
    "y**3 - 3*y - x"
   ],
-  "sympy_solve_ms": 39.875,
+  "sympy_solve_ms": 37.638,
   "sympy_solve_n": 9,
   "sympy_solve_valid": 9,
   "sympy_solve_worst_res": 2.220446049250313e-16,
-  "sympy_nroots_ms": 19.318,
+  "sympy_nroots_ms": 16.353,
   "sympy_nroots_n": 9
  }
 ]
