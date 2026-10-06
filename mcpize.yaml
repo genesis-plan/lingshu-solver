@@ -6,10 +6,10 @@
 version: 1
 name: lingshu-solver
 description: |
-  Lingshu Solver — deterministic (non-LLM) MCP tool for systems of real equations. Up to 6 variables and
-  64 equations: interval contraction + affine arithmetic + Krawczyk certification, zero dependencies,
-  offline, no data upload, unproven completeness honestly flagged as truncated. Calls no language model;
-  output is verifiable and reproducible.
+  Lingshu Solver — deterministic (non-LLM) MCP tool for systems of real equations, built for AI agents.
+  Up to 6 variables and 64 equations: interval contraction + affine arithmetic, zero dependencies,
+  offline, no data upload. Every result carries structured decision fields (conclusion + trust.trustLevel +
+  agentAction) so the agent knows exactly what to do next. Calls no language model; output is reproducible.
 
 runtime: typescript
 entry: http-mcp-server.js

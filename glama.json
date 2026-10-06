@@ -1,7 +1,7 @@
 {
   "$schema": "https://glama.ai/mcp/schema/manifest.json",
   "name": "Lingshu Solver",
-  "description": "Lingshu Solver — deterministic (non-LLM) MCP tool for solving systems of real equations, up to 6 variables. Interval arithmetic + affine arithmetic + constructive Krawczyk certification; every reported solution is mathematically faithful, exhaustive search is best-effort and unproven completeness is honestly flagged as truncated. Supports trigonometry, exponentials and logarithms, zero dependencies, offline, no data upload. Local stdio, zero install: npx -y lingshu-solver. Hosted endpoint: https://hongchenlingjing.com/mcp (metered per call, and free via honorPaid — it works without paying).",
+  "description": "Lingshu Solver — deterministic (non-LLM) MCP tool for solving systems of real equations, up to 6 variables. Fast and correct: same input always returns the same answer, no hallucination, no randomness. Every result carries structured decision fields (conclusion + trust.trustLevel + agentAction) so the calling agent knows exactly what to do next — complete, safe, or needs more work. Supports trigonometry, exponentials and logarithms, zero dependencies, offline, no data upload. Local stdio, zero install: npx -y lingshu-solver. Hosted endpoint: https://hongchenlingjing.com/mcp (free via honorPaid — it works without paying).",
   "homepage": "https://genesis-plan.github.io/lingshu-solver/",
   "repository": {
     "type": "git",

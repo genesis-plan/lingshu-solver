@@ -32,7 +32,7 @@
  *   也没说结果可不可信），纯劝告。而下面每一句都有 Agent 可据此行动的事实。
  *   ⇒ 以后再加内容，只能从「不含可判定信息」的那一类里砍，别去砍 tier / 分页 / 完备性。
  */
-const SOLVE_DESC = 'Deterministic (non-LLM) solver for systems of real equations. Same input always returns an identical Krawczyk-certified result. Supports algebraic equations and common transcendentals (sin/cos/tan/log/exp/sqrt/abs), max 6 variables, no initial guess needed. READ THE TIERS: proven = interval-certified and safe to use downstream; candidate = found but NOT certified, verify it before relying on it. Pass domain explicitly for exp/sin or large ranges, else truncated may be true. Not for symbolic derivation, ODEs, or integer constraints. '
+const SOLVE_DESC = 'Deterministic (non-LLM) solver for systems of real equations. Same input always returns the identical result — no hallucination, no randomness. Supports algebraic equations and common transcendentals (sin/cos/tan/log/exp/sqrt/abs), max 6 variables, no initial guess needed. READ THE trust BLOCK: it tells you, per result, whether the value is safe to use directly or must be verified first. Pass domain explicitly for exp/sin or large ranges, else truncated may be true. Not for symbolic derivation, ODEs, or integer constraints. '
   // completeness（2026-10-04）：解数上界来自 Newton 多胞形的混合体积（BKK）/ Bézout。
   // Agent 真正要的是「能不能收工」，不是「有几个数」，所以这条必须写进工具级描述 ——
   // 否则 Agent 不知道返回体里有这个字段，会永远靠猜（猜错就是漏解或空转）。

@@ -9,12 +9,14 @@
 
 > A **deterministic** solver for systems of real equations. The same problem always produces the same
 > answer — no language model, no randomness, no hallucination. Every solution it reports is
-> **Krawczyk-certified** (`certified: true`), reproducible, checkable by substitution, and usable as an
-> audit trail.
+> reproducible and checkable by substitution, and the result carries structured **decision fields** that
+> tell the calling agent exactly what to do next.
 
 **Built for AI agents.** Connect it as an MCP tool and your model stops guessing arithmetic. It is a
-deterministic, non-LLM numerical engine: same input, same answer, every reported solution interval-certified
-and checkable by substitution. Three things matter to a calling agent, and all three are built in:
+deterministic, non-LLM numerical engine: same input, same answer, every reported solution checkable by
+substitution, and — crucially — every result comes with a `trust` block that tells the agent whether the
+answer is complete, safe to use, or needs more work. You branch on those fields; you never re-derive
+completeness yourself. Three things matter to a calling agent, and all three are built in:
 
 | What an agent needs | What this tool does |
 |---|---|

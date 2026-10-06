@@ -72,7 +72,7 @@ ok(/nextOffset/.test(polyDesc),
   'poly_roots 描述含分页指令（它承诺 "All real roots"，不给翻页路径就是无法完成的契约）');
 
 console.log('── 3. 描述里必须有 Agent 决策信息 ──');
-ok(/proven/.test(solveDesc) && /candidate/.test(solveDesc),
+ok(/safe to use directly/.test(solveDesc) && /must be verified first/.test(solveDesc),
   'solve 描述说明 tier 含义（Agent 必须知道哪个能直接用）');
 ok(/trust/i.test(solveDesc) || /tier/i.test(solveDesc), 'solve 描述指向可信度判据');
 ok(/domain/.test(solveDesc), 'solve 描述说明何时必须给 domain');
@@ -195,7 +195,7 @@ ok(liveBadBody && liveBadBody.type === 'unknown_op' && liveBadBody.catalog,
 // HTTP 端：静态校验其数组里的描述与共享层一致（HTTP 端因有 pay 工具不便整体替换，
 // 改造时已逐条同步 description；这里比对字符串内容确保没漂移）
 const httpSrc = require('node:fs').readFileSync(path.join(ROOT, 'http-mcp-server.js'), 'utf8');
-ok(httpSrc.includes('READ THE TIERS BEFORE TRUSTING A RESULT'),
+ok(httpSrc.includes('READ THE trust BLOCK'),
   'HTTP 端 solve 描述已同步 Agent 决策信息');
 ok(httpSrc.includes('verdict=verified means it is a certified real root'),
   'HTTP 端 verify 描述已同步');

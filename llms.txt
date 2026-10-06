@@ -2,12 +2,12 @@
 
 We build three tools around one idea: AI-computed numbers must be checkable, deterministically, before anyone acts on them. No confidence scores, no vibes — three verdicts only: verified, refuted, unverified (honest abstention).
 
-## Lingshu Solver — deterministic equation engine (Krawczyk-certified real roots, ≤6 vars)
+## Lingshu Solver — deterministic equation engine for AI agents (≤6 vars; fast, correct, decision-ready)
 
 - Hosted MCP endpoint: `https://hongchenlingjing.com/mcp` (streamable HTTP)
 - Web app: <https://hongchenlingjing.com/>
-- Free forever via web / `npx lingshu-solver`; the hosted MCP endpoint is free as well, no metering — see [support](https://hongchenlingjing.com/pay/en.html) (corporate account, any amount, nothing to do after paying)
-- **Agent contract:** every `solve` result carries `trust` — read it before anything else. `trust.trustLevel` (7 levels), `trust.safeToUse`, `trust.provenCount` / `candidateCount` (branch on these, do not count solutions yourself), and `trust.meaningOfEmpty` which separates *proven* no-real-solution from *not found within budget* from *input not solvable* — an empty result is never silently "no solution". `verify` returns the certified corrected value plus `correctionMagnitude`, so a wrong number becomes a repair rather than a retry loop.
+- Free: web / `npx lingshu-solver` / hosted endpoint (honorPaid free pass). Commercial use needs written permission from the copyright holder (see LICENSE).
+- **Agent contract:** same input always returns the same answer — no LLM, no randomness, no hallucination. Every `solve` result carries a `trust` block that tells the agent what to do next — read it before anything else. `conclusion` is one of four states (all / partial / none / budget-exhausted); `trust.trustLevel` (8 levels) + `trust.agentAction` is the executable instruction (branch on it, do not count solutions yourself); `trust.meaningOfEmpty` separates *proven* no-real-solution from *not found within budget* from *input not solvable* — an empty result is never silently "no solution". `verify` returns the corrected value plus how far off the original was, so a wrong number becomes a repair rather than a retry loop.
 
 ## Lingjing — personal AI brain / knowledge library (bring your own key)
 
