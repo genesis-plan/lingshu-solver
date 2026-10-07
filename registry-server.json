@@ -3,7 +3,7 @@
   "name": "io.github.genesis-plan/lingshu-solver",
   "title": "灵数求解器 Lingshu Solver",
   "description": "Deterministic equation solver for AI agents: fast, correct, no LLM, offline. Structured decision fields tell the agent what to do with each result.",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "websiteUrl": "https://genesis-plan.github.io/lingshu-solver/",
   "repository": {
     "url": "https://github.com/genesis-plan/lingshu-solver",

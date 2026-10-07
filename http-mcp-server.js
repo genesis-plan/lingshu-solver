@@ -52,7 +52,7 @@ const solverCore = require('./solver-core');
 const { solve } = solverCore;
 
 const SERVER_NAME = 'lingshu-solver';
-const SERVER_VERSION = '1.0.22';
+const SERVER_VERSION = '1.0.23';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
