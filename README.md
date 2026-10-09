@@ -90,6 +90,16 @@ node test/regression.js     # standing regression suite
 
 ---
 
+## Discovery — where agents find Lingshu
+
+- **npm** — `npx -y lingshu-solver` (local stdio, permanently free, offline)
+- **Hosted endpoint** — `https://hongchenlingjing.com/mcp` (MCP Streamable HTTP; always on, no install, no key)
+- **Auto-indexed MCP directories** — [Glama](https://glama.ai/mcp/servers/genesis-plan/lingshu-solver) · [HiMCP](https://himcp.ai/server/lingshu-solver) · [LobeHub](https://lobehub.com/ko/mcp/genesis-plan-lingshu-solver)
+
+To surface it in more clients, point any MCP client at the hosted endpoint above, or submit the
+repo to [Smithery](https://smithery.ai), the [official MCP Registry](https://registry.modelcontextprotocol.io),
+or [mcp.so](https://mcp.so). The hosted endpoint is the canonical discovery URL.
+
 ## Honest boundaries
 
 | Dimension | What it means |
