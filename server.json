@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.genesis-plan/lingshu-solver",
   "title": "Lingshu Solver",
-  "description": "Deterministic MCP solver for real equation systems (<=6 vars), Krawczyk-certified.",
+  "description": "Certified deterministic solver for real equation systems (≤6 vars) and polynomial roots, Krawczyk interval-certified with per-result trust tiers. Non-LLM, no hallucination, fail-closed.",
   "version": "1.0.23",
   "repository": {
     "url": "https://github.com/genesis-plan/lingshu-solver",
