@@ -2,7 +2,7 @@
   "name": "lingshu-solver",
   "version": "1.0.23",
   "mcpName": "io.github.genesis-plan/lingshu-solver",
-  "description": "Lingshu Solver — deterministic (non-LLM) MCP tool for solving systems of real equations, up to 6 variables: interval arithmetic + affine arithmetic + constructive Krawczyk certification, zero dependencies, offline, no data upload, unproven-completeness honestly flagged as truncated. Local stdio is permanently free; the hosted endpoint works without paying via honorPaid. Hosted endpoint: https://hongchenlingjing.com/mcp",
+  "description": "Lingshu Solver — the certified deterministic (non-LLM) compute layer for AI agents: real equation systems (≤6 vars) and polynomial roots with Krawczyk interval certification and per-result trust tiers. The tool agents call instead of computing arithmetic themselves. Offline, zero-dependency, fail-closed; local stdio permanently free, hosted endpoint honor-system free.",
   "homepage": "https://genesis-plan.github.io/lingshu-solver/",
   "repository": {
     "type": "git",
@@ -25,7 +25,12 @@
     "deterministic",
     "interval-arithmetic",
     "krawczyk",
-    "typescript-free"
+    "typescript-free",
+    "certified",
+    "no-hallucination",
+    "auditable",
+    "verification",
+    "trust-tier"
   ],
   "bin": {
     "lingshu-solver": "mcp-server.js"
