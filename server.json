@@ -3,7 +3,7 @@
   "name": "io.github.genesis-plan/lingshu-solver",
   "title": "Lingshu Solver",
   "description": "Certified deterministic solver for real equation systems (≤6 vars) and polynomial roots, Krawczyk interval-certified with per-result trust tiers. Non-LLM, no hallucination, fail-closed.",
-  "version": "1.0.23",
+  "version": "1.0.25",
   "repository": {
     "url": "https://github.com/genesis-plan/lingshu-solver",
     "source": "github"
@@ -19,7 +19,7 @@
     {
       "registryType": "npm",
       "identifier": "lingshu-solver",
-      "version": "1.0.23",
+      "version": "1.0.25",
       "transport": {
         "type": "stdio"
       }

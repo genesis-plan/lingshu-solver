@@ -79,7 +79,7 @@
     "verify": "npm run build && npm run golden && npm run recognize && npm run implicit-mult && npm run suan56 && npm run dim-routing && npm run suan-family && npm run alpha-routing && npm run tan-singleton && npm run test && npm run homotopy && npm run silent-vars && npm run backward-residual && npm run branch-budget && npm run geometry && npm run geometry-theorems && npm run polytope && npm run bounds && npm run tropical && npm run rootbound && npm run rootbound-parity && npm run exclusion && npm run quiz && npm run bridge && npm run audit && npm run parity && npm run tools-parity && npm run fingerprint:check",
     "exclusion": "node test/test-exclusion.mjs",
     "suan56": "node test/test_suan56_projection.mjs",
-    "suan-family": "node test/test_suan57_pruning.mjs && node test/test_suan58_basic_trig.mjs && node test/test_suan59_resultant.mjs && node test/test_suan60_linear.mjs && node test/test_suan59_ternary.mjs",
+    "suan-family": "node test/test-suan57_pruning.mjs && node test/test_suan58_basic_trig.mjs && node test/test_suan59_resultant.mjs && node test/test_suan60_linear.mjs && node test/test_suan59_ternary.mjs",
     "alpha-routing": "node test/test-alpha-theory.mjs && node test/test-operator-routing.mjs",
     "tan-singleton": "node test/test_tan_singleton.mjs",
     "geometry": "node test/test-geometry.js",
