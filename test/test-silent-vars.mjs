@@ -237,10 +237,34 @@ console.log('\n══ 探针7：残差闸门两道防线 ══');
   console.log(`     解=${JSON.stringify(solsC.map(s => s.values))}`);
 }
 
+// ═══ 探针 8（2026-10-14 新增）：变量名留空时自动检测，不得误报空集 ═══
+// 复现用户 bug：点示例（变量名清空）→ 求解；此前空 varNames 直接进门禁报 UNDECLARED_VARIABLE（空集），
+// 与 UI「留空自动检测」承诺矛盾。修复后：空 varNames 自动从方程收集变量并求解；纯常数方程返回 NO_VARIABLE。
+console.log('\n══ 探针8：变量名留空自动检测 ══');
+const ENGINE8 = require('../solver-core.js');
+const cases8 = [
+  { eqs: ['x^2=4'], expect: 2, label: '留空 x^2=4 ⇒ 自动识别 x，2 解' },
+  { eqs: ['x+y=3', 'x-y=1'], expect: 1, label: '留空 x+y=3,x-y=1 ⇒ 自动识别 x,y，1 解' },
+  { eqs: ['exp(x)-e=0'], expect: 1, label: '留空 exp(x)-e=0 ⇒ 自动识别 x，1 解（e=欧拉）' },
+  { eqs: ['1+1=2'], expect: 'novar', label: '纯常数 1+1=2 ⇒ NO_VARIABLE（非误报空集）' },
+];
+let bad8 = 0;
+for (const c of cases8) {
+  const r = ENGINE8.solve(c.eqs, [], 6);
+  const n = (r.solutions || []).length;
+  let ok;
+  if (c.expect === 'novar') ok = r.error === 'NO_VARIABLE';
+  else ok = r.resultType === 2 && n === c.expect;
+  if (!ok) bad8++;
+  console.log(`  ${ok ? '✓' : '✗'} ${c.label}  → resultType=${r.resultType} error=${r.error || '-'} sols=${n}`);
+}
+if (bad8) failures.push('探针8(' + bad8 + '个)');
+
 // ═══ 汇总 ═══
 console.log('\n══ 汇总 ══');
 console.log(`探针1（26 个单字母）失败 ${bad1.length}/26`);
 console.log(`探针2（二元线性）失败 ${bad2.length}/8`);
+console.log(`探针8（留空自动检测）失败 ${bad8}/4`);
 if (bad1.length) failures.push('探针1(' + bad1.length + '个)');
 if (bad2.length) failures.push('探针2(' + bad2.length + '个)');
 console.log(`失败组: ${failures.length ? failures.join(', ') : '无'}`);

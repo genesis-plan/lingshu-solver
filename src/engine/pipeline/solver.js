@@ -77,6 +77,25 @@ function _lsTryWholeIdentifier(equationStrs, varNames, decimals, initialD0, fast
     return _lsRes2;
 }
 
+// 变量自动检测（2026-10-14）：从方程字符串收集变量符号，实现 UI「变量名留空自动检测」承诺。
+// 与解析层同源：先 fuzzyFix 补隐式乘，再 tokenize；tokenize 把函数名归 func、常数 e/pi/π 归 const，
+// 剩下的 var token 即变量符号（双字母变量名如 xy 在未声明时会被隐式乘拆成 x、y，属留空默认歧义，
+// 用户可在变量名框显式声明 xy 来消除；单/多字母数学变量名 theta→θ 等由归一化层后续处理）。
+function _autoDetectVars(equationStrs) {
+    var set = {};
+    if (!equationStrs) return [];
+    for (var _i = 0; _i < equationStrs.length; _i++) {
+        var _eq = equationStrs[_i];
+        if (typeof _eq !== 'string') continue;
+        var _toks;
+        try { _toks = tokenize(fuzzyFix(_eq, null), null); } catch (_e) { continue; }
+        for (var _j = 0; _toks && _j < _toks.length; _j++) {
+            if (_toks[_j].type === 'var') set[_toks[_j].name] = 1;
+        }
+    }
+    return Object.keys(set);
+}
+
 function solve(equationStrs, varNames, decimals, initialD0, fastMode, opts) {
     _solveRecursionCount++;
     // 门禁：非数学文字 / 体量超限，在总入口拒收（网页端 + MCP 端共用；数字串已放行）
@@ -96,6 +115,22 @@ function solve(equationStrs, varNames, decimals, initialD0, fastMode, opts) {
             if (_cls.kind === INPUT_KIND.NEEDS_EQUALS) return _cls.normalized + '=0';
             return eqStr;
         });
+    }
+    // === 变量自动检测（2026-10-14，修复「留空自动检测」bug）===
+    // UI 文案承诺「变量名留空时自动检测方程中的变量符号」。此前 solve() 对空 varNames 直接进门禁报
+    // UNDECLARED_VARIABLE（空集），与承诺矛盾。这里在归一化后、建保护表前补上自动检测：
+    // 空 varNames → 用与解析层同源的 _autoDetectVars 收集变量；若仍 0 个变量（如纯常数方程），
+    // 返回清晰的 NO_VARIABLE 错误（而非误报空集/无解）。本 return 在 try 之外，须手动回收递归计数。
+    if (!varNames || !varNames.length) {
+        varNames = _autoDetectVars(equationStrs);
+        if (!varNames || !varNames.length) {
+            _solveRecursionCount--;
+            return {
+                solutions: [], resultType: 1, error: "NO_VARIABLE",
+                message: "方程中没有检测到任何变量符号（全是常数或常量）。请确认方程含变量，或在「变量名」里显式声明。",
+                executionPath: "变量自动检测（留空模式）", timeMs: 0, varNames: []
+            };
+        }
     }
     // 仅最外层调用初始化根计时与预算池；递归子调用继承，避免看门狗/预算被重置
     var _isRoot = !__LS_SOLVE_ACTIVE;
