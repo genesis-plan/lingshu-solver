@@ -58,7 +58,9 @@ if (bad.length) {
 }
 fs.writeFileSync(".push-tmp/parsed.json", JSON.stringify(out));
 const blobs = out.filter(e => e.type === "blob");
-fs.writeFileSync(".push-tmp/shas.txt", blobs.map(b => b.sha).join("\n") + "\n");
+fs.writeFileSync(".push-tmp/shas.txt", [...new Set(blobs.map(b => b.sha))].join("\n") + "\n");
+// ⚠ 2026-10-06 lingnao 实测：同一 blob 可被多个路径引用（如 *.bak 复制内容），
+//   不去重会让 cat-file 输出条数 ≠ 唯一 sha 数，api-push.mjs 的硬校验直接中止。
 console.log("条目 " + out.length + "，blob " + blobs.length);
 '
 

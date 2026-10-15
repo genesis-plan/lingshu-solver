@@ -107,3 +107,6 @@ test/golden/_chunks.json
 test/_rb-cases.json
 test/_rb-A.json
 test/_rb-B.json
+
+# API 推送临时目录（含临时 token，绝不入库）
+.push-tmp/
