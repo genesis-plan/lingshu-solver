@@ -19125,6 +19125,26 @@ function _finish(state) {
     // resultTypeName 从 20+ 种自由文本**收敛**为 4 态（决策语义，不是措辞）。
     // 细分信息全部下沉到 resultTypeDesc / message / resultTypeNameLegacy。
     state.result.resultTypeName = _c4.conclusion;
+
+    // ── 输出契约归一化：varNames 必须在**每条**返回路径上都存在 ──
+    // 2026-10-15 实测缺陷（网页「标题4」圆×双曲线 x*x+y*y-4=0 & x*y-1=0 报"没给解"）：
+    //   二元 Sylvester 结式消元闭式路径（operators/algebra.js:1673、resultant.js:305 等 7 处
+    //   state.result 组装）漏写 varNames ⇒ result.varNames 为 undefined。
+    //   后果是**双重**可见故障：
+    //     ① 页面 `var outVars = result.varNames || []` 得空数组 ⇒ 渲染解值的循环
+    //        `for (vi < outVars.length)` 一次都不跑 ⇒ 只显示"解1/解2…"标签而**没有数值**
+    //        （用户读作"没给解"）；
+    //     ② 页面残差复算 `_residualAtDisplayed(values, eqLines, outVars)` 因 varNames 为空
+    //        回代出 NaN ⇒ 返回 null ⇒ 页面误报"无法独立复算残差 / 不是严格根"的**假警报**，
+    //        而这些解的 backwardError 实为 2e-16（引擎自己已认证 proven）。
+    // 为什么在这里补而不逐处补：漏写字段的路径有 7 处且会新增，逐处补必然再退化；
+    //   _finish 是所有路径（含超时兜底、投影抢救）的**唯一收口点**，在此归一化一次即免疫。
+    // 不覆盖已有值：部分路径自带 varNames（可能经过缩减坐标还原），以它们为准。
+    if (state.result && !state.result.varNames) {
+        var _vnOut = (state.varNames && state.varNames.length) ? state.varNames : (state.originalVarNames || []);
+        state.result.varNames = _vnOut.slice ? _vnOut.slice() : _vnOut;
+    }
+
     return state.result;
 }
 
@@ -19594,7 +19614,7 @@ function fallbackCopy(txt, btn) {
 }
 // 点击遮罩空白处关闭（两个弹窗）
 
-var SOLVER_VERSION = "lingshu-solver/1.0.25";
+var SOLVER_VERSION = "lingshu-solver/1.0.26";
 
 // —— 确定性可复现契约（Certified Real-Root Computation 六属性之「确定性可复现」）——
 // 纯 JS 同步 SHA-256（零依赖，浏览器/Node 通用，免 Web Crypto 异步）。

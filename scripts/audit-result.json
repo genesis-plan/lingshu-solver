@@ -2,9 +2,9 @@
  "fileStats": [
   {
    "mod": "pipeline/solver",
-   "行": 2432,
-   "函数": 29,
-   "注释行": 916,
+   "行": 2487,
+   "函数": 30,
+   "注释行": 939,
    "注释率": "38%"
   },
   {
@@ -292,6 +292,6 @@
   "text",
   "summaryColor"
  ],
- "totalLines": 21028,
- "totalFns": 405
+ "totalLines": 21083,
+ "totalFns": 406
 }

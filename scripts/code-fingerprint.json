@@ -140,15 +140,15 @@
     "lines": 235
   },
   "src/engine/pipeline/solver.js": {
-    "hash": "d4a7af232d8d3825",
-    "lines": 1413
+    "hash": "fc359e12a2f4b88b",
+    "lines": 1442
   },
   "src/engine/rootbound-poly.js": {
     "hash": "9caea2be0c923dc5",
     "lines": 145
   },
   "src/engine/ui.js": {
-    "hash": "459526b67dc0766c",
+    "hash": "ea165b519aac9db0",
     "lines": 411
   },
   "services/bounds.js": {
@@ -204,7 +204,7 @@
     "lines": 456
   },
   "services/tool-metadata.js": {
-    "hash": "1f665f91c12a66ef",
+    "hash": "5372b746a1c9077d",
     "lines": 111
   },
   "services/tropical.js": {
@@ -212,11 +212,11 @@
     "lines": 525
   },
   "mcp-server.js": {
-    "hash": "766c7e7a892b4d11",
+    "hash": "9b17ca964ef7091d",
     "lines": 106
   },
   "http-mcp-server.js": {
-    "hash": "1084336cc24abef2",
+    "hash": "4ff1ab558aded348",
     "lines": 1354
   },
   "solver-core.js": {

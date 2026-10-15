@@ -25,7 +25,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 42.046,
+    "ms": 46.659,
     "bytes": 1231
   },
   {
@@ -52,7 +52,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 52.317,
+    "ms": 56.235,
     "bytes": 1300
   },
   {
@@ -77,7 +77,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 3.119,
+    "ms": 4.619,
     "bytes": 1095
   },
   {
@@ -102,8 +102,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 4.4,
-    "bytes": 1066
+    "ms": 5.229,
+    "bytes": 1064
   },
   {
     "id": "A5",
@@ -133,8 +133,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 8.059,
-    "bytes": 1435
+    "ms": 8.367,
+    "bytes": 1429
   },
   {
     "id": "B1",
@@ -158,8 +158,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 4.036,
-    "bytes": 1012
+    "ms": 5.713,
+    "bytes": 1010
   },
   {
     "id": "B2",
@@ -187,7 +187,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 46.384,
+    "ms": 49.052,
     "bytes": 1342
   },
   {
@@ -216,7 +216,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1501.721,
+    "ms": 1501.758,
     "bytes": 1280
   },
   {
@@ -241,7 +241,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 5.33,
+    "ms": 5.65,
     "bytes": 1044
   },
   {
@@ -260,7 +260,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 5.347,
+    "ms": 5.975,
     "bytes": 923
   },
   {
@@ -279,7 +279,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.016,
+    "ms": 0.886,
     "bytes": 923
   },
   {
@@ -298,7 +298,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 3.853,
+    "ms": 5.431,
     "bytes": 925
   },
   {
@@ -324,7 +324,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.896,
+    "ms": 2.157,
     "bytes": 1170
   },
   {
@@ -350,7 +350,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 2.18,
+    "ms": 2.331,
     "bytes": 1170
   },
   {
@@ -375,7 +375,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.027,
+    "ms": 1.098,
     "bytes": 1100
   },
   {
@@ -394,7 +394,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 7971.739,
+    "ms": 7970.165,
     "bytes": 962
   },
   {
@@ -433,7 +433,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 2378.89,
+    "ms": 2532.991,
     "bytes": 1755
   },
   {
@@ -452,7 +452,7 @@
     "du": null,
     "verdict": null,
     "corrected": null,
-    "ms": 0.143,
+    "ms": 0.08,
     "bytes": null
   },
   {
@@ -477,7 +477,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 2.006,
+    "ms": 1.764,
     "bytes": 1105
   },
   {
@@ -506,8 +506,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 93.772,
-    "bytes": 1252
+    "ms": 96.11,
+    "bytes": 1249
   },
   {
     "id": "F3",
@@ -531,7 +531,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.745,
+    "ms": 1.192,
     "bytes": 1073
   },
   {
@@ -556,8 +556,8 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 3081.324,
-    "bytes": 1100
+    "ms": 2982.172,
+    "bytes": 1098
   },
   {
     "id": "G1",
@@ -581,7 +581,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.978,
+    "ms": 1.656,
     "bytes": 1093
   },
   {
@@ -610,7 +610,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.741,
+    "ms": 1.729,
     "bytes": 1176
   },
   {
@@ -629,7 +629,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.71,
+    "ms": 0.952,
     "bytes": 904
   },
   {
@@ -654,7 +654,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.672,
+    "ms": 0.6,
     "bytes": 1059
   },
   {
@@ -683,7 +683,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.732,
+    "ms": 0.774,
     "bytes": 1231
   },
   {
@@ -712,7 +712,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.566,
+    "ms": 0.661,
     "bytes": 1178
   },
   {
@@ -737,7 +737,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.561,
+    "ms": 0.576,
     "bytes": 1059
   },
   {
@@ -766,7 +766,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 1.06,
+    "ms": 1.118,
     "bytes": 1391
   },
   {
@@ -795,7 +795,7 @@
     "du": false,
     "verdict": null,
     "corrected": null,
-    "ms": 0.488,
+    "ms": 0.532,
     "bytes": 1176
   },
   {
@@ -813,7 +813,7 @@
     "du": null,
     "verdict": "verified",
     "corrected": null,
-    "ms": 0.733,
+    "ms": 0.867,
     "bytes": 554
   },
   {
@@ -831,7 +831,7 @@
     "du": null,
     "verdict": "refuted_or_unverified",
     "corrected": null,
-    "ms": 0.72,
+    "ms": 0.732,
     "bytes": 683
   },
   {
@@ -849,7 +849,7 @@
     "du": null,
     "verdict": "verified",
     "corrected": null,
-    "ms": 0.47,
+    "ms": 0.44,
     "bytes": 499
   },
   {
@@ -867,7 +867,7 @@
     "du": null,
     "verdict": "refuted_or_unverified",
     "corrected": null,
-    "ms": 1.064,
+    "ms": 0.549,
     "bytes": 613
   }
 ]
