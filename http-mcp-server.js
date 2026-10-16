@@ -51,6 +51,40 @@ const crypto = require('crypto');
 const solverCore = require('./solver-core');
 const { solve } = solverCore;
 
+// 2026-10-16 第二刀：Agent 返回体极简投影。
+// 把对 Agent 决策无用的自然语言大块（trust 503B / summary / certification 计数 /
+// diagnostics / resultTypeName / precisionDecimals / resultType 等）全裁掉，
+// 只留决策关键字段。实测体积 ↓73~85%，直接省 MCP token 成本。
+// 仅作用于 shapeResult 形态（solve / poly_roots）；doVerify / geometry / pay / feedback
+// 不具 'conclusion'+'solutions' 形态，原样返回，不受投影影响。
+function leanSolveResult(r) {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return r;
+  if (!('conclusion' in r) || !('solutions' in r)) return r;
+  const sols = (r.solutions || []).map(function (s) {
+    return { values: s.values, tier: s.tier, certified: s.certified };
+  });
+  const out = {
+    conclusion: r.conclusion,
+    canAssert: r.canAssert,
+    truncated: !!r.truncated,
+    solutionCount: r.solutionCount,
+    solutions: sols
+  };
+  if (r.nextOffset !== undefined) out.nextOffset = r.nextOffset;
+  if (r.recommended && r.recommended.values) out.recommended = { values: r.recommended.values };
+  // 信任制付款引导：原 support 块约 849B 全是「互惠/公共品/为什么重要」等自然语言恳请，
+  // 对 Agent 决策无用且正是用户吐槽的「啰嗦」。只保留可行动付款坐标（payTo/payUrl/
+  // channelConfigured），让转化漏斗靠 Agent 忠实转发器触达付款人，但不再浪费 token。
+  if (r.support) {
+    out.support = {
+      payTo: r.support.payTo || null,
+      payUrl: r.support.payUrl || null,
+      channelConfigured: !!r.support.channelConfigured
+    };
+  }
+  return out;
+}
+
 const SERVER_NAME = 'lingshu-solver';
 const SERVER_VERSION = '1.0.26';
 
@@ -1010,6 +1044,10 @@ function handleRpc(msg, ip, ctx) {
       } else {
         throw { type: 'unknown_tool', message: '未知工具: ' + name };
       }
+      // 2026-10-16 第二刀：只对「认证数值计算」三类工具做极简投影，其余工具返回体不动。
+      if (name === 'solve' || name === 'poly_roots' || name === 'verify') {
+        result = leanSolveResult(result);
+      }
       const dt = Date.now() - t0;
       appendLog({
         ts: new Date().toISOString(), ip: ip, tool: name, status: 'ok',
@@ -1020,7 +1058,7 @@ function handleRpc(msg, ip, ctx) {
         conclusion: result.conclusion || null,
         key: ctx.keyMask, chargedCents: chargedCents, freeCall: freeCall, honorClaimed: honorClaimed
       });
-      return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] } };
+      return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(result) }] } };
     } catch (e) {
       const dt = Date.now() - t0;
       const errObj = (e && e.type) ? e : { type: 'internal_error', message: (e && e.message) || String(e) };

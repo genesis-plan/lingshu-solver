@@ -737,7 +737,7 @@
                     </div>
                     <div class="info-item">
                         <span class="item-label">4. 结果类型</span>
-                        <span class="item-desc">无解 / 唯一解 / 有限个离散解 / 无限多个连续解（参数化）/ 部分收敛（资源限制下找到部分解+未收敛区间）。状态见结果区的执行路径与耗时。</span>
+                        <span class="item-desc">无解 / 唯一解 / 有限个离散解 / 无限多个连续解（代表解）/ 部分收敛（资源限制下找到部分解+未收敛区间）。结果区用大白话给出结论与耗时，截断/近似时会显式告警，绝不静默掩盖。</span>
                     </div>
                     <div class="info-item">
                         <span class="item-label">5. 诚实的局限</span>
@@ -784,7 +784,7 @@
                     </div>
                     <div class="info-item">
                         <span class="item-label">自动分类结果</span>
-                        <span class="item-desc">无解（经 sound 算子严格证明）、有限个已验证解、无限多个连续解（输出距原点最近推荐解），帮你分清楚；预算未穷尽时显式标记</span>
+                        <span class="item-desc">无解（经 sound 算子严格证明）、有限个已验证解、无限多个连续解（只输出 1 个经认证的代表解，非全部），帮你分清楚；预算未穷尽时显式标记</span>
                     </div>
                     <div class="info-item">
                         <span class="item-label">输出验证过的解</span>
@@ -795,8 +795,8 @@
                         <span class="item-desc">输出集中每个解都经 Krawczyk 不动点认证（误差≤半径），数学保真、可直接采用。工具通过全局区间分支定界尽力穷尽多解；但对极端病态（雅可比高度奇异、解簇极度贴近）系统，预算内可能遗漏个别解，此时显式标记 truncated/残余告警，绝不静默返回错误结论，也绝不谎称已穷尽</span>
                     </div>
                     <div class="info-item">
-                        <span class="item-label">自动推荐最好解</span>
-                        <span class="item-desc">先选零最多的解（变量为零更简单），零一样就选最接近原点的</span>
+                        <span class="item-label">解已逐一验证</span>
+                        <span class="item-desc">每个输出点都回代原方程校验，残差达标才标为可信；含未达标近似解时显式告警，不静默掩盖</span>
                     </div>
                     <div class="info-item">
                         <span class="item-label">两种使用方式</span>
@@ -831,8 +831,8 @@
                 <div class="info-section-title warn">有什么局限（缺点）</div>
                 <div class="info-grid">
                     <div class="info-item">
-                        <span class="item-label">欠定系统只给推荐解</span>
-                        <span class="item-desc">方程比未知数少（欠定）时，系统有无穷多解，本系统只输出距原点最近的推荐解（已验证），不输出包围盒；要全部解请增加方程</span>
+                        <span class="item-label">欠定系统只给代表解</span>
+                        <span class="item-desc">方程比未知数少（欠定）时，系统有无穷多解，本系统只输出 1 个经 RREF（自由变量取 0）的精确特解作为代表（已验证确为真解，但非全部解），不输出包围盒；要完整解集请增加方程约束</span>
                     </div>
                     <div class="info-item">
                         <span class="item-label">复杂题算得慢</span>
@@ -844,7 +844,7 @@
                     </div>
                     <div class="info-item">
                         <span class="item-label">不输出包围盒</span>
-                        <span class="item-desc">本系统结果只有三种：空集无解 / 有限个解 / 无限解集（推荐解），不再用包围盒外包围，避免用过度放大的近似歪曲真实解集</span>
+                        <span class="item-desc">本系统结果只有三种：空集无解 / 有限个解 / 无限解集（代表解），不再用包围盒外包围，避免用过度放大的近似歪曲真实解集</span>
                     </div>
                 </div>
             </div>
@@ -861,12 +861,12 @@
                         <span class="item-desc">下方"解列表"里的每个点都试过、满足全部方程（残差 &lt;1e-6），可以直接用；每个点都显示误差。</span>
                     </div>
                     <div class="info-item">
-                        <span class="item-label">类型3 · 无限解集（推荐解）</span>
-                        <span class="item-desc">方程数少于变量数（欠定），真实解有无穷多个。本系统只输出<strong>距原点最近的推荐解</strong>（已验证确为真解点），<strong>不输出包围盒</strong>。该点是真解但非唯一，要更多解请增加方程约束。</span>
+                        <span class="item-label">类型3 · 无限解集（代表解）</span>
+                        <span class="item-desc">方程数少于变量数（欠定），真实解有无穷多个。本系统只输出 1 个<strong>经 RREF（自由变量取 0）的精确特解</strong>（已验证确为真解点，但并非距原点最近、也非全部解），<strong>不输出包围盒</strong>。要更多解/完整解请增加方程约束。</span>
                     </div>
                 </div>
                 <div class="danger-box">
-                    <strong>⚠ 一句话记住：</strong> 只有"解列表"里的点是验证过的真解。无限解集只给一个距原点最近的推荐解，要完整解集就加方程。
+                    <strong>⚠ 一句话记住：</strong> 只有"解列表"里的点是验证过的真解。无限解集只给一个经 RREF 的精确特解作为代表（是真解但非全部），要完整解集就加方程。
                 </div>
             </div>
         </div>
@@ -879,7 +879,7 @@
             <button class="example-btn" onclick="loadExample(3)" title="x + y = 3 与 x + y = 5（平行矛盾，空集无解）">标题3 · 空集无解</button>
             <button class="example-btn" onclick="loadExample(4)" title="x^2+y^2=4 与 x*y=1（圆×双曲线，4个解全部找到）">标题4 · 有限解·全部（4解）</button>
             <button class="example-btn" onclick="loadExample(5)" title="sin(20x)=0.5, sin(20*y)=0.5，域[-30,30]（高频多解，预算内未完全穷尽→截断标记）">标题5 · 有限解·部分（截断）</button>
-            <button class="example-btn" onclick="loadExample(6)" title="x + y = 3（欠定，无限解集，输出距原点最近的推荐解 (1.5,1.5)）">标题6 · 无限解（推荐1解）</button>
+            <button class="example-btn" onclick="loadExample(6)" title="x + y = 3（欠定，无限解集，输出 1 个经 RREF 的精确特解 (3,0) 作为代表）">标题6 · 无限解（代表1解）</button>
             </div>
 
         <div id="exampleHint" class="example-hint">
@@ -893,26 +893,11 @@
             <textarea id="equations" placeholder="x + y = 5&#10;2*x - y = 1&#10;&#10;微积分示例:&#10;diff(x^3, x) = 6*x&#10;int(t^2, t, 0, x) = 9"></textarea>
         </div>
 
-        <div class="row">
-            <div class="input-group">
-                <label class="label">变量名（逗号分隔，留空自动检测）</label>
-                <input type="text" id="variables" placeholder="x, y, z" oninput="_varsTouched = true">
-            </div>
-            <div class="input-group">
-                <label class="label">显示精度</label>
-                <div class="fixed-precision-note">输出全精度 double（去网格化，2026-10-05 起废除「6位小数有限网格」）；数值展示仍按 4 位有效数字易读，取精确值请读 solutions[].values。</div>
-            </div>
-        </div>
-
         <button class="solve-btn" onclick="runSolver()">求 解</button>
     </div>
 
     <div class="card result-section" id="resultSection">
         <div class="result-meta">
-            <div class="meta-item">
-                <span class="meta-label">执行路径:</span>
-                <span class="meta-value" id="execPath">-</span>
-            </div>
             <div class="meta-item">
                 <span class="meta-label">耗时:</span>
                 <span class="meta-value" id="timeMs">-</span>
@@ -18430,8 +18415,7 @@ function _rescueUnderdeterminedByProjection(state) {
                 truncated: true,          // 只证存在性，未证穷尽（正维解集）
                 unconverged: false,
                 warnings: [
-                    '⚠️ 欠定线性系统：存在无限多个解，已输出 1 个特解。',
-                    '该特解由行最简形自由变量取 0 唯一确定（线性代数的规范约定，不含距离偏好）。',
+                    '⚠️ 欠定线性系统：存在无限多个解，已输出 1 个特解（行最简形自由变量取 0，精确有理数运算）。',
                     '如需更多代表点，请增加方程约束。'
                 ]
             };
@@ -19658,7 +19642,7 @@ var EXAMPLE_DESCS = [
     "→ 预期：<strong>无解</strong>。x + y 同时等于 3 与 5，两条平行直线无交点；由 sound 算子严格证明定义域内不存在实数解（provenEmpty），绝不静默返回空。",
     "→ 预期：<strong>4个解，全部找到</strong>。圆 x²+y²=4 与双曲线 xy=1 相交 4 点，均经 Krawczyk 不动点认证（残差~1e-9），无遗漏、无伪解。",
     "→ 预期：<strong>找到大量解，但显式标记可能未穷尽（truncated）</strong>。sin(20x)=0.5 与 sin(20y)=0.5 在 [-30,30]² 内有极多交点；全局区间分支定界在预算(50万盒)内未能完全判定残余盒，结果带 truncated 横幅与告警——正是\"已尽力穷尽、极端情况可能漏但不假证\"的诚实体现。要拿到全部解请缩小域。",
-    "→ 预期：<strong>无限解集（推荐解）</strong>。方程数(1)少于变量数(2)，系统欠定，真实解构成一条直线（无限多个）。本工具不输出包围盒，只输出距原点最近的推荐解 (1.5,1.5)（残差验证通过）。该点是真解但非唯一，要全部解请增加方程约束。"
+    "→ 预期：<strong>无限解集（代表解）</strong>。方程数(1)少于变量数(2)，系统欠定，真实解构成一条直线（无限多个）。本工具不输出包围盒，只输出经 RREF（自由变量取 0）的精确特解 (3,0) 作为代表（残差≈0、确为真解，但并非距原点最近、也非全部解）。要更多解/完整解请增加方程约束。"
 ];
 
 // 示例补充说明（与示例一一对应，无说明则为空字符串）
@@ -19685,7 +19669,6 @@ function loadExample(n) {
         var idx = n - 1;
         if (idx < 0 || idx >= EXAMPLES.length) return;
         document.getElementById("equations").value = EXAMPLES[idx].join("\n");
-        document.getElementById("variables").value = "";
 
         // 显示示例说明
         var hint = document.getElementById("exampleHint");
@@ -19745,10 +19728,6 @@ function cleanInput(text) {
 
 
 function runSolver() {
-    // 变量名框"自动识别回显"开关：用户从未手动编辑过该框（_varsTouched=false）时，
-    // 计算后把求解器实际识别到的变量名回填显示，让用户确认识别结果；
-    // 用户一旦手动输入过（如补充 e 作为变量），oninput 置 true，此后不再覆盖。
-    if (typeof _varsTouched === 'undefined') { _varsTouched = false; }
     var eqText = document.getElementById("equations").value.trim();
     if (!eqText) {
         showError("请输入方程");
@@ -19756,7 +19735,6 @@ function runSolver() {
     }
     // 自动检测并清理 LaTeX 格式输入（如 \begin{cases}...\\...\end{cases}）
     eqText = cleanInput(eqText);
-    var varText = document.getElementById("variables").value.trim();
 
     // 按行拆分方程；但兼容"豆包式打竖粘贴"：若整段只含一个 '=' 却跨多行，
     // 说明是单条方程被换行拆散，合并换行成一条方程（否则每字符会被当成假方程）。
@@ -19768,7 +19746,8 @@ function runSolver() {
         return;
     }
 
-    var varList = varText ? varText.split(",").map(function(v) { return v.trim(); }).filter(function(v) { return v.length > 0; }) : [];
+    // 不再要求手动填变量名：求解器自动从方程中识别变量（_autoDetectVars）。
+    var varList = [];
 
     // 显示计算中状态
     var btn = document.querySelector(".solve-btn");
@@ -19783,27 +19762,7 @@ function runSolver() {
             var _dom = pendingExampleDomain || undefined;
             pendingExampleDomain = null;
             var result = solve(eqLines, varList, 6, _dom);
-            // 变量名自动识别回显（用户未手动编辑过变量名框时）：
-            // 把求解器实际识别到的变量名回填到框里，让用户一眼确认"识别对了没"。
-            // e / pi / π 等保留常数符号不会被识别为变量，清单里缺了它们即知歧义。
-            if (!_varsTouched && result.varNames && result.varNames.length) {
-                document.getElementById("variables").value = result.varNames.join(", ");
-            }
-            // 保留常数歧义提示：方程中出现 e / pi / π 且未被识别为变量 → 显式说明，
-            // 避免用户以为"e 是变量却没解出来"。
-            if (!varText) {
-                var _rv = result.varNames || [];
-                var _hints = [];
-                if (/(^|[^A-Za-z0-9_])e($|[^A-Za-z0-9_])/.test(eqText) && _rv.indexOf('e') < 0) {
-                    _hints.push("提示：方程中的 e 被识别为欧拉常数 e≈2.718281828…（非变量）。若需将 e 用作变量，请在\"变量名\"框中手动填入 e。");
-                }
-                if (/\b(pi|π)\b/.test(eqText) && _rv.indexOf('pi') < 0 && _rv.indexOf('π') < 0) {
-                    _hints.push("提示：方程中的 pi/π 被识别为圆周率常数 π≈3.14159265…（非变量）。");
-                }
-                if (_hints.length) {
-                    result.warnings = (result.warnings || []).concat(_hints);
-                }
-            }
+            // 变量名由求解器自动识别（_autoDetectVars），不再回填/不再提示手动变量框。
             displayResult(result, eqLines);
         } catch(e) {
             if (e && e.type === 'invalid_input') {
@@ -19895,46 +19854,40 @@ function displayResult(result, eqLines) {
     errorSection.classList.remove("show");
 
     // 总是显示结果分类（无解也需要明确告知用户，避免误以为故障）
-    document.getElementById("execPath").textContent = result.executionPath || "-";
+    var _execEl = document.getElementById("execPath");
+    if (_execEl) _execEl.textContent = result.executionPath || "-";
     document.getElementById("timeMs").textContent = result.timeMs ? (Math.round(result.timeMs) + "ms") : "-";
 
     var html = "";
     // 资源截断显著提示（合规要求：结果可能不完整必须让用户直接看到，而非仅 JSON 暴露）
     var _trunc = (result.meta && result.meta.truncated) || result.truncated;
-    if (_trunc) {
+    // 无限解集（rt=3）的 truncated 语义是「正维解集结构上不可能穷尽」，并非「资源截断/未收敛」；
+    // 此时出「未能完全收敛」横幅会误导（实际已正确识别无限集并给出代表解），故抑制。
+    if (_trunc && result.resultType !== 3) {
         html += '<div class="trunc-banner"><strong>⚠ 结果可能不完整（资源截断 / truncated）</strong>：本次计算在计算预算内未能完全收敛，部分真解可能未被找到或仅以未收敛区间表示。请勿据此做出关键决策；建议缩小变量范围、减少变量数或调大计算资源后重试。</div>';
     }
-    var outVars = result.varNames || [];
+    // 变量名：优先用结果自带；自动识别场景下 result.varNames 可能为空，
+    // 此时从方程自动识别（引擎自动检测变量，且 _autoDetectVars 顺序与 sol.values 顺序一致，已验证）。
+    var outVars = (result.varNames && result.varNames.length) ? result.varNames.slice() : (_autoDetectVars ? _autoDetectVars(eqLines) : []);
 
-    // 结果类型分类标签（3种形态：1 空集无解 / 2 有限个解 / 3 无限解集（推荐解））
-    var typeLabels = { 1: "空集无解", 2: "有限个解", 3: "无限解集（推荐解）" };
+    // 结果类型分类标签（3种形态：1 空集无解 / 2 有限个解 / 3 无限解集（代表解））
+    // 注：彩色「类型N」徽章已移除（见上方 summaryText）；此映射仅作语义参考，不再直接渲染。
+    var typeLabels = { 1: "空集无解", 2: "有限个解", 3: "无限解集（代表解）" };
     var typeColors = { 1: "#dc3545", 2: "#28a745", 3: "#17a2b8" };
     var rt = result.resultType || 2;
     html += '<div style="margin-bottom:10px">';
-    html += '<span style="background:' + (typeColors[rt] || '#28a745') + ';color:#fff;padding:3px 12px;border-radius:12px;font-size:13px;font-weight:bold;display:inline-block">类型' + rt + ': ' + (typeLabels[rt] || '未知') + '</span>';
-    if (result.resultTypeDesc) {
-        html += '<div style="font-size:13px;color:#666;margin-top:6px;line-height:1.5;padding:8px 12px;background:#f8f9fa;border-radius:6px">' + _escHtml(result.resultTypeDesc) + '</div>';
-    }
-    // 人话总结：无解 / 唯一解 / 有限个解 / 无限个解
+    // 人话总结（精简）：无解 / 唯一解 / 有限个解 / 无限个解
+    // 注：原「类型N: xxx」彩色徽章已移除——结论已由下方 summaryText 用大白话给出，徽章属重复信息。
     var summaryText = "", summaryColor = "";
     var solCount = (result.solutions || []).length;
     if (rt === 1) {
-        summaryText = "该方程组无解（空集）— 在变量定义域内，不存在任何一组实数能同时满足全部方程。这本身是确定的数学结论，并非计算失败。";
+        summaryText = "无解（空集）：定义域内无任何实数能同时满足全部方程。这是确定的数学结论，非计算失败。";
         summaryColor = "#dc3545";
     } else if (rt === 2) {
-        if (solCount === 1) {
-            summaryText = "唯一解 — 有且仅有一组实数解满足所有方程";
-            summaryColor = "#28a745";
-        } else {
-            summaryText = "有限个解 — 共有 " + solCount + " 组孤立实数解";
-            summaryColor = "#28a745";
-        }
+        summaryText = (solCount === 1) ? "唯一解" : ("共 " + solCount + " 组解");
+        summaryColor = "#28a745";
     } else if (rt === 3) {
-        if (solCount > 0) {
-            summaryText = "无限个解（欠定系统）— 方程数少于变量数，解集构成参数化集合，存在无限多个解；已输出距原点最近的推荐解。增加方程约束可确定唯一解";
-        } else {
-            summaryText = "无限个解（欠定系统）— 方程数少于变量数，解集构成参数化集合，存在无限多个解，但未能生成有效推荐解";
-        }
+        summaryText = "无限解集（欠定）：方程数少于变量数，已给代表解（经认证的真解，但非全部解）。";
         summaryColor = "#17a2b8";
     }
     if (summaryText) {
@@ -19948,11 +19901,6 @@ function displayResult(result, eqLines) {
         var _diagBg = result.error ? "#f8d7da" : "#d1ecf1";
         html += '<div style="font-size:13px;color:' + _diagColor + ';margin-top:6px;padding:8px 12px;background:' + _diagBg + ';border-radius:6px;border:1px solid ' + _diagColor + '44;line-height:1.6">';
         html += '<b>诊断信息</b>：' + _escHtml(_diag);
-        html += '</div>';
-    }
-    if (rt === 1) {
-        html += '<div style="font-size:12px;color:#856404;margin-top:6px;padding:8px 12px;background:#fff8e1;border-radius:6px;border:1px solid #ffe69c;line-height:1.6">';
-        html += '<b>怎么看这条结果</b>：① 无解是合法的数学结论，不代表工具出错；② 常见原因——方程相互矛盾（如同一关系被赋予不同的值）、或约束过紧无交集；③ 请核对方程是否抄写正确，或调整 / 放宽约束后重试。';
         html += '</div>';
     }
     if (result.unconverged) {
@@ -19969,6 +19917,8 @@ function displayResult(result, eqLines) {
         // 修复（2026-10-02，诚实优先）：旧文案对所有含解结果【无条件】宣称"每个点都经残差验证（<1e-6），可直接使用"。
         // 实测 5307.27=1000000*i/(1-(1+i)^-360)：展示值 i=0.004083 的代入残差为 2.46e-1（> 1e-6），
         // 页面却仍写"<1e-6、可直接使用" ⇒ 用户拿这个月利率去算，月供对不上账。文案必须按真实残差说话。
+        // 仅当「确有解未达残差容差」时才出诚实告警（琥珀色）；
+        // 已验证的解不再写「残差<1e-6 可直接使用」——那是恒真陈述，对看懂答案无帮助，纯占版面（用户明确嫌啰嗦）。
         if (rt === 2 || rt === 3) {
             var _tolD = Math.pow(10, -COMPUTE_DECIMALS); // 残差达标判据（绝对保底），与显示位数无关
             var _resAll = 0, _resAllUnknown = false;
@@ -19983,54 +19933,21 @@ function displayResult(result, eqLines) {
                 if (_rr === null) { _resAllUnknown = true; } else { _resAll = Math.max(_resAll, _rr); }
             }
             var _allOk = !_resAllUnknown && _resAll < _tolD;
-            html += '<div style="font-size:12px;margin-bottom:8px;padding:8px 12px;border-radius:6px;line-height:1.5;'
-                  + (_allOk ? 'color:#155724;background:#f0fff0;border:1px solid #c3e6cb;' : 'color:#856404;background:#fff8e1;border:1px solid #ffe69c;') + '">';
-            if (_allOk) {
-                html += '<b>✓ 可信说明</b>：下方"解列表"中的每个点都以**全精度值**代入原方程验证过（残差 &lt;1e-6），满足全部方程，可直接使用。';
-            } else {
-                html += '<b>⚠ 注意（残差未达代入容差）</b>：'
-                      + (_resAllUnknown ? '其中部分解无法独立复算残差' : '代入原式后最大残差为 ' + _fmtResidual(_resAll))
-                      + '（大于容差 1e-' + COMPUTE_DECIMALS + '）。这些点是数值近似解而非严格根：'
-                      + '请用 solutions[].values 里的全精度值复核，或接受这一量级的代入偏差。';
-            }
-            if (rt === 3) {
-                html += ' 本例为欠定系统（无限解集），仅输出距原点最近的推荐解；该点是真解但非唯一，如需更多解请增加方程约束。';
-            }
-            html += '</div>';
-        }
-        // 主准则：距原点最近（‖x‖² 最小）；等距时按字典序最小化 |x_i|（真全序，确定性、可复现——产品承诺）
-        var minSol = (result.solutions && result.solutions.length >= 1) ? pickRecommended(result.solutions) : null;
-        var minDist2 = 0;
-        if (minSol) { for (var _mvi = 0; _mvi < minSol.values.length; _mvi++) minDist2 += minSol.values[_mvi] * minSol.values[_mvi]; }
-        // 显示推荐解（唯一解时标"唯一解"，多个解时标"推荐解"）
-        if (result.solutions.length >= 1) {
-            var recLabel = (result.resultType === 3) ? "推荐解（距原点最近）" : (result.solutions.length === 1 ? "唯一解" : "推荐解（距原点最近，等距取字典序最小 |xᵢ|）");
-            html += '<div style="font-size:12px;color:#28a745;margin-bottom:6px;padding:8px 12px;background:#f0fff0;border-radius:6px;border:1px solid #c3e6cb">';
-            html += '<b>' + recLabel + '</b>：';
-            html += '<div style="margin-top:4px;font-size:13px;font-family:monospace">';
-            for (var _mvi = 0; _mvi < outVars.length; _mvi++) {
-                var _v = _fmtVal(minSol.values[_mvi]);
-                var _vnEsc = _escHtml(outVars[_mvi]);
-                if (Math.abs(minSol.values[_mvi]) < 1e-9) {
-                    html += '<span style="margin-right:10px;color:#dc3545;font-weight:bold">' + _vnEsc + ' = ' + _v + '</span>';
-                } else {
-                    html += '<span style="margin-right:10px">' + _vnEsc + ' = ' + _v + '</span>';
+            if (!_allOk) {
+                html += '<div style="font-size:12px;margin-bottom:8px;padding:6px 10px;border-radius:6px;line-height:1.5;color:#856404;background:#fff8e1;border:1px solid #ffe69c;">';
+                html += '⚠ 部分解残差未达 1e-' + COMPUTE_DECIMALS + ' 代入容差'
+                      + (_resAllUnknown ? '（部分解无法独立复算残差）' : '（最大残差 ' + _fmtResidual(_resAll) + '）')
+                      + '，为数值近似解；请用 solutions[].values 全精度值复核。';
+                if (rt === 3) {
+                    html += ' 本例为欠定系统，仅输出 1 个代表解（非全部解）。';
                 }
+                html += '</div>';
             }
-            var _zc = 0; for (var _mz = 0; _mz < minSol.values.length; _mz++) if (Math.abs(minSol.values[_mz]) < 1e-9) _zc++;
-            // 残差必须在【展示给用户的值】上算（2026-10-02 修正，2026-10-05 随去网格化改为 12 位有效数字），
-            // 否则用户拿到的数与残差自相矛盾
-            var _dispVals = [];
-            for (var _dq = 0; _dq < outVars.length; _dq++) { _dispVals.push(Number(minSol.values[_dq].toPrecision(12))); }
-            var _resDisp0 = _residualAtDisplayed(_dispVals, eqLines, outVars);
-            html += '  <span style="color:#999;font-size:11px">' + _zc + ' 个零分量，距原点 ' + Math.sqrt(minDist2).toFixed(6)
-                  + '，残差 ' + _fmtResidual(_resDisp0 === null ? minSol.residual : _resDisp0);
-            if (_resDisp0 !== null && typeof minSol.residual === 'number' && Math.abs(_resDisp0) > Math.abs(minSol.residual) * 2 + 1e-12) {
-                html += ' <span style="color:#856404">（已截断到 6 位小数：该显示值代回原式残差 ' + _fmtResidual(_resDisp0) + '，截断前残差 ' + _fmtResidual(minSol.residual) + '）</span>';
-            }
-            html += '</span>';
-            html += '</div></div>';
         }
+        // 推荐解块已彻底移除：无限解集（rt=3）的代表解已由下方卡片列出（且旧标签
+        // 「距原点最近」对 RREF 自由变量取 0 的特解并不成立，属错误标注），重复高亮纯属冗余。
+        // 有限解（rt=2）各解也都在卡片里，无需额外高亮。
+
 
         for (var si = 0; si < result.solutions.length; si++) {
             var sol = result.solutions[si];
@@ -20054,15 +19971,6 @@ function displayResult(result, eqLines) {
             }
 
             html += '  </div>';
-            // 残差口径（2026-10-02，2026-10-05 更新为 12 位有效数字）：在**展示值**上算残差；
-            // 与全精度残差差异大时显式说明（去网格化后两者通常只差 1e-12 量级，几乎不会触发）
-            var _dv = []; for (var _tvi = 0; _tvi < sol.values.length; _tvi++) { _dv.push(Number(sol.values[_tvi].toPrecision(12))); }
-            var _rd = _residualAtDisplayed(_dv, eqLines, outVars);
-            html += '  <div class="residual-info">残差: ' + _fmtResidual(_rd === null ? sol.residual : _rd);
-            if (_rd !== null && typeof sol.residual === 'number' && Math.abs(_rd) > Math.abs(sol.residual) * 2 + 1e-12) {
-                html += ' <span style="color:#856404">（该显示值已截断到 6 位小数，代回原式残差 ' + _fmtResidual(_rd) + '；截断前残差 ' + _fmtResidual(sol.residual) + '）</span>';
-            }
-            html += '</div>';
             html += '</div>';
         }
 
@@ -22144,6 +22052,6 @@ globalThis.LingShu = { BQAdd, BQDegX, BQDegY, BQEval, BQIsConst, BQIsZero, BQMax
     <a href="https://hongchenlingjing.com/pay/" style="color:#94a3b8;">支持这个工具</a>
   </div>
 </footer>
-  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});var _lswRl=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(_lswRl)return;_lswRl=true;location.reload();});}</script>
+    <!-- Service Worker 已移除（2026-10-16）：单文件求解器纯网络取最新，杜绝陈旧缓存 -->
 </body>
 </html>
